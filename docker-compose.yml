@@ -1,0 +1,30 @@
+services:
+  base_datos:
+    image: postgres:16-alpine
+    container_name: pa_postgres_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - datos_postgres:/var/lib/postgresql/data
+      - ./database:/docker-entrypoint-initdb.d   # init.sql se ejecuta al crear el volumen
+
+  api_server:
+    container_name: pa_express_api
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+    volumes:
+      - ./backend:/usr/src/app
+      - /usr/src/app/node_modules
+      - ./frontend:/usr/src/frontend
+    depends_on:
+      - base_datos
+
+volumes:
+  datos_postgres:
