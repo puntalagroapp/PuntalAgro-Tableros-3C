@@ -65,12 +65,11 @@ main{padding:16px 24px 28px;display:grid;grid-template-columns:340px 1fr;gap:16p
 <header>
   <div>
     <div class="logo-title">Administración · Puntal Agro</div>
-    <div class="logo-sub">Clientes, empresas y campos (modo demo)</div>
+    <div class="logo-sub">Clientes, empresas y campos</div>
   </div>
   <div class="h-actions">
     <a class="lnk" href="index.html">← Menú</a>
     <a class="lnk" href="usuarios.html">Usuarios</a>
-    <button class="lnk" onclick="resetDemo()">Reiniciar demo</button>
   </div>
 </header>
 
@@ -78,7 +77,7 @@ main{padding:16px 24px 28px;display:grid;grid-template-columns:340px 1fr;gap:16p
   <h1>Estructura de clientes</h1>
   <p>Alta y edición de la estructura: <strong>Cliente → Empresa → Campo</strong>. El cliente es el titular del servicio; cada cliente tiene una o más empresas (razones sociales), y cada empresa tiene sus campos. Sobre esta estructura se reparten luego los permisos de los usuarios.</p>
 </div>
-<div class="note">Quién puede dar de alta cada nivel lo resuelve el backend según el rol (el admin general gestiona clientes y empresas; el alta de campos puede delegarse). En modo demo todo está habilitado y se guarda en localStorage.</div>
+<div class="note">Quién puede dar de alta cada nivel lo resuelve el backend según el rol: el admin general gestiona clientes y empresas; el alta de campos puede delegarse al admin de cliente.</div>
 
 <main>
   <div class="tree">
@@ -95,61 +94,84 @@ main{padding:16px 24px 28px;display:grid;grid-template-columns:340px 1fr;gap:16p
   </div>
 </main>
 
-<script src="pa-core.js"></script>
+<script src="js/api.js"></script>
 <script>
-var sel = { kind:null, id:null };       // selección actual
-var expand = {};                          // nodos expandidos {id:true}
+var sel = { kind:null, id:null };
+var expand = {};
 var CTX = null;
 
-/* ---------------- ÁRBOL ---------------- */
+// Datos en memoria (solo para renderizar)
+var _clientes = [], _empresas = [], _campos = [];
+
+function uid(){ return 'x_' + Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
+function findById(arr,id){ for(var i=0;i<arr.length;i++){ if(arr[i].id===id)return arr[i]; } return null; }
+function val(id){ var el=document.getElementById(id); return el?el.value.trim():''; }
+function setMsg(t){ var m=document.getElementById('msg'); if(m) m.textContent=t||''; }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── Recarga de datos ──────────────────────────────────────────────────────────
+function recargarTodo(cb){
+  apiGet('/api/clientes', function(err, lc){
+    _clientes = lc || [];
+    apiGet('/api/empresas', function(err2, le){
+      _empresas = le || [];
+      apiGet('/api/campos', function(err3, lk){
+        _campos = lk || [];
+        if(cb) cb();
+      });
+    });
+  });
+}
+
+// ── Árbol ─────────────────────────────────────────────────────────────────────
 function renderTree(){
-  var cont = document.getElementById('tree');
-  cont.innerHTML='';
-  var todos = PA.demo.listarClientes();
-  // admin_cliente solo ve su propio cliente
-  var clientes = (CTX && CTX.usuario.rol === 'admin_cliente')
-    ? (function(){ var out=[]; for(var i=0;i<todos.length;i++){ if(todos[i].id===CTX.usuario.clienteId) out.push(todos[i]); } return out; })()
-    : todos;
-  for (var i=0;i<clientes.length;i++){
+  var cont = document.getElementById('tree'); cont.innerHTML='';
+  var clientes = CTX && CTX.usuario.rol === 'admin_cliente'
+    ? (function(){ var r=[]; for(var i=0;i<_clientes.length;i++){ if(_clientes[i].id===CTX.usuario.clienteId)r.push(_clientes[i]); } return r; })()
+    : _clientes;
+
+  for(var i=0;i<clientes.length;i++){
     (function(cli){
       var node=document.createElement('div'); node.className='node';
       var row=document.createElement('div');
       row.className='node-row'+(sel.kind==='cliente'&&sel.id===cli.id?' sel':'');
-      var abierto = !!expand[cli.id];
-      row.innerHTML='<span class="tw">'+(abierto?'▾':'▸')+'</span><span class="ic"><span class="dot dot-cli"></span></span><span class="lbl">'+cli.nombre+'</span>';
+      var abierto=!!expand[cli.id];
+      row.innerHTML='<span class="tw">'+(abierto?'▾':'▸')+'</span><span class="ic"><span class="dot dot-cli"></span></span><span class="lbl">'+esc(cli.nombre)+'</span>';
       row.querySelector('.tw').onclick=function(ev){ ev.stopPropagation(); expand[cli.id]=!expand[cli.id]; renderTree(); };
       row.onclick=function(){ seleccionar('cliente',cli.id); };
       node.appendChild(row);
-      if (abierto){
-        var emps=PA.demo.empresasDeCliente(cli.id);
-        for (var j=0;j<emps.length;j++){
+
+      if(abierto){
+        var emps=_empresas.filter(function(e){ return e.clienteId===cli.id; });
+        for(var j=0;j<emps.length;j++){
           (function(emp){
             var er=document.createElement('div');
             er.className='node-row lvl-emp'+(sel.kind==='empresa'&&sel.id===emp.id?' sel':'');
             var eAbierto=!!expand[emp.id];
-            er.innerHTML='<span class="tw">'+(eAbierto?'▾':'▸')+'</span><span class="ic"><span class="dot dot-emp"></span></span><span class="lbl">'+emp.razonSocial+'</span>';
+            er.innerHTML='<span class="tw">'+(eAbierto?'▾':'▸')+'</span><span class="ic"><span class="dot dot-emp"></span></span><span class="lbl">'+esc(emp.razonSocial)+'</span>';
             er.querySelector('.tw').onclick=function(ev){ ev.stopPropagation(); expand[emp.id]=!expand[emp.id]; renderTree(); };
             er.onclick=function(){ seleccionar('empresa',emp.id); };
             node.appendChild(er);
-            if (eAbierto){
-              var campos=PA.demo.camposDeEmpresa(emp.id);
-              for (var k=0;k<campos.length;k++){
+
+            if(eAbierto){
+              var campos=_campos.filter(function(k){ return k.empresaId===emp.id; });
+              for(var kk=0;kk<campos.length;kk++){
                 (function(campo){
                   var kr=document.createElement('div');
                   kr.className='node-row lvl-campo'+(sel.kind==='campo'&&sel.id===campo.id?' sel':'');
-                  kr.innerHTML='<span class="tw"></span><span class="ic"><span class="dot dot-campo"></span></span><span class="lbl">'+campo.nombre+'</span><span class="cnt">'+(campo.haTotales||'')+(campo.haTotales?' ha':'')+'</span>';
+                  kr.innerHTML='<span class="tw"></span><span class="ic"><span class="dot dot-campo"></span></span><span class="lbl">'+esc(campo.nombre)+'</span><span class="cnt">'+(campo.haTotales||'')+(campo.haTotales?' ha':'')+'</span>';
                   kr.onclick=function(){ seleccionar('campo',campo.id); };
                   node.appendChild(kr);
-                })(campos[k]);
+                })(campos[kk]);
               }
               var addk=document.createElement('div'); addk.className='add-row lvl-campo'; addk.textContent='+ Campo';
-              addk.onclick=function(){ nuevoCampo(emp.id); };
+              addk.onclick=(function(eid){ return function(){ nuevoCampo(eid); }; })(emp.id);
               node.appendChild(addk);
             }
           })(emps[j]);
         }
         var adde=document.createElement('div'); adde.className='add-row lvl-emp'; adde.textContent='+ Empresa';
-        adde.onclick=function(){ nuevaEmpresa(cli.id); };
+        adde.onclick=(function(cid){ return function(){ nuevaEmpresa(cid); }; })(cli.id);
         node.appendChild(adde);
       }
       cont.appendChild(node);
@@ -159,58 +181,54 @@ function renderTree(){
 
 function seleccionar(kind,id){ sel={kind:kind,id:id}; renderTree(); renderForm(); }
 
-/* ---------------- FORMULARIOS ---------------- */
-function field(label, id, val, opcional, type){
+// ── Formularios ───────────────────────────────────────────────────────────────
+function field(label,elId,v,opcional,type){
   return '<div class="fld"><label>'+label+(opcional?' <span class="opt">(opcional)</span>':'')+'</label>'+
-    '<input id="'+id+'" type="'+(type||'text')+'" value="'+(val==null?'':String(val).replace(/"/g,'&quot;'))+'"></div>';
+    '<input id="'+elId+'" type="'+(type||'text')+'" value="'+esc(v==null?'':v)+'"></div>';
 }
+function inner(html){ return html.replace('<div class="fld">','').replace(/<\/div>$/,''); }
 
 function renderForm(){
   var ph=document.getElementById('ph'), f=document.getElementById('form');
   if(!sel.kind){ ph.style.display=''; f.style.display='none'; return; }
   ph.style.display='none'; f.style.display='';
-
-  if (sel.kind==='cliente') return formCliente();
-  if (sel.kind==='empresa') return formEmpresa();
-  if (sel.kind==='campo') return formCampo();
+  if(sel.kind==='cliente') return formCliente();
+  if(sel.kind==='empresa') return formEmpresa();
+  if(sel.kind==='campo')   return formCampo();
 }
 
-/* CLIENTE — campos según §2.1 del modelo */
 function formCliente(){
-  var nuevo = sel.id===null;
-  var c = nuevo ? {} : buscar(PA.demo.listarClientes(), sel.id);
-  var f=document.getElementById('form');
-  f.innerHTML =
-    '<div class="ph"><h2>'+(nuevo?'Nuevo cliente':c.nombre)+'</h2><span class="kind">Cliente</span></div>'+
+  var nuevo=sel.id===null;
+  var c=nuevo?{}:(findById(_clientes,sel.id)||{});
+  document.getElementById('form').innerHTML=
+    '<div class="ph"><h2>'+(nuevo?'Nuevo cliente':esc(c.nombre))+'</h2><span class="kind">Cliente</span></div>'+
     '<div class="path">Titular del servicio Puntal Agro</div>'+
     '<div class="grid2">'+
       field('Nombre','c-nombre',c.nombre)+
       field('Persona de contacto','c-contacto',c.nombreContacto,true)+
       field('Email','c-email',c.email,true,'email')+
       field('Teléfono','c-tel',c.telefono,true)+
-      '<div class="sec-sep">Facturación del servicio (cobro de Puntal al cliente)</div>'+
+      '<div class="sec-sep">Facturación del servicio</div>'+
       field('Razón social','c-rs',c.razonSocial,true)+
       field('CUIT','c-cuit',c.cuit,true)+
-      '<div class="fld full">'+field('Dirección','c-dir',c.direccion,true).replace('<div class="fld">','').replace(/<\/div>$/,'')+'</div>'+
-      '<div class="fld full"><label class="chk"><input type="checkbox" id="c-central" '+((nuevo|| c.facturaCentralizada)?'checked':'')+'> Facturación centralizada (se factura todo al cliente; si se desmarca, factura cada empresa con sus datos)</label></div>'+
+      '<div class="fld full">'+inner(field('Dirección','c-dir',c.direccion,true))+'</div>'+
+      '<div class="fld full"><label class="chk"><input type="checkbox" id="c-central" '+((nuevo||c.facturaCentralizada)?'checked':'')+'> Facturación centralizada</label></div>'+
     '</div>'+
     '<div class="actions">'+
       '<button class="btn" onclick="guardarCliente()">Guardar</button>'+
       (nuevo?'':'<button class="btn-out" onclick="borrarCliente()">Eliminar cliente</button>')+
-      (nuevo?'':'<button class="btn-link" onclick="irAUsuarios()">Asignar usuario admin a este cliente →</button>')+
+      (nuevo?'':'<button class="btn-link" onclick="irAUsuarios()">Asignar usuario admin →</button>')+
       '<span class="msg" id="msg"></span>'+
     '</div>';
 }
 
-/* EMPRESA — §2.2 */
 function formEmpresa(){
-  var nuevo = sel.id===null || sel._nuevoEnCliente;
-  var e = (sel.id && !sel._nuevoEnCliente) ? buscar(PA.demo.listarEmpresas(), sel.id) : { clienteId: sel._clienteId };
-  var cli = buscar(PA.demo.listarClientes(), e.clienteId);
-  var f=document.getElementById('form');
-  f.innerHTML =
-    '<div class="ph"><h2>'+(nuevo?'Nueva empresa':e.razonSocial)+'</h2><span class="kind">Empresa</span></div>'+
-    '<div class="path">Cliente: '+(cli?cli.nombre:'—')+'</div>'+
+  var nuevo=sel.id===null||sel._nuevoEnCliente;
+  var e=(sel.id&&!sel._nuevoEnCliente)?(findById(_empresas,sel.id)||{}):{clienteId:sel._clienteId};
+  var cli=findById(_clientes,e.clienteId)||{};
+  document.getElementById('form').innerHTML=
+    '<div class="ph"><h2>'+(nuevo?'Nueva empresa':esc(e.razonSocial))+'</h2><span class="kind">Empresa</span></div>'+
+    '<div class="path">Cliente: '+esc(cli.nombre||'—')+'</div>'+
     '<div class="grid2">'+
       '<div class="fld full">'+inner(field('Razón social','e-rs',e.razonSocial))+'</div>'+
       field('CUIT','e-cuit',e.cuit)+
@@ -218,21 +236,19 @@ function formEmpresa(){
       '<div class="fld full">'+inner(field('Dirección','e-dir',e.direccion,true))+'</div>'+
     '</div>'+
     '<div class="actions">'+
-      '<button class="btn" onclick="guardarEmpresa(\''+(e.clienteId||'')+'\')">Guardar</button>'+
+      '<button class="btn" onclick="guardarEmpresa(\''+esc(e.clienteId||'')+'\')">Guardar</button>'+
       (nuevo?'':'<button class="btn-out" onclick="borrarEmpresa()">Eliminar empresa</button>')+
       '<span class="msg" id="msg"></span>'+
     '</div>';
 }
 
-/* CAMPO — §2.3 */
 function formCampo(){
-  var nuevo = sel.id===null || sel._nuevoEnEmpresa;
-  var k = (sel.id && !sel._nuevoEnEmpresa) ? buscar(PA.demo.listarCampos(), sel.id) : { empresaId: sel._empresaId };
-  var emp = buscar(PA.demo.listarEmpresas(), k.empresaId);
-  var f=document.getElementById('form');
-  f.innerHTML =
-    '<div class="ph"><h2>'+(nuevo?'Nuevo campo':k.nombre)+'</h2><span class="kind">Campo</span></div>'+
-    '<div class="path">Empresa: '+(emp?emp.razonSocial:'—')+'</div>'+
+  var nuevo=sel.id===null||sel._nuevoEnEmpresa;
+  var k=(sel.id&&!sel._nuevoEnEmpresa)?(findById(_campos,sel.id)||{}):{empresaId:sel._empresaId};
+  var emp=findById(_empresas,k.empresaId)||{};
+  document.getElementById('form').innerHTML=
+    '<div class="ph"><h2>'+(nuevo?'Nuevo campo':esc(k.nombre))+'</h2><span class="kind">Campo</span></div>'+
+    '<div class="path">Empresa: '+esc(emp.razonSocial||'—')+'</div>'+
     '<div class="grid2">'+
       '<div class="fld full">'+inner(field('Nombre del establecimiento','k-nombre',k.nombre))+'</div>'+
       field('Localidad','k-loc',k.localidad,true)+
@@ -241,86 +257,135 @@ function formCampo(){
       field('Hectáreas totales','k-ha',k.haTotales,true,'number')+
     '</div>'+
     '<div class="actions">'+
-      '<button class="btn" onclick="guardarCampo(\''+(k.empresaId||'')+'\')">Guardar</button>'+
+      '<button class="btn" onclick="guardarCampo(\''+esc(k.empresaId||'')+'\')">Guardar</button>'+
       (nuevo?'':'<button class="btn-out" onclick="borrarCampo()">Eliminar campo</button>')+
       '<span class="msg" id="msg"></span>'+
     '</div>';
 }
 
-function inner(html){ return html.replace('<div class="fld">','').replace(/<\/div>$/,''); }
-function buscar(arr,id){ for(var i=0;i<arr.length;i++){ if(arr[i].id===id) return arr[i]; } return {}; }
-function val(id){ var el=document.getElementById(id); return el?el.value.trim():''; }
-function setMsg(t){ var m=document.getElementById('msg'); if(m) m.textContent=t; }
-
-/* ---------------- NUEVOS ---------------- */
+// ── Nuevos ────────────────────────────────────────────────────────────────────
 function nuevoCliente(){ sel={kind:'cliente',id:null}; renderTree(); renderForm(); }
 function nuevaEmpresa(clienteId){ sel={kind:'empresa',id:null,_nuevoEnCliente:true,_clienteId:clienteId}; renderForm(); }
 function nuevoCampo(empresaId){ sel={kind:'campo',id:null,_nuevoEnEmpresa:true,_empresaId:empresaId}; renderForm(); }
 
-/* ---------------- GUARDAR / BORRAR ---------------- */
+// ── Guardar / Borrar ──────────────────────────────────────────────────────────
 function guardarCliente(){
   if(!val('c-nombre')){ setMsg('Falta el nombre.'); return; }
-  var existente = (sel.id&&!sel._nuevoEnCliente)?buscar(PA.demo.listarClientes(),sel.id):{};
-  var c = {
-    id: sel.id||undefined, nombre: val('c-nombre'), nombreContacto: val('c-contacto'),
-    email: val('c-email'), telefono: val('c-tel'),
-    razonSocial: val('c-rs'), cuit: val('c-cuit'), direccion: val('c-dir'),
+  var existente=sel.id?findById(_clientes,sel.id):null;
+  var c={
+    id: sel.id||uid(), nombre:val('c-nombre'), nombreContacto:val('c-contacto'),
+    email:val('c-email'), telefono:val('c-tel'),
+    razonSocial:val('c-rs'), cuit:val('c-cuit'), direccion:val('c-dir'),
     facturaCentralizada: document.getElementById('c-central').checked,
-    activo: existente.activo!==undefined?existente.activo:true,
-    fechaAlta: existente.fechaAlta || new Date().toISOString().slice(0,10)
+    activo: existente?existente.activo:true,
+    fechaAlta: existente?existente.fechaAlta:new Date().toISOString().slice(0,10)
   };
-  var saved=PA.demo.guardarCliente(c);
-  expand[saved.id]=true; sel={kind:'cliente',id:saved.id};
-  renderTree(); renderForm(); setMsg('Guardado.');
+  var isNew=!sel.id;
+  var cb=function(err,data){
+    if(err){ setMsg(err.error||'Error al guardar.'); return; }
+    var savedId=data.id||c.id;
+    expand[savedId]=true; sel={kind:'cliente',id:savedId};
+    recargarTodo(function(){ renderTree(); renderForm(); setMsg('Guardado.'); });
+  };
+  if(isNew) apiPost('/api/clientes',c,cb);
+  else apiPut('/api/clientes/'+encodeURIComponent(c.id),c,cb);
 }
-function borrarCliente(){ if(confirm('¿Eliminar el cliente con todas sus empresas y campos?')){ PA.demo.borrarCliente(sel.id); sel={kind:null,id:null}; renderTree(); renderForm(); } }
+
+function borrarCliente(){
+  if(!sel.id||!confirm('¿Eliminar el cliente con todas sus empresas y campos?'))return;
+  var id=sel.id;
+  apiDelete('/api/clientes/'+encodeURIComponent(id),function(err){
+    if(err){ setMsg(err.error||'Error al eliminar.'); return; }
+    sel={kind:null,id:null};
+    recargarTodo(function(){ renderTree(); renderForm(); });
+  });
+}
 
 function guardarEmpresa(clienteId){
   if(!val('e-rs')){ setMsg('Falta la razón social.'); return; }
-  var existente=(sel.id&&!sel._nuevoEnCliente)?buscar(PA.demo.listarEmpresas(),sel.id):{};
-  var e={ id:sel._nuevoEnCliente?undefined:(sel.id||undefined), clienteId:clienteId,
+  var existente=(sel.id&&!sel._nuevoEnCliente)?findById(_empresas,sel.id):null;
+  var e={
+    id: (sel._nuevoEnCliente?null:sel.id)||uid(), clienteId:clienteId,
     razonSocial:val('e-rs'), cuit:val('e-cuit'), condicionIVA:val('e-iva'), direccion:val('e-dir'),
-    activo: existente.activo!==undefined?existente.activo:true };
-  var saved=PA.demo.guardarEmpresa(e);
-  expand[clienteId]=true; expand[saved.id]=true; sel={kind:'empresa',id:saved.id};
-  renderTree(); renderForm(); setMsg('Guardado.');
+    activo: existente?existente.activo:true
+  };
+  var isNew=sel._nuevoEnCliente||!sel.id;
+  var cb=function(err,data){
+    if(err){ setMsg(err.error||'Error al guardar.'); return; }
+    var savedId=data.id||e.id;
+    expand[clienteId]=true; expand[savedId]=true; sel={kind:'empresa',id:savedId};
+    recargarTodo(function(){ renderTree(); renderForm(); setMsg('Guardado.'); });
+  };
+  if(isNew) apiPost('/api/empresas',e,cb);
+  else apiPut('/api/empresas/'+encodeURIComponent(e.id),e,cb);
 }
-function borrarEmpresa(){ if(confirm('¿Eliminar la empresa y sus campos?')){ PA.demo.borrarEmpresa(sel.id); sel={kind:null,id:null}; renderTree(); renderForm(); } }
+
+function borrarEmpresa(){
+  if(!sel.id||!confirm('¿Eliminar la empresa y sus campos?'))return;
+  var id=sel.id;
+  apiDelete('/api/empresas/'+encodeURIComponent(id),function(err){
+    if(err){ setMsg(err.error||'Error al eliminar.'); return; }
+    sel={kind:null,id:null};
+    recargarTodo(function(){ renderTree(); renderForm(); });
+  });
+}
 
 function guardarCampo(empresaId){
   if(!val('k-nombre')){ setMsg('Falta el nombre del campo.'); return; }
-  var k={ id:sel._nuevoEnEmpresa?undefined:(sel.id||undefined), empresaId:empresaId,
+  var existente=(sel.id&&!sel._nuevoEnEmpresa)?findById(_campos,sel.id):null;
+  var k={
+    id: (sel._nuevoEnEmpresa?null:sel.id)||uid(), empresaId:empresaId,
     nombre:val('k-nombre'), localidad:val('k-loc'), partido:val('k-part'), provincia:val('k-prov'),
-    haTotales: val('k-ha')?Number(val('k-ha')):undefined };
-  var saved=PA.demo.guardarCampo(k);
-  expand[empresaId]=true; sel={kind:'campo',id:saved.id};
-  renderTree(); renderForm(); setMsg('Guardado.');
+    haTotales: val('k-ha')?Number(val('k-ha')):null
+  };
+  var isNew=sel._nuevoEnEmpresa||!sel.id;
+  var cb=function(err,data){
+    if(err){ setMsg(err.error||'Error al guardar.'); return; }
+    var savedId=data.id||k.id;
+    expand[empresaId]=true; sel={kind:'campo',id:savedId};
+    recargarTodo(function(){ renderTree(); renderForm(); setMsg('Guardado.'); });
+  };
+  if(isNew) apiPost('/api/campos',k,cb);
+  else apiPut('/api/campos/'+encodeURIComponent(k.id),k,cb);
 }
-function borrarCampo(){ if(confirm('¿Eliminar el campo?')){ PA.demo.borrarCampo(sel.id); sel={kind:null,id:null}; renderTree(); renderForm(); } }
+
+function borrarCampo(){
+  if(!sel.id||!confirm('¿Eliminar el campo?'))return;
+  var id=sel.id;
+  apiDelete('/api/campos/'+encodeURIComponent(id),function(err){
+    if(err){ setMsg(err.error||'Error al eliminar.'); return; }
+    sel={kind:null,id:null};
+    recargarTodo(function(){ renderTree(); renderForm(); });
+  });
+}
 
 function irAUsuarios(){ location.href='usuarios.html'; }
-function resetDemo(){ if(confirm('¿Reiniciar todos los datos demo?')){ PA.demo.resetDemo(); expand={}; sel={kind:null,id:null}; renderTree(); renderForm(); } }
 
-PA.init({ modo:'demo' }, function(){
-  if (!PA.haySesion()) { location.href='login.html'; return; }
-  PA.loadContext(null, function(err, ctx){
-    if (err) { location.href='login.html'; return; }
-    CTX = ctx;
-    if (ctx.usuario.rol === 'usuario') { location.href='index.html'; return; }
-    // Ocultar "+ Cliente" para admin_cliente (no puede crear clientes nuevos)
-    if (ctx.usuario.rol === 'admin_cliente') {
-      document.getElementById('btn-nuevo-cliente').style.display = 'none';
+// ── Inicialización ────────────────────────────────────────────────────────────
+(function(){
+  try{
+    var s=JSON.parse(localStorage.getItem('pa_sesion_activa')||'null');
+    if(!s||!s.token){ location.href='login.html'; return; }
+  }catch(e){ location.href='login.html'; return; }
+
+  apiGet('/api/context',function(err,ctx){
+    if(err){ location.href='login.html'; return; }
+    CTX=ctx;
+    if(ctx.usuario.rol==='usuario'){ location.href='index.html'; return; }
+    if(ctx.usuario.rol==='admin_cliente'){
+      document.getElementById('btn-nuevo-cliente').style.display='none';
     }
-    var cls = PA.demo.listarClientes();
-    // expandir el primer cliente visible por defecto
-    if (ctx.usuario.rol === 'admin_cliente') {
-      if (ctx.usuario.clienteId) expand[ctx.usuario.clienteId] = true;
-    } else if (cls.length) {
-      expand[cls[0].id] = true;
-    }
-    renderTree();
+    recargarTodo(function(){
+      // Expandir el primer cliente visible por defecto
+      if(ctx.usuario.rol==='admin_cliente'){
+        if(ctx.usuario.clienteId) expand[ctx.usuario.clienteId]=true;
+      } else if(_clientes.length){
+        expand[_clientes[0].id]=true;
+      }
+      renderTree();
+    });
   });
-});
+})();
 </script>
 
 </body>
