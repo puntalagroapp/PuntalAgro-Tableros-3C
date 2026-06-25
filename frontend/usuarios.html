@@ -68,8 +68,9 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
   <div class="panel">
     <h2>Nuevo usuario</h2>
     <div class="row">
-      <div class="fld"><label>Nombre</label><input id="u-nombre" placeholder="Nombre y apellido"></div>
-      <div class="fld"><label>Email (login)</label><input id="u-email" placeholder="usuario@empresa.com"></div>
+      <div class="fld"><label>Nombre</label><input id="u-nombre" placeholder="Nombre y apellido" autocomplete="off"></div>
+      <div class="fld"><label>Email (login)</label><input id="u-email" type="email" placeholder="usuario@empresa.com" autocomplete="off"></div>
+      <div class="fld"><label>Contraseña</label><input id="u-pass" type="password" placeholder="Contraseña inicial" autocomplete="new-password"></div>
       <div class="fld"><label>Rol</label>
         <select id="u-rol"></select>
       </div>
@@ -299,19 +300,21 @@ function precargar(){
 function crearUsuario(){
   var nombre=document.getElementById('u-nombre').value.trim();
   var email=document.getElementById('u-email').value.trim();
+  var pass=document.getElementById('u-pass').value;
   var rol=document.getElementById('u-rol').value;
-  if(!nombre||!email){ alert('Completá nombre y email.'); return; }
+  if(!nombre||!email||!pass){ alert('Completá nombre, email y contraseña.'); return; }
   var clienteId=null;
   if(rol!=='admin_general'){
     clienteId=(CTX && CTX.usuario.rol==='admin_cliente')
       ?CTX.usuario.clienteId
       :(_clientes.length?_clientes[0].id:null);
   }
-  var u={id:uid(),nombre:nombre,email:email,rol:rol,clienteId:clienteId,activo:true};
+  var u={id:uid(),nombre:nombre,email:email,password:pass,rol:rol,clienteId:clienteId,activo:true};
   apiPost('/api/usuarios',u,function(err){
     if(err){ alert(err.error||'Error al crear usuario.'); return; }
     document.getElementById('u-nombre').value='';
     document.getElementById('u-email').value='';
+    document.getElementById('u-pass').value='';
     recargarTodo(function(){ renderUsuarios(); renderRoles(); precargar(); });
   });
 }

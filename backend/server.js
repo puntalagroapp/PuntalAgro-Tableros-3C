@@ -19,7 +19,28 @@
 const express = require('express');
 const path    = require('path');
 const cors    = require('cors');
+const crypto  = require('crypto');
 const { Pool } = require('pg');
+
+function hashearPassword(password) {
+  return new Promise(function(resolve, reject) {
+    var salt = crypto.randomBytes(16).toString('hex');
+    crypto.scrypt(password, salt, 64, function(err, key) {
+      if (err) return reject(err);
+      resolve(salt + ':' + key.toString('hex'));
+    });
+  });
+}
+
+function verificarPassword(password, hash) {
+  return new Promise(function(resolve, reject) {
+    var parts = hash.split(':');
+    crypto.scrypt(password, parts[0], 64, function(err, key) {
+      if (err) return reject(err);
+      resolve(key.toString('hex') === parts[1]);
+    });
+  });
+}
 
 const app = express();
 app.use(cors());
@@ -110,6 +131,7 @@ const COLECCIONES = {
 app.get('/api/globales', async (req, res) => {
   try {
     const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
 
     const [labores, especies, unidades, modosAccion, tiposProveedor, campanias] = await Promise.all([
       pool.query('SELECT id, nombre, precio_ref AS "precioRef", activo FROM labores WHERE activo = true ORDER BY nombre'),
@@ -315,31 +337,36 @@ app.get('/api/context', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /api/auth/login   { email }
-// Login simple (sin contraseña) para demo. En producción agregar hashing.
+// POST /api/auth/login   { email, password }
 // ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/auth/login', async (req, res) => {
-  const { email } = req.body || {};
-  if (!email) return res.status(400).json({ error: 'Falta email' });
+  const { email, password } = req.body || {};
+  if (!email || !password) return res.status(400).json({ error: 'Falta email o contraseña' });
 
   try {
     const userRow = await pool.query(
-      'SELECT id, nombre, email, rol, cliente_id AS "clienteId" FROM usuarios WHERE email = $1 AND activo = true',
+      'SELECT id, nombre, email, rol, cliente_id AS "clienteId", password_hash FROM usuarios WHERE email = $1 AND activo = true',
       [email]
     );
-    if (!userRow.rows.length) return res.status(401).json({ error: 'Usuario no encontrado' });
+    if (!userRow.rows.length) return res.status(401).json({ error: 'Email o contraseña incorrectos' });
 
     const usuario = userRow.rows[0];
-    const token   = 'tok_' + Math.random().toString(36).substr(2, 20) + Date.now();
 
+    if (!usuario.password_hash) {
+      return res.status(401).json({ error: 'Contraseña no configurada. Contacte al administrador.' });
+    }
+
+    const ok = await verificarPassword(password, usuario.password_hash);
+    if (!ok) return res.status(401).json({ error: 'Email o contraseña incorrectos' });
+
+    const token = 'tok_' + Math.random().toString(36).substr(2, 20) + Date.now();
     await pool.query(
       'INSERT INTO sesiones (token, usuario_id, expira_en) VALUES ($1, $2, NOW() + INTERVAL \'30 days\')',
       [token, usuario.id]
     );
 
-    res.json({
-      sesion: { ...usuario, token },
-    });
+    const { password_hash, ...sesionData } = usuario;
+    res.json({ sesion: { ...sesionData, token } });
   } catch (err) {
     console.error('/api/auth/login error:', err);
     res.status(500).json({ error: err.message });
@@ -441,6 +468,9 @@ app.post('/api/maestros/:coleccion', async (req, res) => {
   if (!cfg) return res.status(404).json({ error: 'Colección desconocida' });
 
   try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+
     const obj = req.body;
     if (!obj.id) return res.status(400).json({ error: 'Falta id en el registro' });
 
@@ -501,6 +531,9 @@ app.put('/api/maestros/:coleccion/:id', async (req, res) => {
   if (!cfg) return res.status(404).json({ error: 'Colección desconocida' });
 
   try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+
     const obj = { ...req.body, id: req.params.id };
 
     if (cfg.porEmpresa) {
@@ -555,6 +588,9 @@ app.delete('/api/maestros/:coleccion/:id', async (req, res) => {
   if (!cfg) return res.status(404).json({ error: 'Colección desconocida' });
 
   try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+
     const empresaId = req.query.empresaId;
     if (cfg.porEmpresa && !empresaId) return res.status(400).json({ error: 'Falta empresaId en query' });
 
@@ -597,14 +633,16 @@ app.post('/api/usuarios', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
-  const { id, nombre, email, rol, clienteId, activo } = req.body || {};
+  const { id, nombre, email, password, rol, clienteId, activo } = req.body || {};
   if (!id || !nombre || !email) return res.status(400).json({ error: 'Faltan campos obligatorios (id, nombre, email)' });
   try {
+    const hash = password ? await hashearPassword(password) : null;
     await pool.query(
-      `INSERT INTO usuarios (id, nombre, email, rol, cliente_id, activo)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (id) DO UPDATE SET nombre=$2, email=$3, rol=$4, cliente_id=$5, activo=$6`,
-      [id, nombre, email, rol || 'usuario', clienteId || null, activo !== false]
+      `INSERT INTO usuarios (id, nombre, email, rol, cliente_id, activo, password_hash)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (id) DO UPDATE SET nombre=$2, email=$3, rol=$4, cliente_id=$5, activo=$6,
+         password_hash = CASE WHEN $7 IS NULL THEN usuarios.password_hash ELSE $7 END`,
+      [id, nombre, email, rol || 'usuario', clienteId || null, activo !== false, hash]
     );
     res.status(201).json(req.body);
   } catch (err) {
@@ -618,11 +656,14 @@ app.put('/api/usuarios/:id', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
-  const { nombre, email, rol, clienteId, activo } = req.body || {};
+  const { nombre, email, password, rol, clienteId, activo } = req.body || {};
   try {
+    const hash = password ? await hashearPassword(password) : null;
     await pool.query(
-      `UPDATE usuarios SET nombre=$2, email=$3, rol=$4, cliente_id=$5, activo=$6 WHERE id=$1`,
-      [req.params.id, nombre, email, rol || 'usuario', clienteId || null, activo !== false]
+      `UPDATE usuarios SET nombre=$2, email=$3, rol=$4, cliente_id=$5, activo=$6,
+         password_hash = CASE WHEN $7 IS NULL THEN password_hash ELSE $7 END
+       WHERE id=$1`,
+      [req.params.id, nombre, email, rol || 'usuario', clienteId || null, activo !== false, hash]
     );
     res.json({ ...req.body, id: req.params.id });
   } catch (err) {
@@ -1102,6 +1143,9 @@ app.delete('/api/herramientas/:id', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/tablero/:clave', async (req, res) => {
   try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+
     const r = await pool.query(
       'SELECT data_json FROM tableros WHERE nombre_clave = $1',
       [req.params.clave]
@@ -1116,6 +1160,9 @@ app.get('/api/tablero/:clave', async (req, res) => {
 app.put('/api/tablero/:clave', async (req, res) => {
   const datos = req.body.datos !== undefined ? req.body.datos : req.body;
   try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+
     await pool.query(
       `INSERT INTO tableros (nombre_clave, data_json, updated_at)
        VALUES ($1, $2::jsonb, NOW())
@@ -1137,6 +1184,9 @@ app.put('/api/tablero/:clave', async (req, res) => {
 app.patch('/api/json-patch', async (req, res) => {
   const { claveRaiz, ruta, valor } = req.body;
   try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+
     const postgresPath = ruta.split('.');
     await pool.query(
       `UPDATE tableros
