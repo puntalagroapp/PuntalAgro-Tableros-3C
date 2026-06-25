@@ -22,6 +22,7 @@ CREATE TABLE especies (
     sigla  TEXT,
     activo BOOLEAN NOT NULL DEFAULT true
 );
+CREATE UNIQUE INDEX uq_especies_nombre ON especies (lower(nombre));
 
 CREATE TABLE unidades (
     id     TEXT PRIMARY KEY,
@@ -38,6 +39,7 @@ CREATE TABLE modos_accion (
     descripcion TEXT,
     activo      BOOLEAN NOT NULL DEFAULT true
 );
+CREATE UNIQUE INDEX uq_modos_accion_sistema_codigo ON modos_accion (sistema, lower(codigo));
 
 CREATE TABLE tipos_proveedor (
     id     TEXT PRIMARY KEY,
@@ -51,6 +53,7 @@ CREATE TABLE labores (
     precio_ref NUMERIC(12,2) DEFAULT 0,
     activo     BOOLEAN NOT NULL DEFAULT true
 );
+CREATE UNIQUE INDEX uq_labores_nombre ON labores (lower(nombre));
 
 CREATE TABLE herramientas (
     id          TEXT PRIMARY KEY,
@@ -80,6 +83,7 @@ CREATE TABLE clientes (
     direccion             TEXT,
     factura_centralizada  BOOLEAN NOT NULL DEFAULT true
 );
+CREATE UNIQUE INDEX uq_clientes_nombre ON clientes (lower(nombre));
 
 CREATE TABLE empresas (
     id           TEXT PRIMARY KEY,
@@ -90,6 +94,7 @@ CREATE TABLE empresas (
     condicion_iva TEXT,
     activo       BOOLEAN NOT NULL DEFAULT true
 );
+CREATE UNIQUE INDEX uq_empresas_rs_cliente ON empresas (cliente_id, lower(razon_social));
 
 CREATE TABLE campos (
     id         TEXT PRIMARY KEY,
@@ -100,6 +105,7 @@ CREATE TABLE campos (
     provincia  TEXT,
     ha_totales NUMERIC(10,2)
 );
+CREATE UNIQUE INDEX uq_campos_nombre_empresa ON campos (empresa_id, lower(nombre));
 
 CREATE TABLE lotes (
     id         TEXT PRIMARY KEY,
@@ -159,6 +165,7 @@ CREATE TABLE terceros (
     PRIMARY KEY (id, empresa_id)
 );
 CREATE INDEX idx_terceros_empresa ON terceros(empresa_id);
+CREATE UNIQUE INDEX uq_terceros_nombre_empresa ON terceros (empresa_id, lower(datos->>'nombre'));
 
 -- Choferes (pertenecen a un tercero transportista)
 CREATE TABLE choferes (
@@ -169,6 +176,7 @@ CREATE TABLE choferes (
     PRIMARY KEY (id, empresa_id)
 );
 CREATE INDEX idx_choferes_empresa ON choferes(empresa_id);
+CREATE UNIQUE INDEX uq_choferes_nombre_empresa ON choferes (empresa_id, lower(datos->>'nombre'));
 
 -- Depósitos (de insumos o acopio de granos)
 CREATE TABLE depositos (
@@ -178,6 +186,7 @@ CREATE TABLE depositos (
     PRIMARY KEY (id, empresa_id)
 );
 CREATE INDEX idx_depositos_empresa ON depositos(empresa_id);
+CREATE UNIQUE INDEX uq_depositos_nombre_empresa ON depositos (empresa_id, lower(datos->>'nombre'));
 
 -- Insumos (catálogo unificado agroquímicos + fertilizantes + otros)
 CREATE TABLE insumos (
@@ -197,6 +206,7 @@ CREATE TABLE tipos_actividad (
     PRIMARY KEY (id, empresa_id)
 );
 CREATE INDEX idx_tipos_actividad_empresa ON tipos_actividad(empresa_id);
+CREATE UNIQUE INDEX uq_tipos_actividad_nombre_empresa ON tipos_actividad (empresa_id, lower(datos->>'nombre'));
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECCIÓN 5: DATOS OPERATIVOS

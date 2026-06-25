@@ -30,6 +30,26 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
+const UNIQUE_ERROR_MESSAGES = {
+  'uq_clientes_nombre':                'Ya existe un cliente con ese nombre',
+  'uq_empresas_rs_cliente':            'Ya existe una empresa con esa razón social para este cliente',
+  'uq_campos_nombre_empresa':          'Ya existe un campo con ese nombre en esta empresa',
+  'uq_labores_nombre':                 'Ya existe una labor con ese nombre',
+  'uq_especies_nombre':                'Ya existe una especie con ese nombre',
+  'uq_modos_accion_sistema_codigo':    'Ya existe un modo de acción con ese código en este sistema',
+  'uq_terceros_nombre_empresa':        'Ya existe un proveedor/cliente con ese nombre en esta empresa',
+  'uq_choferes_nombre_empresa':        'Ya existe un chofer con ese nombre en esta empresa',
+  'uq_depositos_nombre_empresa':       'Ya existe un depósito con ese nombre en esta empresa',
+  'uq_tipos_actividad_nombre_empresa': 'Ya existe un cultivo/uso con ese nombre en esta empresa',
+  'ux_insumos_empresa_nombre_tipo':    'Ya existe un insumo con ese nombre y tipo para esta empresa',
+  'usuarios_email_key':                'El email ya está registrado por otro usuario',
+  'unidades_sigla_key':                'Ya existe una unidad de medida con esa sigla',
+};
+function uniqueViolation(err) {
+  if (err.code !== '23505') return null;
+  return UNIQUE_ERROR_MESSAGES[err.constraint] || 'Ya existe un registro con esos datos';
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER: recupera la sesión del usuario a partir del header Authorization.
 // Devuelve null si no hay token válido (el endpoint decide si bloquear o no).
@@ -470,6 +490,8 @@ app.post('/api/maestros/:coleccion', async (req, res) => {
     res.status(201).json(obj);
   } catch (err) {
     console.error(`POST /api/maestros/${req.params.coleccion}:`, err);
+    const msg = uniqueViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
     res.status(500).json({ error: err.message });
   }
 });
@@ -522,6 +544,8 @@ app.put('/api/maestros/:coleccion/:id', async (req, res) => {
     res.json(obj);
   } catch (err) {
     console.error(`PUT /api/maestros/${req.params.coleccion}/${req.params.id}:`, err);
+    const msg = uniqueViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
     res.status(500).json({ error: err.message });
   }
 });
@@ -583,7 +607,11 @@ app.post('/api/usuarios', async (req, res) => {
       [id, nombre, email, rol || 'usuario', clienteId || null, activo !== false]
     );
     res.status(201).json(req.body);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    const msg = uniqueViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.put('/api/usuarios/:id', async (req, res) => {
@@ -597,7 +625,11 @@ app.put('/api/usuarios/:id', async (req, res) => {
       [req.params.id, nombre, email, rol || 'usuario', clienteId || null, activo !== false]
     );
     res.json({ ...req.body, id: req.params.id });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    const msg = uniqueViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.delete('/api/usuarios/:id', async (req, res) => {
@@ -788,7 +820,11 @@ app.post('/api/clientes', async (req, res) => {
        c.fechaAlta || new Date().toISOString().slice(0,10)]
     );
     res.status(201).json(c);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    const msg = uniqueViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.put('/api/clientes/:id', async (req, res) => {
@@ -809,7 +845,11 @@ app.put('/api/clientes/:id', async (req, res) => {
        c.facturaCentralizada !== false, c.activo !== false]
     );
     res.json(c);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    const msg = uniqueViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.delete('/api/clientes/:id', async (req, res) => {
@@ -858,7 +898,11 @@ app.post('/api/empresas', async (req, res) => {
        e.direccion||null, e.activo !== false]
     );
     res.status(201).json(e);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    const msg = uniqueViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.put('/api/empresas/:id', async (req, res) => {
@@ -877,7 +921,11 @@ app.put('/api/empresas/:id', async (req, res) => {
       [e.id, e.razonSocial, e.cuit||null, e.condicionIVA||null, e.direccion||null, e.activo !== false]
     );
     res.json(e);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    const msg = uniqueViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.delete('/api/empresas/:id', async (req, res) => {
@@ -943,7 +991,11 @@ app.post('/api/campos', async (req, res) => {
        k.provincia||null, k.haTotales||null]
     );
     res.status(201).json(k);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    const msg = uniqueViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.put('/api/campos/:id', async (req, res) => {
@@ -962,7 +1014,11 @@ app.put('/api/campos/:id', async (req, res) => {
       [k.id, k.nombre, k.localidad||null, k.partido||null, k.provincia||null, k.haTotales||null]
     );
     res.json(k);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    const msg = uniqueViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.delete('/api/campos/:id', async (req, res) => {
