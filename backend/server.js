@@ -92,6 +92,33 @@ async function obtenerSesion(req) {
   } catch { return null; }
 }
 
+// Devuelve { campoIds, herramientas, nivel } si el usuario tiene acceso a la
+// empresa indicada, o null si no tiene acceso o no está autenticado.
+// campoIds = [] significa acceso a todos los campos de la empresa.
+async function obtenerPermiso(req, empresaId) {
+  const sesion = await obtenerSesion(req);
+  if (!sesion) return null;
+
+  if (sesion.rol === 'admin_general') {
+    return { campoIds: [], herramientas: [], nivel: 'administrar' };
+  }
+
+  if (sesion.rol === 'admin_cliente') {
+    const emp = await pool.query(
+      'SELECT id FROM empresas WHERE id = $1 AND cliente_id = $2 AND activo = true',
+      [empresaId, sesion.cliente_id]
+    );
+    if (!emp.rows.length) return null;
+    return { campoIds: [], herramientas: [], nivel: 'administrar' };
+  }
+
+  const r = await pool.query(
+    'SELECT campo_ids AS "campoIds", herramientas, nivel FROM permisos WHERE usuario_id = $1 AND empresa_id = $2',
+    [sesion.id, empresaId]
+  );
+  return r.rows[0] || null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TABLA: sesiones  (agregamos columna empresa_id_activa si no existe)
 // Se ejecuta al arrancar para asegurar la columna de empresa activa.
@@ -194,11 +221,15 @@ app.get('/api/globales', async (req, res) => {
       ? pool.query(`SELECT id, empresa_id AS "empresaId", nombre, localidad, partido, provincia,
                            ha_totales AS "haTotales" FROM campos ORDER BY nombre`)
       : pool.query(
+          // Para rol 'usuario': filtra por campo_ids del permiso.
+          // campo_ids = '{}' (vacío) significa acceso a todos los campos de la empresa.
           `SELECT DISTINCT ca.id, ca.empresa_id AS "empresaId", ca.nombre, ca.localidad,
                   ca.partido, ca.provincia, ca.ha_totales AS "haTotales"
              FROM campos ca
              JOIN permisos p ON p.empresa_id = ca.empresa_id
-            WHERE p.usuario_id = $1 ORDER BY ca.nombre`,
+            WHERE p.usuario_id = $1
+              AND (p.campo_ids = '{}' OR ca.id = ANY(p.campo_ids))
+            ORDER BY ca.nombre`,
           [sesion.id]
         );
 
@@ -222,24 +253,20 @@ app.get('/api/globales', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/maestros-empresa/:empresaId', async (req, res) => {
   try {
-    const sesion = await obtenerSesion(req);
-    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
-
     const empresaId = req.params.empresaId;
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
 
-    // Verificar que el usuario tiene acceso a esta empresa
-    if (sesion.rol !== 'admin_general') {
-      const acceso = await pool.query(
-        'SELECT 1 FROM permisos WHERE usuario_id = $1 AND empresa_id = $2',
-        [sesion.id, empresaId]
-      );
-      if (!acceso.rows.length) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
-    }
+    // campoIds = [] → acceso total; si tiene elementos, filtra campos, lotes y actividades
+    const campoIds = permiso.campoIds || [];
+    const filtraCampos = campoIds.length > 0;
 
     const [campos, terceros, choferes, depositos, insumos, tiposActividad, lotes, actividades] = await Promise.all([
       pool.query(
-        'SELECT id, empresa_id AS "empresaId", nombre, localidad, partido, provincia, ha_totales AS "haTotales" FROM campos WHERE empresa_id = $1 ORDER BY nombre',
-        [empresaId]
+        filtraCampos
+          ? 'SELECT id, empresa_id AS "empresaId", nombre, localidad, partido, provincia, ha_totales AS "haTotales" FROM campos WHERE empresa_id = $1 AND id = ANY($2::text[]) ORDER BY nombre'
+          : 'SELECT id, empresa_id AS "empresaId", nombre, localidad, partido, provincia, ha_totales AS "haTotales" FROM campos WHERE empresa_id = $1 ORDER BY nombre',
+        filtraCampos ? [empresaId, campoIds] : [empresaId]
       ),
       pool.query('SELECT datos FROM terceros        WHERE empresa_id = $1', [empresaId]),
       pool.query('SELECT datos FROM choferes        WHERE empresa_id = $1', [empresaId]),
@@ -247,15 +274,24 @@ app.get('/api/maestros-empresa/:empresaId', async (req, res) => {
       pool.query('SELECT datos FROM insumos         WHERE empresa_id = $1', [empresaId]),
       pool.query('SELECT datos FROM tipos_actividad WHERE empresa_id = $1', [empresaId]),
       pool.query(
-        `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha) AS datos
-           FROM lotes WHERE empresa_id = $1`,
-        [empresaId]
+        filtraCampos
+          ? `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha) AS datos
+               FROM lotes WHERE empresa_id = $1 AND campo_id = ANY($2::text[])`
+          : `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha) AS datos
+               FROM lotes WHERE empresa_id = $1`,
+        filtraCampos ? [empresaId, campoIds] : [empresaId]
       ),
       pool.query(
-        `SELECT jsonb_build_object('id',id,'empresaId',empresa_id,'loteId',lote_id,'campaniaId',campania_id,
-                                   'tipoActividadId',tipo_actividad_id,'ha',ha,'esSegunda',es_segunda) AS datos
-           FROM actividades WHERE empresa_id = $1`,
-        [empresaId]
+        filtraCampos
+          ? `SELECT jsonb_build_object('id',a.id,'empresaId',a.empresa_id,'loteId',a.lote_id,'campaniaId',a.campania_id,
+                                       'tipoActividadId',a.tipo_actividad_id,'ha',a.ha,'esSegunda',a.es_segunda) AS datos
+               FROM actividades a
+               JOIN lotes l ON l.id = a.lote_id
+              WHERE a.empresa_id = $1 AND l.campo_id = ANY($2::text[])`
+          : `SELECT jsonb_build_object('id',id,'empresaId',empresa_id,'loteId',lote_id,'campaniaId',campania_id,
+                                       'tipoActividadId',tipo_actividad_id,'ha',ha,'esSegunda',es_segunda) AS datos
+               FROM actividades WHERE empresa_id = $1`,
+        filtraCampos ? [empresaId, campoIds] : [empresaId]
       ),
     ]);
 
@@ -294,6 +330,11 @@ app.get('/api/context', async (req, res) => {
       empresaQuery = pool.query(
         'SELECT id, razon_social AS "razonSocial" FROM empresas WHERE activo = true ORDER BY razon_social'
       );
+    } else if (sesion.rol === 'admin_cliente') {
+      empresaQuery = pool.query(
+        'SELECT id, razon_social AS "razonSocial" FROM empresas WHERE cliente_id = $1 AND activo = true ORDER BY razon_social',
+        [sesion.cliente_id]
+      );
     } else {
       empresaQuery = pool.query(
         `SELECT e.id, e.razon_social AS "razonSocial"
@@ -308,7 +349,7 @@ app.get('/api/context', async (req, res) => {
     const empresaId = req.query.empresaId || (lista.length ? lista[0].id : null);
 
     let permiso = { campoIds: [], herramientas: [], nivel: 'administrar' };
-    if (sesion.rol !== 'admin_general' && empresaId) {
+    if (sesion.rol === 'usuario' && empresaId) {
       const pRow = await pool.query(
         'SELECT campo_ids AS "campoIds", herramientas, nivel FROM permisos WHERE usuario_id = $1 AND empresa_id = $2',
         [sesion.id, empresaId]
@@ -404,29 +445,35 @@ app.get('/api/maestros/:coleccion', async (req, res) => {
       const empresaId = req.query.empresaId;
       if (!empresaId) return res.status(400).json({ error: 'Falta empresaId en query' });
 
-      // Verificar acceso a la empresa
-      if (sesion.rol !== 'admin_general') {
-        const acceso = await pool.query(
-          'SELECT 1 FROM permisos WHERE usuario_id = $1 AND empresa_id = $2',
-          [sesion.id, empresaId]
-        );
-        if (!acceso.rows.length) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
-      }
+      const permiso = await obtenerPermiso(req, empresaId);
+      if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+
+      const campoIds = permiso.campoIds || [];
+      const filtraCampos = campoIds.length > 0;
 
       let rows;
       if (cfg.tabla === 'lotes') {
         const r = await pool.query(
-          `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha) AS datos
-             FROM lotes WHERE empresa_id = $1 ORDER BY nombre`,
-          [empresaId]
+          filtraCampos
+            ? `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha) AS datos
+                 FROM lotes WHERE empresa_id = $1 AND campo_id = ANY($2::text[]) ORDER BY nombre`
+            : `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha) AS datos
+                 FROM lotes WHERE empresa_id = $1 ORDER BY nombre`,
+          filtraCampos ? [empresaId, campoIds] : [empresaId]
         );
         rows = r.rows.map(r => r.datos);
       } else if (cfg.tabla === 'actividades') {
         const r = await pool.query(
-          `SELECT jsonb_build_object('id',id,'empresaId',empresa_id,'loteId',lote_id,'campaniaId',campania_id,
-                                     'tipoActividadId',tipo_actividad_id,'ha',ha,'esSegunda',es_segunda) AS datos
-             FROM actividades WHERE empresa_id = $1`,
-          [empresaId]
+          filtraCampos
+            ? `SELECT jsonb_build_object('id',a.id,'empresaId',a.empresa_id,'loteId',a.lote_id,'campaniaId',a.campania_id,
+                                         'tipoActividadId',a.tipo_actividad_id,'ha',a.ha,'esSegunda',a.es_segunda) AS datos
+                 FROM actividades a
+                 JOIN lotes l ON l.id = a.lote_id
+                WHERE a.empresa_id = $1 AND l.campo_id = ANY($2::text[])`
+            : `SELECT jsonb_build_object('id',id,'empresaId',empresa_id,'loteId',lote_id,'campaniaId',campania_id,
+                                         'tipoActividadId',tipo_actividad_id,'ha',ha,'esSegunda',es_segunda) AS datos
+                 FROM actividades WHERE empresa_id = $1`,
+          filtraCampos ? [empresaId, campoIds] : [empresaId]
         );
         rows = r.rows.map(r => r.datos);
       } else {
@@ -1146,6 +1193,13 @@ app.get('/api/tablero/:clave', async (req, res) => {
     const sesion = await obtenerSesion(req);
     if (!sesion) return res.status(401).json({ error: 'No autenticado' });
 
+    // Si el cliente indica a qué empresa pertenece este tablero, validar acceso
+    const empresaId = req.query.empresaId;
+    if (empresaId) {
+      const permiso = await obtenerPermiso(req, empresaId);
+      if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    }
+
     const r = await pool.query(
       'SELECT data_json FROM tableros WHERE nombre_clave = $1',
       [req.params.clave]
@@ -1158,17 +1212,24 @@ app.get('/api/tablero/:clave', async (req, res) => {
 });
 
 app.put('/api/tablero/:clave', async (req, res) => {
-  const datos = req.body.datos !== undefined ? req.body.datos : req.body;
+  const { datos, empresaId, ...resto } = req.body || {};
+  const payload = datos !== undefined ? datos : resto;
   try {
     const sesion = await obtenerSesion(req);
     if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+
+    // Si el cliente indica a qué empresa pertenece este tablero, validar acceso
+    if (empresaId) {
+      const permiso = await obtenerPermiso(req, empresaId);
+      if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    }
 
     await pool.query(
       `INSERT INTO tableros (nombre_clave, data_json, updated_at)
        VALUES ($1, $2::jsonb, NOW())
        ON CONFLICT (nombre_clave) DO UPDATE
          SET data_json = $2::jsonb, updated_at = NOW()`,
-      [req.params.clave, JSON.stringify(datos)]
+      [req.params.clave, JSON.stringify(payload)]
     );
     res.json({ status: 'ok' });
   } catch (err) {
@@ -1182,10 +1243,15 @@ app.put('/api/tablero/:clave', async (req, res) => {
 // Ejemplo de ruta: "espacios.0.state.ots.3.estado"
 // ─────────────────────────────────────────────────────────────────────────────
 app.patch('/api/json-patch', async (req, res) => {
-  const { claveRaiz, ruta, valor } = req.body;
+  const { claveRaiz, ruta, valor, empresaId } = req.body;
   try {
     const sesion = await obtenerSesion(req);
     if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+
+    if (empresaId) {
+      const permiso = await obtenerPermiso(req, empresaId);
+      if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    }
 
     const postgresPath = ruta.split('.');
     await pool.query(

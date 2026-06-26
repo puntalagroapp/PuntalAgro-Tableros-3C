@@ -457,6 +457,8 @@
 
     ctx: function () { return CTX; },
 
+    esModoApi: function () { return usaApi(); },
+
     // ── Chequeo de permisos (síncrono, solo controla la UI) ──────────────────
     can: function (accion, opts) {
       if (!CTX || !CTX.permiso) return true;

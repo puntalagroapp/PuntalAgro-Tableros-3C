@@ -8,6 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="pa-core.js"></script>
+<script src="js/api.js"></script>
 <style>
 :root{--bg:#F0F2F5;--card:#fff;--border:#E4E8EE;--text:#0F1923;--muted:#7A8899;--radius:12px;--mono:'DM Sans',sans-serif;--sans:'DM Sans',sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -763,6 +764,69 @@ var state = {
 // Si un lote no está aquí, se usa el tipo sugerido por su ambiente.
 var TIPO_OVERRIDE = {};
 
+// ─────────────────────────────────────────────────────────────────────────────
+// INTEGRACIÓN BACKEND (activa cuando PA.esModoApi() es true)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _esModoApi() {
+  return typeof PA !== 'undefined' && PA.esModoApi && PA.esModoApi();
+}
+
+function clavePlan() {
+  return 'plan_uso_suelo_' + (CTX ? CTX.empresaActivaId : 'sin_empresa');
+}
+
+// Lee lotes del caché (ya filtrados por permisos) + plan del tablero en DB
+// y construye el array LOTES con el formato interno del tablero.
+function cargarDesdeApi(callback) {
+  if (!CTX || !CTX.empresaActivaId) { if (callback) callback(); return; }
+  var empresaId = CTX.empresaActivaId;
+  var lotesApi  = PA.demo.listarLotes(empresaId);
+  var camposApi = PA.demo.camposDeEmpresa(empresaId);
+  var campoMap  = {};
+  for (var i = 0; i < camposApi.length; i++) campoMap[camposApi[i].id] = camposApi[i].nombre;
+
+  apiGet('/api/tablero/' + encodeURIComponent(clavePlan()) + '?empresaId=' + encodeURIComponent(empresaId), function(err, planData) {
+    var guardado = (!err && planData) ? planData : {};
+    var lotePlan = guardado.lotes || {};
+    LOTES = [];
+    TIPO_OVERRIDE = {};
+    for (var j = 0; j < lotesApi.length; j++) {
+      var lot = lotesApi[j];
+      var pd  = lotePlan[lot.id] || {};
+      LOTES.push({
+        _id:      lot.id,
+        _campoId: lot.campoId,
+        l: lot.nombre,
+        c: campoMap[lot.campoId] || lot.campoId,
+        s: lot.ha || 0,
+        a: pd.ambiente || '',
+        p: pd.plan || {}
+      });
+      if (pd.tipoOverride) TIPO_OVERRIDE[lot.nombre] = pd.tipoOverride;
+    }
+    if (callback) callback();
+  });
+}
+
+// Persiste el plan completo (actividades + ambiente + tipoOverride) en la DB.
+function guardarPlanApi() {
+  if (!CTX || !CTX.empresaActivaId) return;
+  var lotePlan = {};
+  for (var i = 0; i < LOTES.length; i++) {
+    var l = LOTES[i];
+    if (l._id) {
+      var entry = { ambiente: l.a || '', plan: l.p || {} };
+      if (TIPO_OVERRIDE[l.l]) entry.tipoOverride = TIPO_OVERRIDE[l.l];
+      lotePlan[l._id] = entry;
+    }
+  }
+  apiPut('/api/tablero/' + encodeURIComponent(clavePlan()),
+    { datos: { lotes: lotePlan }, empresaId: CTX.empresaActivaId },
+    function(err) { if (err) console.error('Error guardando plan:', err); }
+  );
+}
+
 var charts = {};
 
 // ────────────────────────────────────────────────────────────
@@ -954,6 +1018,7 @@ function lotesFiltrados(){
 // Setear tipo manual de un lote (override)
 function editLoteTipo(loteName, val){
   TIPO_OVERRIDE[loteName] = val;
+  if (_esModoApi()) guardarPlanApi();
   renderAll();
 }
 
@@ -1837,6 +1902,7 @@ function guardarActividades(){
   }
   l.p[state.campania] = nuevos; // vacío [] = sin plan esa campaña; el lote permanece
   closeActsModal();
+  if (_esModoApi()) guardarPlanApi();
   renderAll();
 }
 
@@ -1903,6 +1969,18 @@ function openLoteModal(loteName){
   loteEditando = loteName || null;
   document.getElementById('modalLoteWarn').style.display = 'none';
   buildAmbienteSelect('mlAmbiente', '');
+  // En modo API: poblar select de campos desde el caché (filtrado por permisos)
+  if (_esModoApi() && CTX) {
+    var mlCampoSel = document.getElementById('mlCampo');
+    mlCampoSel.innerHTML = '';
+    var camposDisp = PA.demo.camposDeEmpresa(CTX.empresaActivaId);
+    for (var ci = 0; ci < camposDisp.length; ci++) {
+      var co = document.createElement('option');
+      co.value = camposDisp[ci].nombre;
+      co.textContent = camposDisp[ci].nombre;
+      mlCampoSel.appendChild(co);
+    }
+  }
   if(loteEditando){
     var l = LOTES.find(function(x){return x.l===loteEditando;});
     if(!l){ return; }
@@ -1914,7 +1992,7 @@ function openLoteModal(loteName){
   } else {
     document.getElementById('modalLoteTitle').textContent = 'Agregar lote';
     document.getElementById('mlNombre').value = '';
-    document.getElementById('mlCampo').value = (state.campo !== 'TODOS' ? state.campo : 'EC');
+    document.getElementById('mlCampo').value = (state.campo !== 'TODOS' ? state.campo : (_esModoApi() && CTX ? (PA.demo.camposDeEmpresa(CTX.empresaActivaId)[0] || {}).nombre || '' : 'EC'));
     document.getElementById('mlSup').value = '';
   }
   document.getElementById('modalLote').classList.add('on');
@@ -1939,9 +2017,27 @@ function confirmLoteModal(){
       // Si cambió el nombre, migrar el override de tipo
       if(nombre!==l.l && TIPO_OVERRIDE[l.l]){ TIPO_OVERRIDE[nombre]=TIPO_OVERRIDE[l.l]; delete TIPO_OVERRIDE[l.l]; }
       l.l = nombre; l.c = campo; l.a = amb; l.s = sup;
+      if (_esModoApi() && CTX && l._id) {
+        var cams = PA.demo.camposDeEmpresa(CTX.empresaActivaId);
+        var cId = null;
+        for (var ci = 0; ci < cams.length; ci++) { if (cams[ci].nombre === campo) { cId = cams[ci].id; break; } }
+        if (cId) l._campoId = cId;
+        PA.demo.guardarLote({ id: l._id, empresaId: CTX.empresaActivaId, campoId: l._campoId || '', nombre: nombre, ha: sup });
+        guardarPlanApi();
+      }
     }
   } else {
-    LOTES.push({l:nombre, c:campo, s:sup, a:amb, p:{}});
+    var nuevoLote = { l: nombre, c: campo, s: sup, a: amb, p: {} };
+    if (_esModoApi() && CTX) {
+      var cams2 = PA.demo.camposDeEmpresa(CTX.empresaActivaId);
+      var cId2 = null;
+      for (var cj = 0; cj < cams2.length; cj++) { if (cams2[cj].nombre === campo) { cId2 = cams2[cj].id; break; } }
+      var guardado = PA.demo.guardarLote({ empresaId: CTX.empresaActivaId, campoId: cId2 || '', nombre: nombre, ha: sup });
+      nuevoLote._id = guardado.id;
+      nuevoLote._campoId = cId2;
+    }
+    LOTES.push(nuevoLote);
+    if (_esModoApi()) guardarPlanApi();
   }
   closeLoteModal();
   renderAll();
@@ -1949,7 +2045,13 @@ function confirmLoteModal(){
 function deleteLote(loteName){
   if(!confirm('¿Eliminar el lote "'+loteName+'"? Se borra de TODAS las campañas.')) return;
   var idx = LOTES.findIndex(function(x){return x.l===loteName;});
-  if(idx>=0){ LOTES.splice(idx,1); delete TIPO_OVERRIDE[loteName]; renderAll(); }
+  if(idx>=0){
+    if (_esModoApi() && LOTES[idx]._id) PA.demo.borrarLote(LOTES[idx]._id);
+    LOTES.splice(idx,1);
+    delete TIPO_OVERRIDE[loteName];
+    if (_esModoApi()) guardarPlanApi();
+    renderAll();
+  }
 }
 function addLote(){ openLoteModal(null); }
 
@@ -2570,11 +2672,16 @@ function poblarClienteEmpresa(){
 function onCambioEmpresa(){
   var sel = document.getElementById('selCliente');
   if(typeof PA !== 'undefined' && CTX && sel && sel.value){
-    PA.setEmpresaActiva(sel.value, function(err, ctx){
+    PA.loadContext(sel.value, function(err, ctx){
       if(!err && ctx){ CTX = ctx; }
       cargarCultivos();
       poblarCampos();
-      renderAll();
+      if (_esModoApi()) {
+        LOTES = [];
+        cargarDesdeApi(function(){ renderAll(); });
+      } else {
+        renderAll();
+      }
     });
   } else {
     renderAll();
@@ -2591,12 +2698,21 @@ function boot(){
     PA.init({}, function(){
       var arrancar = function(){
         PA.loadContext(null, function(err, ctx){
+          if(err && err.status === 401){ location.href = 'login.html'; return; }
           if(!err && ctx){ CTX = ctx; }
           cargarCultivos();
           poblarClienteEmpresa();
           poblarCampos();
           poblarCampanias();
-          renderAll();
+          if (_esModoApi()) {
+            // Modo API (servidor real): cargar lotes y plan desde el backend.
+            // Los datos hardcodeados no se usan; LOTES se construye desde la DB.
+            LOTES = [];
+            cargarDesdeApi(function(){ renderAll(); });
+          } else {
+            // Modo demo (localhost): usar el array LOTES hardcodeado.
+            renderAll();
+          }
         });
       };
       // En demo, si no hay sesión, logueamos al usuario del cliente Don Eduardo.
