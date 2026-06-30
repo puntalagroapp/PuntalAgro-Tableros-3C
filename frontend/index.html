@@ -337,7 +337,7 @@ function salir() {
   } catch (e) { location.href = 'login.html'; return; }
 
   apiGet('/api/context', function (err, ctx) {
-    if (err) { location.href = 'login.html'; return; }
+    if (err) { localStorage.removeItem('pa_sesion_activa'); location.href = 'login.html'; return; }
     aplicarCtx(ctx);
   });
 })();
