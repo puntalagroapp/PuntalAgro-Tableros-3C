@@ -42,9 +42,38 @@ function verificarPassword(password, hash) {
   });
 }
 
+// ── CORS ────────────────────────────────────────────────────────────────────
+// Orígenes permitidos vienen de la variable de entorno ALLOWED_ORIGINS
+// (lista separada por comas). Si no está definida se permite todo (dev fallback).
+const _allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
 const app = express();
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // same-origin / curl / Postman
+    if (!_allowedOrigins.length) return callback(null, true); // sin restricción si no está configurado
+    if (_allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+    callback(null, false); // rechazar silenciosamente
+  }
+}));
+app.use(express.json({ limit: '2mb' }));
+
+// ── RATE LIMITING (en memoria, login) ───────────────────────────────────────
+const _loginRateMap = new Map();
+const RATE_WINDOW_MS = 15 * 60 * 1000; // 15 minutos
+const RATE_MAX = 10;                    // intentos por ventana por IP
+
+function loginRateLimitExcedido(ip) {
+  const ahora = Date.now();
+  let e = _loginRateMap.get(ip);
+  if (!e || ahora > e.resetAt) {
+    e = { count: 0, resetAt: ahora + RATE_WINDOW_MS };
+    _loginRateMap.set(ip, e);
+  }
+  e.count++;
+  return e.count > RATE_MAX;
+}
 
 // Sirve el frontend de forma estática
 app.use(express.static(path.join(__dirname, '../frontend')));
@@ -240,7 +269,7 @@ app.get('/api/globales', async (req, res) => {
     res.json(payload);
   } catch (err) {
     console.error('/api/globales error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -307,7 +336,7 @@ app.get('/api/maestros-empresa/:empresaId', async (req, res) => {
     });
   } catch (err) {
     console.error('/api/maestros-empresa error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -373,7 +402,7 @@ app.get('/api/context', async (req, res) => {
     });
   } catch (err) {
     console.error('/api/context error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -381,13 +410,23 @@ app.get('/api/context', async (req, res) => {
 // POST /api/auth/login   { email, password }
 // ─────────────────────────────────────────────────────────────────────────────
 app.post('/api/auth/login', async (req, res) => {
+  const ip = req.ip || req.socket.remoteAddress;
+  if (loginRateLimitExcedido(ip)) {
+    return res.status(429).json({ error: 'Demasiados intentos. Esperá 15 minutos.' });
+  }
+
   const { email, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ error: 'Falta email o contraseña' });
+  if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
+    return res.status(400).json({ error: 'Falta email o contraseña' });
+  }
+  if (email.length > 254 || password.length > 200) {
+    return res.status(400).json({ error: 'Datos de entrada inválidos' });
+  }
 
   try {
     const userRow = await pool.query(
       'SELECT id, nombre, email, rol, cliente_id AS "clienteId", password_hash FROM usuarios WHERE email = $1 AND activo = true',
-      [email]
+      [email.trim().toLowerCase()]
     );
     if (!userRow.rows.length) return res.status(401).json({ error: 'Email o contraseña incorrectos' });
 
@@ -400,7 +439,7 @@ app.post('/api/auth/login', async (req, res) => {
     const ok = await verificarPassword(password, usuario.password_hash);
     if (!ok) return res.status(401).json({ error: 'Email o contraseña incorrectos' });
 
-    const token = 'tok_' + Math.random().toString(36).substr(2, 20) + Date.now();
+    const token = 'tok_' + crypto.randomBytes(32).toString('hex');
     await pool.query(
       'INSERT INTO sesiones (token, usuario_id, expira_en) VALUES ($1, $2, NOW() + INTERVAL \'30 days\')',
       [token, usuario.id]
@@ -410,7 +449,7 @@ app.post('/api/auth/login', async (req, res) => {
     res.json({ sesion: { ...sesionData, token } });
   } catch (err) {
     console.error('/api/auth/login error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -506,7 +545,7 @@ app.get('/api/maestros/:coleccion', async (req, res) => {
     res.json((await q).rows);
   } catch (err) {
     console.error(`GET /api/maestros/${req.params.coleccion}:`, err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -569,7 +608,7 @@ app.post('/api/maestros/:coleccion', async (req, res) => {
     console.error(`POST /api/maestros/${req.params.coleccion}:`, err);
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -626,7 +665,7 @@ app.put('/api/maestros/:coleccion/:id', async (req, res) => {
     console.error(`PUT /api/maestros/${req.params.coleccion}/${req.params.id}:`, err);
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -651,7 +690,7 @@ app.delete('/api/maestros/:coleccion/:id', async (req, res) => {
     res.json({ status: 'ok' });
   } catch (err) {
     console.error(`DELETE /api/maestros/${req.params.coleccion}/${req.params.id}:`, err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -673,7 +712,7 @@ app.get('/api/usuarios', async (req, res) => {
           [sesion.cliente_id]
         );
     res.json((await q).rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 app.post('/api/usuarios', async (req, res) => {
@@ -695,7 +734,7 @@ app.post('/api/usuarios', async (req, res) => {
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -716,7 +755,7 @@ app.put('/api/usuarios/:id', async (req, res) => {
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -728,7 +767,7 @@ app.delete('/api/usuarios/:id', async (req, res) => {
     await pool.query('DELETE FROM permisos WHERE usuario_id = $1', [req.params.id]);
     await pool.query('DELETE FROM usuarios WHERE id = $1', [req.params.id]);
     res.json({ status: 'ok' });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -755,7 +794,7 @@ app.get('/api/permisos', async (req, res) => {
       );
     }
     res.json((await q).rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 app.post('/api/permisos', async (req, res) => {
@@ -773,7 +812,7 @@ app.post('/api/permisos', async (req, res) => {
       [usuarioId, empresaId, campoIds || [], herramientas || [], nivel || 'ver']
     );
     res.status(201).json(req.body);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 app.delete('/api/permisos/:usuarioId/:empresaId', async (req, res) => {
@@ -786,7 +825,7 @@ app.delete('/api/permisos/:usuarioId/:empresaId', async (req, res) => {
       [req.params.usuarioId, req.params.empresaId]
     );
     res.json({ status: 'ok' });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -884,7 +923,7 @@ app.get('/api/clientes', async (req, res) => {
           [sesion.id]
         );
     res.json((await q).rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 app.post('/api/clientes', async (req, res) => {
@@ -911,7 +950,7 @@ app.post('/api/clientes', async (req, res) => {
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -936,7 +975,7 @@ app.put('/api/clientes/:id', async (req, res) => {
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -947,7 +986,7 @@ app.delete('/api/clientes/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM clientes WHERE id=$1', [req.params.id]);
     res.json({ status: 'ok' });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 app.get('/api/empresas', async (req, res) => {
@@ -965,7 +1004,7 @@ app.get('/api/empresas', async (req, res) => {
           [sesion.id]
         );
     res.json((await q).rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 app.post('/api/empresas', async (req, res) => {
@@ -989,7 +1028,7 @@ app.post('/api/empresas', async (req, res) => {
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1012,7 +1051,7 @@ app.put('/api/empresas/:id', async (req, res) => {
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1027,7 +1066,7 @@ app.delete('/api/empresas/:id', async (req, res) => {
     }
     await pool.query('DELETE FROM empresas WHERE id=$1', [req.params.id]);
     res.json({ status: 'ok' });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 app.get('/api/campos', async (req, res) => {
@@ -1056,7 +1095,7 @@ app.get('/api/campos', async (req, res) => {
       );
     }
     res.json((await q).rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 app.post('/api/campos', async (req, res) => {
@@ -1082,7 +1121,7 @@ app.post('/api/campos', async (req, res) => {
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1105,7 +1144,7 @@ app.put('/api/campos/:id', async (req, res) => {
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1120,7 +1159,7 @@ app.delete('/api/campos/:id', async (req, res) => {
     }
     await pool.query('DELETE FROM campos WHERE id=$1', [req.params.id]);
     res.json({ status: 'ok' });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1136,7 +1175,7 @@ app.get('/api/herramientas', async (req, res) => {
       'SELECT id, nombre, descripcion, tipo, url, dominio, activa, asignable FROM herramientas ORDER BY nombre'
     );
     res.json(r.rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 app.post('/api/herramientas', async (req, res) => {
@@ -1155,7 +1194,7 @@ app.post('/api/herramientas', async (req, res) => {
        h.dominio||null, h.activa !== false, h.asignable !== false]
     );
     res.status(201).json(h);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 app.put('/api/herramientas/:id', async (req, res) => {
@@ -1171,7 +1210,7 @@ app.put('/api/herramientas/:id', async (req, res) => {
        h.dominio||null, h.activa !== false, h.asignable !== false]
     );
     res.json(h);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 app.delete('/api/herramientas/:id', async (req, res) => {
@@ -1181,7 +1220,7 @@ app.delete('/api/herramientas/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM herramientas WHERE id=$1', [req.params.id]);
     res.json({ status: 'ok' });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1193,12 +1232,10 @@ app.get('/api/tablero/:clave', async (req, res) => {
     const sesion = await obtenerSesion(req);
     if (!sesion) return res.status(401).json({ error: 'No autenticado' });
 
-    // Si el cliente indica a qué empresa pertenece este tablero, validar acceso
     const empresaId = req.query.empresaId;
-    if (empresaId) {
-      const permiso = await obtenerPermiso(req, empresaId);
-      if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
-    }
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
 
     const r = await pool.query(
       'SELECT data_json FROM tableros WHERE nombre_clave = $1',
@@ -1207,7 +1244,8 @@ app.get('/api/tablero/:clave', async (req, res) => {
     if (!r.rows.length) return res.json({});
     res.json(r.rows[0].data_json);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('/api/tablero GET error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1218,11 +1256,9 @@ app.put('/api/tablero/:clave', async (req, res) => {
     const sesion = await obtenerSesion(req);
     if (!sesion) return res.status(401).json({ error: 'No autenticado' });
 
-    // Si el cliente indica a qué empresa pertenece este tablero, validar acceso
-    if (empresaId) {
-      const permiso = await obtenerPermiso(req, empresaId);
-      if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
-    }
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
 
     await pool.query(
       `INSERT INTO tableros (nombre_clave, data_json, updated_at)
@@ -1233,7 +1269,8 @@ app.put('/api/tablero/:clave', async (req, res) => {
     );
     res.json({ status: 'ok' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('/api/tablero PUT error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -1248,10 +1285,10 @@ app.patch('/api/json-patch', async (req, res) => {
     const sesion = await obtenerSesion(req);
     if (!sesion) return res.status(401).json({ error: 'No autenticado' });
 
-    if (empresaId) {
-      const permiso = await obtenerPermiso(req, empresaId);
-      if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
-    }
+    if (!claveRaiz || !ruta) return res.status(400).json({ error: 'Faltan campos: claveRaiz, ruta' });
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
 
     const postgresPath = ruta.split('.');
     await pool.query(
@@ -1263,7 +1300,7 @@ app.patch('/api/json-patch', async (req, res) => {
     );
     res.json({ status: 'ok' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
