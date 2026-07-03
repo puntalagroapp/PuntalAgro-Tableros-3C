@@ -111,7 +111,9 @@
   }
 
   function uid(prefix) {
-    return (prefix || 'id') + '_' + Math.random().toString(36).substr(2, 9);
+    var arr = new Uint32Array(2);
+    (window.crypto || window.msCrypto).getRandomValues(arr);
+    return (prefix || 'id') + '_' + arr[0].toString(36) + arr[1].toString(36);
   }
 
   // ── 4. HELPER XHR (ES5, sin fetch) ──────────────────────────────────────

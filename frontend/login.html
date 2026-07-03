@@ -57,18 +57,31 @@ input:focus{outline:none;border-color:var(--olive)}
   } catch (e) {}
 })();
 
+var _PA_AK = 'PA_e5f208d00ad24d859032f68d253f06ac8ca3408eb6ebf4310eb5d3a94b5dbed0';
+
 function entrar() {
-  var email  = document.getElementById('email').value.trim();
-  var pass   = document.getElementById('pass').value;
-  var errEl  = document.getElementById('err');
+  var email = document.getElementById('email').value.trim();
+  var pass  = document.getElementById('pass').value;
+  var errEl = document.getElementById('err');
   errEl.textContent = '';
   if (!email) { errEl.textContent = 'Ingresá tu email.'; return; }
 
-  apiPost('/api/auth/login', { email: email, password: pass }, function (err, data) {
-    if (err) { errEl.textContent = err.error || 'Error al iniciar sesión'; return; }
-    localStorage.setItem('pa_sesion_activa', JSON.stringify(data.sesion));
-    location.href = 'index.html';
-  });
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/auth/login', true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('Authorization', 'Bearer ' + _PA_AK);
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState !== 4) return;
+    var json = null;
+    try { json = JSON.parse(xhr.responseText); } catch (e) {}
+    if (xhr.status >= 200 && xhr.status < 300) {
+      localStorage.setItem('pa_sesion_activa', JSON.stringify(json.sesion));
+      location.href = 'index.html';
+    } else {
+      errEl.textContent = (json && json.error) ? json.error : 'Error al iniciar sesión';
+    }
+  };
+  xhr.send(JSON.stringify({ email: email, password: pass }));
 }
 </script>
 
