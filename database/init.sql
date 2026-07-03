@@ -135,7 +135,7 @@ CREATE TABLE sesiones (
     usuario_id         TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
     creada_en          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expira_en          TIMESTAMPTZ,
-    empresa_id_activa  TEXT
+    empresa_id_activa  TEXT REFERENCES empresas(id) ON DELETE SET NULL
 );
 
 -- Un usuario tiene UN permiso por empresa. campoIds=[] significa todos los campos.
@@ -173,7 +173,8 @@ CREATE TABLE choferes (
     empresa_id   TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
     tercero_id   TEXT NOT NULL,
     datos        JSONB NOT NULL DEFAULT '{}',
-    PRIMARY KEY (id, empresa_id)
+    PRIMARY KEY (id, empresa_id),
+    FOREIGN KEY (tercero_id, empresa_id) REFERENCES terceros(id, empresa_id) ON DELETE CASCADE
 );
 CREATE INDEX idx_choferes_empresa ON choferes(empresa_id);
 CREATE UNIQUE INDEX uq_choferes_nombre_empresa ON choferes (empresa_id, lower(datos->>'nombre'));
@@ -221,7 +222,8 @@ CREATE TABLE actividades (
     tipo_actividad_id TEXT,
     ha                NUMERIC(10,2),
     es_segunda        BOOLEAN NOT NULL DEFAULT false,
-    PRIMARY KEY (id, empresa_id)
+    PRIMARY KEY (id, empresa_id),
+    FOREIGN KEY (tipo_actividad_id, empresa_id) REFERENCES tipos_actividad(id, empresa_id) ON DELETE RESTRICT
 );
 CREATE INDEX idx_actividades_lote     ON actividades(lote_id, campania_id);
 CREATE INDEX idx_actividades_empresa  ON actividades(empresa_id, campania_id);
@@ -244,7 +246,8 @@ CREATE TABLE ordenes_trabajo (
                      CHECK (estado_fact IN ('Sin facturar','Parcial','Facturado')),
     plantilla    JSONB NOT NULL DEFAULT '[]',
     destinos     JSONB NOT NULL DEFAULT '[]',
-    PRIMARY KEY (id, empresa_id)
+    PRIMARY KEY (id, empresa_id),
+    FOREIGN KEY (tercero_id, empresa_id) REFERENCES terceros(id, empresa_id) ON DELETE RESTRICT
 );
 CREATE INDEX idx_ots_empresa ON ordenes_trabajo(empresa_id, campania_id);
 
@@ -262,7 +265,11 @@ CREATE TABLE movimientos (
     comprobante_nro      TEXT,
     ot_id                TEXT,
     obs                  TEXT,
-    PRIMARY KEY (id, empresa_id)
+    PRIMARY KEY (id, empresa_id),
+    FOREIGN KEY (insumo_id, empresa_id)           REFERENCES insumos(id, empresa_id)          ON DELETE RESTRICT,
+    FOREIGN KEY (origen_deposito_id, empresa_id)  REFERENCES depositos(id, empresa_id)        ON DELETE RESTRICT,
+    FOREIGN KEY (destino_deposito_id, empresa_id) REFERENCES depositos(id, empresa_id)        ON DELETE RESTRICT,
+    FOREIGN KEY (ot_id, empresa_id)               REFERENCES ordenes_trabajo(id, empresa_id)  ON DELETE RESTRICT
 );
 CREATE INDEX idx_movimientos_empresa_insumo ON movimientos(empresa_id, insumo_id);
 
