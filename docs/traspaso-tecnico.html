@@ -1,0 +1,699 @@
+<title>Traspaso técnico — PuntalAgro Tableros 3C</title>
+<style>
+/* ── tokens ─────────────────────────────────────────────────── */
+:root {
+  --bg:       #F6F8FB;
+  --surface:  #FFFFFF;
+  --surface2: #EEF2F8;
+  --border:   #D5DCE8;
+  --text:     #0D1829;
+  --muted:    #5A6A82;
+  --accent:   #2356C4;
+  --accent2:  #1A44A3;
+  --hl:       #EBF0FD;
+  --code-bg:  #EEF2F7;
+  --mono:     ui-monospace,'Cascadia Code',Menlo,Consolas,monospace;
+  --sans:     system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;
+  --shadow:   0 1px 4px rgba(13,24,41,.07), 0 0 0 1px rgba(13,24,41,.055);
+  --sidebar-w: 228px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:       #0D1829; --surface:  #131F30; --surface2: #0F1A28;
+    --border:   #1E3050; --text:     #C8D8F0; --muted:    #5E7899;
+    --accent:   #5B8AF5; --accent2:  #7AA0F8; --hl:       #101F3A;
+    --code-bg:  #0A1420;
+    --shadow:   0 1px 4px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04);
+  }
+}
+:root[data-theme="light"] {
+  --bg:#F6F8FB;--surface:#FFFFFF;--surface2:#EEF2F8;--border:#D5DCE8;
+  --text:#0D1829;--muted:#5A6A82;--accent:#2356C4;--accent2:#1A44A3;
+  --hl:#EBF0FD;--code-bg:#EEF2F7;
+  --shadow:0 1px 4px rgba(13,24,41,.07),0 0 0 1px rgba(13,24,41,.055);
+}
+:root[data-theme="dark"] {
+  --bg:#0D1829;--surface:#131F30;--surface2:#0F1A28;--border:#1E3050;
+  --text:#C8D8F0;--muted:#5E7899;--accent:#5B8AF5;--accent2:#7AA0F8;
+  --hl:#101F3A;--code-bg:#0A1420;
+  --shadow:0 1px 4px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:var(--sans);background:var(--bg);color:var(--text);
+  font-size:14px;line-height:1.65;
+  display:grid;
+  grid-template-columns:var(--sidebar-w) 1fr;
+  grid-template-rows:auto 1fr;
+  min-height:100vh;
+}
+@media(max-width:780px){
+  body{grid-template-columns:1fr;grid-template-rows:auto auto 1fr;}
+  .sidebar{position:static!important;width:100%!important;height:auto!important;overflow:visible!important;border-right:none!important;border-bottom:1px solid var(--border);}
+  .main-header{grid-column:1;}
+  .content{grid-column:1;}
+}
+
+/* ── header ──────────────────────────────────────────────────── */
+.main-header{
+  grid-column:1/-1;
+  background:var(--text);
+  color:#fff;
+  padding:20px 32px 18px;
+  display:flex;align-items:center;gap:20px;flex-wrap:wrap;
+}
+.main-header .badge-tag{
+  font-family:var(--mono);font-size:10px;font-weight:700;
+  background:var(--accent);color:#fff;
+  padding:3px 9px;border-radius:4px;letter-spacing:.4px;
+}
+.main-header h1{font-size:18px;font-weight:700;letter-spacing:-.3px;}
+.main-header .meta{
+  margin-left:auto;font-size:11.5px;
+  color:rgba(200,216,240,.55);text-align:right;line-height:1.7;
+  font-family:var(--mono);
+}
+
+/* ── sidebar ─────────────────────────────────────────────────── */
+.sidebar{
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+  background:var(--surface);border-right:1px solid var(--border);
+  padding:20px 0 40px;
+  grid-row:2;
+}
+.sidebar .nav-group{margin-bottom:20px;}
+.sidebar .nav-label{
+  font-size:9.5px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.9px;color:var(--muted);
+  padding:0 18px;margin-bottom:4px;
+}
+.sidebar a{
+  display:block;font-size:12.5px;color:var(--muted);
+  padding:5px 18px;text-decoration:none;
+  border-left:2px solid transparent;
+  transition:color .1s,background .1s,border-color .1s;
+}
+.sidebar a:hover{color:var(--text);background:var(--surface2);}
+.sidebar a.active{
+  color:var(--accent);border-left-color:var(--accent);
+  background:var(--hl);font-weight:600;
+}
+.sidebar .divider{height:1px;background:var(--border);margin:10px 0;}
+
+/* ── content ─────────────────────────────────────────────────── */
+.content{
+  grid-row:2;padding:36px 48px 80px 44px;max-width:860px;
+}
+
+h2{
+  font-size:17px;font-weight:700;letter-spacing:-.25px;
+  margin:48px 0 14px;color:var(--text);
+  text-wrap:balance;
+  padding-bottom:10px;border-bottom:2px solid var(--border);
+  scroll-margin-top:24px;
+}
+h2:first-child{margin-top:0;}
+h3{font-size:13.5px;font-weight:700;margin:24px 0 8px;color:var(--text);scroll-margin-top:24px;}
+p{margin-bottom:12px;max-width:72ch;}
+ul{padding-left:20px;margin-bottom:12px;}
+li{margin-bottom:4px;}
+strong{font-weight:700;}
+
+/* ── code ────────────────────────────────────────────────────── */
+code{
+  font-family:var(--mono);font-size:12px;
+  background:var(--code-bg);border:1px solid var(--border);
+  padding:1px 6px;border-radius:4px;color:var(--text);
+}
+pre{
+  background:var(--code-bg);border:1px solid var(--border);
+  border-radius:6px;padding:14px 16px;overflow-x:auto;
+  font-family:var(--mono);font-size:12px;line-height:1.6;
+  margin-bottom:16px;color:var(--text);
+}
+pre code{background:none;border:none;padding:0;font-size:inherit;}
+
+/* ── callouts ────────────────────────────────────────────────── */
+.callout{
+  padding:10px 14px;border-radius:6px;margin-bottom:14px;
+  border-left:3px solid;font-size:13px;
+}
+.callout.info  {background:#EBF0FD;border-color:#2356C4;color:#1A2C5E;}
+.callout.warn  {background:#FDF6E0;border-color:#C47A00;color:#5A3600;}
+.callout.tip   {background:#E5F7EE;border-color:#1A7A4A;color:#0D3D20;}
+:root[data-theme="dark"] .callout.info{background:#101F3A;color:#9BB8F5;}
+:root[data-theme="dark"] .callout.warn{background:#2A1D00;color:#E0AC55;}
+:root[data-theme="dark"] .callout.tip {background:#082015;color:#5CD4A8;}
+@media(prefers-color-scheme:dark){
+  .callout.info{background:#101F3A;color:#9BB8F5;}
+  .callout.warn{background:#2A1D00;color:#E0AC55;}
+  .callout.tip {background:#082015;color:#5CD4A8;}
+}
+
+/* ── tables ──────────────────────────────────────────────────── */
+.tbl-wrap{overflow-x:auto;margin-bottom:16px;}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+thead th{
+  text-align:left;padding:7px 12px;background:var(--surface2);
+  font-size:10.5px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.6px;color:var(--muted);
+  border-bottom:1px solid var(--border);white-space:nowrap;
+}
+tbody td{padding:7px 12px;border-bottom:1px solid var(--border);vertical-align:top;}
+tbody tr:hover td{background:var(--surface2);}
+tbody td:first-child{font-family:var(--mono);font-size:12px;color:var(--text);font-weight:600;white-space:nowrap;}
+
+/* ── method badges ───────────────────────────────────────────── */
+.m{
+  display:inline-block;font-family:var(--mono);font-size:10.5px;
+  font-weight:700;padding:1px 7px;border-radius:3px;
+  min-width:52px;text-align:center;
+}
+.GET   {background:#DBEAFE;color:#1553B0;}
+.POST  {background:#D1FAE5;color:#065F46;}
+.PUT   {background:#FEF3C7;color:#92400E;}
+.PATCH {background:#EDE9FE;color:#4C1D95;}
+.DEL   {background:#FEE2E2;color:#991B1B;}
+:root[data-theme="dark"] .GET  {background:#0F2040;color:#6EA3F7;}
+:root[data-theme="dark"] .POST {background:#082015;color:#5CD4A8;}
+:root[data-theme="dark"] .PUT  {background:#2A1800;color:#F2A945;}
+:root[data-theme="dark"] .PATCH{background:#200F40;color:#C09BF7;}
+:root[data-theme="dark"] .DEL  {background:#30080E;color:#F07080;}
+@media(prefers-color-scheme:dark){
+  .GET  {background:#0F2040;color:#6EA3F7;}
+  .POST {background:#082015;color:#5CD4A8;}
+  .PUT  {background:#2A1800;color:#F2A945;}
+  .PATCH{background:#200F40;color:#C09BF7;}
+  .DEL  {background:#30080E;color:#F07080;}
+}
+
+/* ── roles / pills ───────────────────────────────────────────── */
+.pill{
+  display:inline-block;font-size:10.5px;font-family:var(--mono);
+  padding:1px 7px;border-radius:10px;font-weight:600;
+  background:var(--surface2);color:var(--muted);border:1px solid var(--border);
+}
+.pill.admin{background:#EBF0FD;color:#1A44A3;border-color:#C3D3FA;}
+.pill.user {background:#E5F7EE;color:#1A6B3C;border-color:#B2E5CB;}
+
+/* ── schema table ────────────────────────────────────────────── */
+.schema-tbl thead th{background:var(--text);color:#fff;}
+:root[data-theme="dark"] .schema-tbl thead th{background:var(--surface2);color:var(--text);}
+@media(prefers-color-scheme:dark){.schema-tbl thead th{background:var(--surface2);color:var(--text);}}
+
+/* ── fk line ─────────────────────────────────────────────────── */
+.fk-line{
+  display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;
+  font-family:var(--mono);font-size:11.5px;margin-bottom:4px;
+}
+.fk-line .t{color:var(--text);font-weight:600;}
+.fk-line .arr{color:var(--muted);}
+.fk-line .act{
+  font-size:10px;background:var(--surface2);
+  border:1px solid var(--border);border-radius:3px;
+  padding:0 5px;color:var(--muted);
+}
+.fk-line .new{color:var(--accent);font-size:10px;}
+
+/* ── arch diagram ────────────────────────────────────────────── */
+.arch{
+  display:grid;grid-template-columns:1fr 36px 1fr 36px 1fr;
+  align-items:center;gap:0;margin-bottom:20px;
+}
+.arch-box{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:12px 14px;box-shadow:var(--shadow);
+}
+.arch-box .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:3px;}
+.arch-box .tech{font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--text);}
+.arch-box .detail{font-size:11px;color:var(--muted);margin-top:3px;}
+.arch-arr{text-align:center;font-size:18px;color:var(--border);}
+</style>
+
+<!-- ── HEADER ──────────────────────────────────────────────── -->
+<div class="main-header">
+  <span class="badge-tag">TRASPASO TÉCNICO</span>
+  <div>
+    <h1>PuntalAgro · Tableros 3C</h1>
+  </div>
+  <div class="meta">
+    PostgreSQL 16 · Node.js · Docker<br>
+    Revisión: 2026-07-03<br>
+    branch: main
+  </div>
+</div>
+
+<!-- ── SIDEBAR ─────────────────────────────────────────────── -->
+<nav class="sidebar">
+  <div class="nav-group">
+    <div class="nav-label">Contexto</div>
+    <a href="#intro">¿Qué es esto?</a>
+    <a href="#stack">Stack técnico</a>
+    <a href="#arch">Arquitectura</a>
+  </div>
+  <div class="divider"></div>
+  <div class="nav-group">
+    <div class="nav-label">Dev Setup</div>
+    <a href="#setup">Entorno local</a>
+    <a href="#env">Variables de entorno</a>
+  </div>
+  <div class="divider"></div>
+  <div class="nav-group">
+    <div class="nav-label">Backend API</div>
+    <a href="#auth">Autenticación</a>
+    <a href="#endpoints">Endpoints</a>
+    <a href="#roles">Roles y permisos</a>
+  </div>
+  <div class="divider"></div>
+  <div class="nav-group">
+    <div class="nav-label">Base de Datos</div>
+    <a href="#db-overview">Visión general</a>
+    <a href="#db-s1">S1 · Listas globales</a>
+    <a href="#db-s2">S2 · Jerarquía</a>
+    <a href="#db-s3">S3 · Usuarios y sesiones</a>
+    <a href="#db-s4">S4 · Maestros</a>
+    <a href="#db-s5">S5 · Datos operativos</a>
+    <a href="#db-s6">S6 · Tableros blob</a>
+    <a href="#db-fk">Todas las FK</a>
+  </div>
+  <div class="divider"></div>
+  <div class="nav-group">
+    <div class="nav-label">Diseño</div>
+    <a href="#patterns">Patrones y convenciones</a>
+    <a href="#security">Seguridad</a>
+  </div>
+</nav>
+
+<!-- ── CONTENT ─────────────────────────────────────────────── -->
+<div class="content">
+
+<!-- intro -->
+<h2 id="intro">¿Qué es esto?</h2>
+<p><strong>PuntalAgro Tableros 3C</strong> es un sistema web de gestión agropecuaria multi-empresa. Permite a productores agropecuarios gestionar campos, lotes, campañas, insumos, órdenes de trabajo, planes de uso del suelo y tableros de decisión.</p>
+<p>El nombre "3C" hace referencia a la migración de una arquitectura standalone (todo en el browser) a una arquitectura de <strong>3 capas</strong>: Frontend → API → Base de datos. La migración es incremental: algunos tableros ya leen de la API; otros todavía usan datos hardcodeados en JS.</p>
+
+<div class="callout info">El frontend está escrito en ES5 puro (var, function, XHR callbacks) — sin bundler, sin TypeScript, sin framework. El cliente del frontend puede hacer cambios. La lógica sensible vive en el backend.</div>
+
+<!-- stack -->
+<h2 id="stack">Stack técnico</h2>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Capa</th><th>Tecnología</th><th>Versión</th><th>Notas</th></tr></thead>
+  <tbody>
+    <tr><td>Frontend</td><td>HTML / CSS / JS ES5</td><td>—</td><td>Sin framework ni bundler. XHR con callbacks.</td></tr>
+    <tr><td>API</td><td>Node.js + Express</td><td>Node ≥ 18</td><td>CommonJS, async/await, módulo <code>crypto</code> nativo.</td></tr>
+    <tr><td>Base de datos</td><td>PostgreSQL</td><td>16-alpine</td><td>Columnas JSONB para maestros; tablas normalizadas para jerarquía y operativos.</td></tr>
+    <tr><td>Contenedor</td><td>Docker Compose</td><td>v2</td><td>Servicios: <code>base_datos</code> (pa_postgres_db) y <code>api_server</code> (pa_express_api).</td></tr>
+  </tbody>
+</table></div>
+
+<!-- arch -->
+<h2 id="arch">Arquitectura</h2>
+<div class="arch">
+  <div class="arch-box">
+    <div class="lbl">Capa 1</div>
+    <div class="tech">Frontend</div>
+    <div class="detail">HTML + JS ES5<br>XHR → /api/*<br>localStorage: token</div>
+  </div>
+  <div class="arch-arr">→</div>
+  <div class="arch-box">
+    <div class="lbl">Capa 2</div>
+    <div class="tech">Express API</div>
+    <div class="detail">server.js<br>Puerto 8080<br>Sirve también el frontend estático</div>
+  </div>
+  <div class="arch-arr">→</div>
+  <div class="arch-box">
+    <div class="lbl">Capa 3</div>
+    <div class="tech">PostgreSQL</div>
+    <div class="detail">Puerto 5432<br>Volumen Docker persistente<br>init.sql + migrations/</div>
+  </div>
+</div>
+<p>El servidor Express sirve el directorio <code>frontend/</code> como estático y expone todos los endpoints bajo <code>/api/</code>. No hay separación de orígenes en producción: el frontend y la API viven en el mismo dominio/puerto.</p>
+
+<!-- setup -->
+<h2 id="setup">Entorno local</h2>
+<pre><code># Clonar y arrancar
+git clone &lt;repo&gt;
+cd PuntalAgro-Tableros-3C
+cp .env.example .env          # completar con los valores reales
+docker compose up -d
+
+# Verificar
+docker logs pa_express_api    # debe decir: PA API lista en puerto 8080
+# Acceder en: http://localhost:8080</code></pre>
+
+<h3>Contenedores</h3>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Servicio compose</th><th>Nombre contenedor</th><th>Puerto</th><th>Descripción</th></tr></thead>
+  <tbody>
+    <tr><td>api_server</td><td>pa_express_api</td><td>8080</td><td>Express + frontend estático</td></tr>
+    <tr><td>base_datos</td><td>pa_postgres_db</td><td>5432</td><td>PostgreSQL 16</td></tr>
+  </tbody>
+</table></div>
+
+<h3>Base de datos</h3>
+<p>El archivo <code>database/init.sql</code> se ejecuta automáticamente al crear el volumen Docker por primera vez. Incluye el esquema completo + datos seed (usuarios demo, empresas de prueba, campañas, etc.).</p>
+<p>Para aplicar migraciones sobre una base existente:</p>
+<pre><code>docker exec -i pa_postgres_db psql -U postgres -d puntalagro_tableros_3C \
+  &lt; database/migrations/001_add_missing_fks.sql</code></pre>
+
+<!-- env -->
+<h2 id="env">Variables de entorno</h2>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Variable</th><th>Requerida</th><th>Descripción</th></tr></thead>
+  <tbody>
+    <tr><td>DATABASE_URL</td><td>Sí</td><td><code>postgresql://user:pass@host:5432/dbname</code></td></tr>
+    <tr><td>POSTGRES_USER</td><td>Sí</td><td>Usuario PostgreSQL (para el contenedor)</td></tr>
+    <tr><td>POSTGRES_PASSWORD</td><td>Sí</td><td>Contraseña PostgreSQL</td></tr>
+    <tr><td>POSTGRES_DB</td><td>Sí</td><td>Nombre de la base de datos</td></tr>
+    <tr><td>ALLOWED_ORIGINS</td><td>No</td><td>Lista de orígenes CORS permitidos, separados por comas. Si está vacío, acepta todos (usar solo en dev).</td></tr>
+    <tr><td>API_KEY</td><td>No</td><td>Clave Bearer que el frontend debe enviar en <code>POST /api/auth/login</code>. Si está vacía, el endpoint no valida la clave.</td></tr>
+  </tbody>
+</table></div>
+
+<!-- auth -->
+<h2 id="auth">Autenticación y sesiones</h2>
+<h3>Flujo de login</h3>
+<pre><code>// login.html → POST /api/auth/login
+Headers: { Authorization: "Bearer &lt;API_KEY&gt;", Content-Type: "application/json" }
+Body:    { email: "...", password: "..." }
+
+// Respuesta exitosa
+{ sesion: { token, usuarioId, nombre, email, rol, clienteId, expiraEn } }
+
+// El frontend guarda en localStorage
+localStorage.setItem('pa_sesion_activa', JSON.stringify(sesion))</code></pre>
+
+<h3>Autenticación de requests</h3>
+<p>Todos los endpoints protegidos requieren:</p>
+<pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+<p>El backend verifica que el token exista en la tabla <code>sesiones</code> y que <code>expira_en &gt; NOW()</code>.</p>
+
+<h3>Parámetros de sesión</h3>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Parámetro</th><th>Valor</th></tr></thead>
+  <tbody>
+    <tr><td>Duración</td><td>24 horas (<code>NOW() + INTERVAL '24 hours'</code>)</td></tr>
+    <tr><td>Generación del token</td><td><code>crypto.randomBytes(32).toString('hex')</code> — prefijado con <code>tok_</code></td></tr>
+    <tr><td>Almacenamiento</td><td>Tabla <code>sesiones</code> en PostgreSQL</td></tr>
+    <tr><td>Password hashing</td><td><code>crypto.scrypt(password, salt, 64)</code>, formato: <code>salt:key_hex</code></td></tr>
+  </tbody>
+</table></div>
+
+<!-- endpoints -->
+<h2 id="endpoints">Endpoints API</h2>
+
+<h3>Sesión y contexto</h3>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Método</th><th>Ruta</th><th>Auth</th><th>Descripción</th></tr></thead>
+  <tbody>
+    <tr><td><span class="m POST">POST</span></td><td><code>/api/auth/login</code></td><td>API Key</td><td>Login. Requiere Bearer API_KEY en header. Body: <code>{ email, password }</code>. Rate limit: 10 intentos / 15 min / IP.</td></tr>
+    <tr><td><span class="m POST">POST</span></td><td><code>/api/auth/logout</code></td><td>Token</td><td>Elimina la sesión de la tabla <code>sesiones</code>.</td></tr>
+    <tr><td><span class="m GET">GET</span></td><td><code>/api/context?empresaId=</code></td><td>Token</td><td>Devuelve usuario, empresa activa, empresas disponibles y permiso del usuario sobre la empresa.</td></tr>
+    <tr><td><span class="m GET">GET</span></td><td><code>/api/globales</code></td><td>Token</td><td>Devuelve todos los datos iniciales (empresas, maestros de la empresa activa, etc.). <code>/api/init</code> redirige aquí.</td></tr>
+  </tbody>
+</table></div>
+
+<h3>Maestros por empresa (genérico)</h3>
+<div class="callout tip">La ruta <code>:coleccion</code> acepta: <code>terceros</code>, <code>choferes</code>, <code>depositos</code>, <code>insumos</code>, <code>tipos_actividad</code>. Todos requieren <code>?empresaId=</code>.</div>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Método</th><th>Ruta</th><th>Descripción</th></tr></thead>
+  <tbody>
+    <tr><td><span class="m GET">GET</span></td><td><code>/api/maestros/:coleccion?empresaId=</code></td><td>Lista registros de la colección para la empresa.</td></tr>
+    <tr><td><span class="m POST">POST</span></td><td><code>/api/maestros/:coleccion</code></td><td>Crea registro. Body: <code>{ empresaId, ...datos }</code>.</td></tr>
+    <tr><td><span class="m PUT">PUT</span></td><td><code>/api/maestros/:coleccion/:id</code></td><td>Actualiza registro. Body: <code>{ empresaId, ...datos }</code>.</td></tr>
+    <tr><td><span class="m DEL">DELETE</span></td><td><code>/api/maestros/:coleccion/:id?empresaId=</code></td><td>Elimina registro.</td></tr>
+  </tbody>
+</table></div>
+
+<h3>Jerarquía (clientes, empresas, campos)</h3>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Método</th><th>Ruta</th><th>Descripción</th></tr></thead>
+  <tbody>
+    <tr><td><span class="m GET">GET</span></td><td><code>/api/clientes</code></td><td>Lista clientes (admin_general solamente).</td></tr>
+    <tr><td><span class="m POST">POST</span></td><td><code>/api/clientes</code></td><td>Crea cliente.</td></tr>
+    <tr><td><span class="m PUT">PUT</span></td><td><code>/api/clientes/:id</code></td><td>Actualiza cliente.</td></tr>
+    <tr><td><span class="m DEL">DELETE</span></td><td><code>/api/clientes/:id</code></td><td>Elimina cliente (RESTRICT si tiene empresas).</td></tr>
+    <tr><td><span class="m GET">GET</span></td><td><code>/api/empresas?clienteId=</code></td><td>Lista empresas.</td></tr>
+    <tr><td><span class="m POST">POST</span></td><td><code>/api/empresas</code></td><td>Crea empresa.</td></tr>
+    <tr><td><span class="m PUT">PUT</span></td><td><code>/api/empresas/:id</code></td><td>Actualiza empresa.</td></tr>
+    <tr><td><span class="m DEL">DELETE</span></td><td><code>/api/empresas/:id</code></td><td>Elimina empresa.</td></tr>
+    <tr><td><span class="m GET">GET</span></td><td><code>/api/campos?empresaId=</code></td><td>Lista campos de la empresa.</td></tr>
+    <tr><td><span class="m POST">POST</span></td><td><code>/api/campos</code></td><td>Crea campo.</td></tr>
+    <tr><td><span class="m PUT">PUT</span></td><td><code>/api/campos/:id</code></td><td>Actualiza campo.</td></tr>
+    <tr><td><span class="m DEL">DELETE</span></td><td><code>/api/campos/:id</code></td><td>Elimina campo (CASCADE a lotes).</td></tr>
+  </tbody>
+</table></div>
+
+<h3>Usuarios y permisos</h3>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Método</th><th>Ruta</th><th>Descripción</th></tr></thead>
+  <tbody>
+    <tr><td><span class="m GET">GET</span></td><td><code>/api/usuarios</code></td><td>Lista usuarios (admin_general / admin_cliente).</td></tr>
+    <tr><td><span class="m POST">POST</span></td><td><code>/api/usuarios</code></td><td>Crea usuario. Password hasheado con scrypt.</td></tr>
+    <tr><td><span class="m PUT">PUT</span></td><td><code>/api/usuarios/:id</code></td><td>Actualiza usuario.</td></tr>
+    <tr><td><span class="m DEL">DELETE</span></td><td><code>/api/usuarios/:id</code></td><td>Elimina usuario (CASCADE a sesiones y permisos).</td></tr>
+    <tr><td><span class="m GET">GET</span></td><td><code>/api/permisos?usuarioId=</code></td><td>Lista permisos de un usuario.</td></tr>
+    <tr><td><span class="m POST">POST</span></td><td><code>/api/permisos</code></td><td>Crea o reemplaza permiso (usuario × empresa).</td></tr>
+    <tr><td><span class="m DEL">DELETE</span></td><td><code>/api/permisos/:usuarioId/:empresaId</code></td><td>Elimina permiso.</td></tr>
+  </tbody>
+</table></div>
+
+<h3>Herramientas</h3>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Método</th><th>Ruta</th><th>Descripción</th></tr></thead>
+  <tbody>
+    <tr><td><span class="m GET">GET</span></td><td><code>/api/herramientas</code></td><td>Lista herramientas/tableros disponibles.</td></tr>
+    <tr><td><span class="m POST">POST</span></td><td><code>/api/herramientas</code></td><td>Crea herramienta.</td></tr>
+    <tr><td><span class="m PUT">PUT</span></td><td><code>/api/herramientas/:id</code></td><td>Actualiza herramienta.</td></tr>
+    <tr><td><span class="m DEL">DELETE</span></td><td><code>/api/herramientas/:id</code></td><td>Elimina herramienta.</td></tr>
+  </tbody>
+</table></div>
+
+<h3>Tableros (blob JSONB)</h3>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Método</th><th>Ruta</th><th>Descripción</th></tr></thead>
+  <tbody>
+    <tr><td><span class="m GET">GET</span></td><td><code>/api/tablero/:clave?empresaId=</code></td><td>Lee un blob JSONB por clave textual. <code>empresaId</code> requerido.</td></tr>
+    <tr><td><span class="m PUT">PUT</span></td><td><code>/api/tablero/:clave</code></td><td>Guarda/reemplaza blob. Body: <code>{ datos, empresaId }</code>.</td></tr>
+    <tr><td><span class="m PATCH">PATCH</span></td><td><code>/api/json-patch</code></td><td>Parche granular de un campo dentro de un blob JSONB. Body: <code>{ claveRaiz, ruta, valor, empresaId }</code>.</td></tr>
+  </tbody>
+</table></div>
+
+<!-- roles -->
+<h2 id="roles">Roles y permisos</h2>
+<h3>Roles del sistema</h3>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Rol</th><th>Acceso</th><th>Filtrado por empresa</th></tr></thead>
+  <tbody>
+    <tr><td><span class="pill admin">admin_general</span></td><td>Todas las empresas</td><td>No — ve todo</td></tr>
+    <tr><td><span class="pill admin">admin_cliente</span></td><td>Empresas de su cliente</td><td>Por <code>cliente_id</code></td></tr>
+    <tr><td><span class="pill user">usuario</span></td><td>Empresas con permiso explícito</td><td>Por tabla <code>permisos</code></td></tr>
+  </tbody>
+</table></div>
+
+<h3>Estructura de un permiso</h3>
+<pre><code>-- Un registro en tabla permisos:
+{
+  usuario_id:   "u_maria",
+  empresa_id:   "e_1",
+  campo_ids:    ["c_1"],   -- [] significa acceso a todos los campos
+  herramientas: ["tablero_uso_suelo", "tablero_insumos_ot"],
+  nivel:        "ver"      -- ver | cargar | administrar
+}</code></pre>
+<p>Cuando <code>campo_ids</code> es un array vacío <code>{}</code>, el usuario tiene acceso a <strong>todos los campos</strong> de la empresa. Si contiene IDs específicos, los lotes se filtran por esos campos al cargar cualquier tablero.</p>
+
+<!-- db-overview -->
+<h2 id="db-overview">Base de datos — visión general</h2>
+<div class="tbl-wrap"><table class="schema-tbl">
+  <thead><tr><th>#</th><th>Sección</th><th>Tablas</th><th>PK</th><th>Notas</th></tr></thead>
+  <tbody>
+    <tr><td>S1</td><td>Listas globales</td><td>campanias, especies, unidades, modos_accion, tipos_proveedor, labores, herramientas</td><td>TEXT simple</td><td>Mantenidas por Puntal. Compartidas entre todos los clientes.</td></tr>
+    <tr><td>S2</td><td>Jerarquía cliente→lote</td><td>clientes, empresas, campos, lotes</td><td>TEXT simple</td><td>Árbol de tenencia. Cascades bien definidos.</td></tr>
+    <tr><td>S3</td><td>Usuarios y sesiones</td><td>usuarios, sesiones, permisos</td><td>TEXT / TOKEN / SERIAL</td><td><code>permisos</code> tiene PK SERIAL. UNIQUE (usuario_id, empresa_id).</td></tr>
+    <tr><td>S4</td><td>Maestros por empresa</td><td>terceros, choferes, depositos, insumos, tipos_actividad</td><td>(id, empresa_id)</td><td>PK compuesta. Datos en JSONB. UNIQUE sobre <code>lower(datos->>'nombre')</code>.</td></tr>
+    <tr><td>S5</td><td>Datos operativos</td><td>actividades, ordenes_trabajo, movimientos</td><td>(id, empresa_id)</td><td>PK compuesta. FK compuestas hacia S4.</td></tr>
+    <tr><td>S6</td><td>Tableros blob</td><td>tableros</td><td>SERIAL</td><td>JSONB libre. Clave textual única. Para tableros que aún no migraron.</td></tr>
+  </tbody>
+</table></div>
+
+<div class="callout warn"><strong>Importante:</strong> Las tablas de S4 y S5 usan PK compuesta <code>(id, empresa_id)</code>. Las FK hacia estas tablas son también compuestas. Con MATCH SIMPLE (default de Postgres), si alguna columna de la FK es NULL, la constraint no se evalúa.</div>
+
+<!-- db-s1 -->
+<h2 id="db-s1">S1 · Listas globales</h2>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Tabla</th><th>Columnas clave</th><th>Constraints notables</th></tr></thead>
+  <tbody>
+    <tr><td>campanias</td><td>id PK, nombre, orden INT, activa BOOL</td><td>—</td></tr>
+    <tr><td>especies</td><td>id PK, nombre, sigla, activo</td><td>UNIQUE lower(nombre)</td></tr>
+    <tr><td>unidades</td><td>id PK, sigla UNIQUE, nombre, activo</td><td>UNIQUE sigla</td></tr>
+    <tr><td>modos_accion</td><td>id PK, sistema, codigo, descripcion, activo</td><td>CHECK sistema IN ('HRAC','IRAC','FRAC') · UNIQUE (sistema, lower(codigo))</td></tr>
+    <tr><td>tipos_proveedor</td><td>id PK, nombre UNIQUE</td><td>UNIQUE nombre</td></tr>
+    <tr><td>labores</td><td>id PK, nombre, precio_ref NUMERIC(12,2), activo</td><td>UNIQUE lower(nombre)</td></tr>
+    <tr><td>herramientas</td><td>id PK, nombre, tipo, url, dominio, activa, asignable</td><td>CHECK tipo IN ('propia','externa')</td></tr>
+  </tbody>
+</table></div>
+
+<!-- db-s2 -->
+<h2 id="db-s2">S2 · Jerarquía cliente → empresa → campo → lote</h2>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Tabla</th><th>Columnas clave</th><th>FK</th></tr></thead>
+  <tbody>
+    <tr><td>clientes</td><td>id PK, nombre, email, cuit, activo, factura_centralizada</td><td>—</td></tr>
+    <tr><td>empresas</td><td>id PK, cliente_id NN, razon_social NN, cuit, activo</td><td>cliente_id → clientes ON DELETE RESTRICT</td></tr>
+    <tr><td>campos</td><td>id PK, empresa_id NN, nombre NN, localidad, ha_totales</td><td>empresa_id → empresas ON DELETE CASCADE</td></tr>
+    <tr><td>lotes</td><td>id PK, campo_id (nullable), empresa_id NN, nombre, ha</td><td>campo_id → campos ON DELETE CASCADE · empresa_id → empresas</td></tr>
+  </tbody>
+</table></div>
+
+<!-- db-s3 -->
+<h2 id="db-s3">S3 · Usuarios, sesiones y permisos</h2>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Tabla</th><th>Columnas clave</th><th>Constraints notables</th></tr></thead>
+  <tbody>
+    <tr><td>usuarios</td><td>id PK, email UNIQUE NN, nombre NN, password_hash, rol, cliente_id, activo</td><td>CHECK rol IN ('admin_general','admin_cliente','usuario')</td></tr>
+    <tr><td>sesiones</td><td>token PK, usuario_id NN, creada_en, expira_en, empresa_id_activa</td><td>usuario_id → usuarios CASCADE · empresa_id_activa → empresas SET NULL</td></tr>
+    <tr><td>permisos</td><td>id SERIAL PK, usuario_id NN, empresa_id NN, campo_ids TEXT[], herramientas TEXT[], nivel</td><td>UNIQUE (usuario_id, empresa_id) · CHECK nivel IN ('ver','cargar','administrar')</td></tr>
+  </tbody>
+</table></div>
+
+<!-- db-s4 -->
+<h2 id="db-s4">S4 · Maestros por empresa</h2>
+<p>Todas estas tablas tienen PK compuesta <code>(id, empresa_id)</code>, columna <code>datos JSONB NOT NULL DEFAULT '{}'</code>, FK a <code>empresas</code> con CASCADE, e índice de performance sobre <code>empresa_id</code>.</p>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Tabla</th><th>Extra</th><th>UNIQUE</th></tr></thead>
+  <tbody>
+    <tr><td>terceros</td><td>—</td><td>(empresa_id, lower(datos->>'nombre'))</td></tr>
+    <tr><td>choferes</td><td>tercero_id TEXT NN + FK compuesta → terceros ON DELETE CASCADE</td><td>(empresa_id, lower(datos->>'nombre'))</td></tr>
+    <tr><td>depositos</td><td>—</td><td>(empresa_id, lower(datos->>'nombre'))</td></tr>
+    <tr><td>insumos</td><td>—</td><td>(empresa_id, lower(datos->>'nombre'), datos->>'tipo')</td></tr>
+    <tr><td>tipos_actividad</td><td>—</td><td>(empresa_id, lower(datos->>'nombre'))</td></tr>
+  </tbody>
+</table></div>
+
+<!-- db-s5 -->
+<h2 id="db-s5">S5 · Datos operativos</h2>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Tabla</th><th>Columnas clave</th><th>FK notables</th></tr></thead>
+  <tbody>
+    <tr><td>actividades</td><td>(id, empresa_id) PK · lote_id · campania_id · tipo_actividad_id (nullable) · ha · es_segunda</td><td>lote_id → lotes CASCADE · (tipo_actividad_id, empresa_id) → tipos_actividad RESTRICT</td></tr>
+    <tr><td>ordenes_trabajo</td><td>(id, empresa_id) PK · num · campania_id · labor_id · tercero_id (nullable) · estado · plantilla JSONB · destinos JSONB</td><td>empresa_id → empresas CASCADE · (tercero_id, empresa_id) → terceros RESTRICT</td></tr>
+    <tr><td>movimientos</td><td>(id, empresa_id) PK · insumo_id NN · fecha · tipo · cantidad · origen/destino_deposito_id · ot_id</td><td>(insumo_id, empresa_id) → insumos RESTRICT · depósitos RESTRICT · ot RESTRICT</td></tr>
+  </tbody>
+</table></div>
+
+<!-- db-s6 -->
+<h2 id="db-s6">S6 · Tableros blob</h2>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Tabla</th><th>Columnas</th><th>Notas</th></tr></thead>
+  <tbody>
+    <tr><td>tableros</td><td>id SERIAL PK · nombre_clave TEXT UNIQUE NN · data_json JSONB · updated_at TIMESTAMPTZ</td><td>Sin FK. Clave formato: <code>plan_uso_suelo_&lt;empresaId&gt;</code>, etc. Para tableros en transición.</td></tr>
+  </tbody>
+</table></div>
+
+<!-- db-fk -->
+<h2 id="db-fk">Todas las foreign keys</h2>
+<p>★ indica FK agregada en la migración <code>001_add_missing_fks.sql</code> (2026-07-03).</p>
+
+<div class="fk-line"><span class="t">empresas.cliente_id</span><span class="arr">→</span><span class="t">clientes(id)</span><span class="act">RESTRICT</span></div>
+<div class="fk-line"><span class="t">campos.empresa_id</span><span class="arr">→</span><span class="t">empresas(id)</span><span class="act">CASCADE</span></div>
+<div class="fk-line"><span class="t">lotes.campo_id</span><span class="arr">→</span><span class="t">campos(id)</span><span class="act">CASCADE</span></div>
+<div class="fk-line"><span class="t">lotes.empresa_id</span><span class="arr">→</span><span class="t">empresas(id)</span><span class="act">NO ACTION</span></div>
+<div class="fk-line"><span class="t">usuarios.cliente_id</span><span class="arr">→</span><span class="t">clientes(id)</span><span class="act">NO ACTION</span></div>
+<div class="fk-line"><span class="t">sesiones.usuario_id</span><span class="arr">→</span><span class="t">usuarios(id)</span><span class="act">CASCADE</span></div>
+<div class="fk-line"><span class="t">sesiones.empresa_id_activa</span><span class="arr">→</span><span class="t">empresas(id)</span><span class="act">SET NULL</span><span class="new">★ migración 001</span></div>
+<div class="fk-line"><span class="t">permisos.usuario_id</span><span class="arr">→</span><span class="t">usuarios(id)</span><span class="act">CASCADE</span></div>
+<div class="fk-line"><span class="t">permisos.empresa_id</span><span class="arr">→</span><span class="t">empresas(id)</span><span class="act">CASCADE</span></div>
+<div class="fk-line"><span class="t">terceros.empresa_id</span><span class="arr">→</span><span class="t">empresas(id)</span><span class="act">CASCADE</span></div>
+<div class="fk-line"><span class="t">choferes.empresa_id</span><span class="arr">→</span><span class="t">empresas(id)</span><span class="act">CASCADE</span></div>
+<div class="fk-line"><span class="t">(choferes.tercero_id, empresa_id)</span><span class="arr">→</span><span class="t">terceros(id, empresa_id)</span><span class="act">CASCADE</span><span class="new">★ migración 001</span></div>
+<div class="fk-line"><span class="t">depositos.empresa_id</span><span class="arr">→</span><span class="t">empresas(id)</span><span class="act">CASCADE</span></div>
+<div class="fk-line"><span class="t">insumos.empresa_id</span><span class="arr">→</span><span class="t">empresas(id)</span><span class="act">CASCADE</span></div>
+<div class="fk-line"><span class="t">tipos_actividad.empresa_id</span><span class="arr">→</span><span class="t">empresas(id)</span><span class="act">CASCADE</span></div>
+<div class="fk-line"><span class="t">actividades.empresa_id</span><span class="arr">→</span><span class="t">empresas(id)</span><span class="act">NO ACTION</span></div>
+<div class="fk-line"><span class="t">actividades.lote_id</span><span class="arr">→</span><span class="t">lotes(id)</span><span class="act">CASCADE</span></div>
+<div class="fk-line"><span class="t">actividades.campania_id</span><span class="arr">→</span><span class="t">campanias(id)</span><span class="act">NO ACTION</span></div>
+<div class="fk-line"><span class="t">(actividades.tipo_actividad_id, empresa_id)</span><span class="arr">→</span><span class="t">tipos_actividad(id, empresa_id)</span><span class="act">RESTRICT</span><span class="new">★ migración 001</span></div>
+<div class="fk-line"><span class="t">ordenes_trabajo.empresa_id</span><span class="arr">→</span><span class="t">empresas(id)</span><span class="act">CASCADE</span></div>
+<div class="fk-line"><span class="t">ordenes_trabajo.campania_id</span><span class="arr">→</span><span class="t">campanias(id)</span><span class="act">NO ACTION</span></div>
+<div class="fk-line"><span class="t">ordenes_trabajo.labor_id</span><span class="arr">→</span><span class="t">labores(id)</span><span class="act">NO ACTION</span></div>
+<div class="fk-line"><span class="t">(ordenes_trabajo.tercero_id, empresa_id)</span><span class="arr">→</span><span class="t">terceros(id, empresa_id)</span><span class="act">RESTRICT</span><span class="new">★ migración 001</span></div>
+<div class="fk-line"><span class="t">movimientos.empresa_id</span><span class="arr">→</span><span class="t">empresas(id)</span><span class="act">NO ACTION</span></div>
+<div class="fk-line"><span class="t">(movimientos.insumo_id, empresa_id)</span><span class="arr">→</span><span class="t">insumos(id, empresa_id)</span><span class="act">RESTRICT</span><span class="new">★ migración 001</span></div>
+<div class="fk-line"><span class="t">(movimientos.origen_deposito_id, empresa_id)</span><span class="arr">→</span><span class="t">depositos(id, empresa_id)</span><span class="act">RESTRICT</span><span class="new">★ migración 001</span></div>
+<div class="fk-line"><span class="t">(movimientos.destino_deposito_id, empresa_id)</span><span class="arr">→</span><span class="t">depositos(id, empresa_id)</span><span class="act">RESTRICT</span><span class="new">★ migración 001</span></div>
+<div class="fk-line"><span class="t">(movimientos.ot_id, empresa_id)</span><span class="arr">→</span><span class="t">ordenes_trabajo(id, empresa_id)</span><span class="act">RESTRICT</span><span class="new">★ migración 001</span></div>
+
+<!-- patterns -->
+<h2 id="patterns">Patrones y convenciones</h2>
+
+<h3>IDs como TEXT</h3>
+<p>Todos los IDs son TEXT generados en el frontend con <code>window.crypto.getRandomValues()</code> (función <code>uid(prefix)</code> en <code>pa-core.js</code>). No se usan sequences excepto en <code>permisos.id</code> y <code>tableros.id</code>. Esto facilita la inserción offline y la migración desde el sistema standalone.</p>
+
+<h3>PK compuesta en S4 y S5</h3>
+<p>Las tablas de maestros y datos operativos usan <code>PRIMARY KEY (id, empresa_id)</code>. Esto permite que el mismo ID lógico exista en múltiples empresas sin conflicto. Las FK hacia estas tablas son necesariamente compuestas:</p>
+<pre><code>FOREIGN KEY (insumo_id, empresa_id) REFERENCES insumos(id, empresa_id)</code></pre>
+<p>Con MATCH SIMPLE (default), si alguna columna del lado referenciante es NULL, la FK no se evalúa. Útil para columnas opcionales como <code>tercero_id</code> en OTs.</p>
+
+<h3>JSONB para maestros</h3>
+<p>Los maestros de S4 almacenan sus campos en una columna <code>datos JSONB</code>. El <code>id</code> y el <code>empresa_id</code> también se guardan dentro del blob para simplificar la serialización desde JS. Los índices UNIQUE usan expresiones sobre el JSON:</p>
+<pre><code>CREATE UNIQUE INDEX ON terceros (empresa_id, lower(datos->>'nombre'));</code></pre>
+
+<h3>Tableros blob (S6) vs. tablas normalizadas</h3>
+<p>Los tableros que aún no migraron guardan su estado completo como un blob JSONB en la tabla <code>tableros</code>, con una clave textual como <code>plan_uso_suelo_e_1</code>. No es posible filtrar por campo dentro del blob — por eso los tableros que necesitan filtrado por permisos de campo <strong>deben leer lotes desde el endpoint normalizado</strong> y no confiar en el blob para eso.</p>
+<p><code>tablero_uso_suelo</code> ya migró a este modelo: carga lotes desde la API (filtrados), y solo guarda en el blob el plan (ambiente, actividades, tipo). Los tableros pendientes de migrar: <code>tablero_insumos_ot</code>, <code>ProgramaSiembra</code>, <code>Fitosanitarios</code>, <code>tablero_agro</code>, <code>tablero_evolucion</code>, <code>tablero_hacienda</code>, <code>tablero_labores</code>.</p>
+
+<h3>Filtrado por permisos de campo</h3>
+<pre><code>-- Ejemplo: lotes filtrados por campo_ids del permiso del usuario
+SELECT l.id, l.nombre, l.ha, l.campo_id
+FROM lotes l
+WHERE l.empresa_id = $empresaId
+  AND ($campoIds = '{}' OR l.campo_id = ANY($campoIds::text[]))</code></pre>
+<p><code>campo_ids = '{}'</code> significa acceso a todos los campos. Si tiene IDs específicos, se filtra.</p>
+
+<!-- security -->
+<h2 id="security">Seguridad</h2>
+<div class="tbl-wrap"><table>
+  <thead><tr><th>Medida</th><th>Implementación</th></tr></thead>
+  <tbody>
+    <tr><td>CORS</td><td>Variable <code>ALLOWED_ORIGINS</code> (coma-separada). Si está vacía, acepta todo (solo dev). Configurar en producción.</td></tr>
+    <tr><td>Rate limiting login</td><td>En memoria: 10 intentos / 15 min / IP. Se reinicia al reiniciar el proceso. Para producción considerar Redis.</td></tr>
+    <tr><td>API key en login</td><td>Bearer token compartido entre frontend y backend (<code>API_KEY</code>). Hardcodeado en <code>login.html</code>; actúa como primera barrera contra bots.</td></tr>
+    <tr><td>Tokens de sesión</td><td><code>crypto.randomBytes(32)</code> — 256 bits de entropía. TTL: 24 horas.</td></tr>
+    <tr><td>Password hashing</td><td><code>crypto.scrypt(password, salt_16bytes, 64)</code>. Formato: <code>salt_hex:key_hex</code>.</td></tr>
+    <tr><td>Errores internos</td><td>Todos los <code>catch</code> devuelven <code>"Error interno del servidor"</code> — sin stack traces al cliente.</td></tr>
+    <tr><td>Validación de input</td><td>Email máx 254 chars, password máx 200 chars, tipo string obligatorio. <code>empresaId</code> requerido en todos los endpoints de tablero.</td></tr>
+    <tr><td>Generación de IDs frontend</td><td><code>window.crypto.getRandomValues()</code> en lugar de <code>Math.random()</code>.</td></tr>
+  </tbody>
+</table></div>
+
+<p style="margin-top:40px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--border);padding-top:14px;">
+  PuntalAgro Tableros 3C · Documento de traspaso técnico · 2026-07-03
+</p>
+
+</div><!-- /content -->
+
+<script>
+// Sidebar active link on scroll
+(function(){
+  var links = document.querySelectorAll('.sidebar a');
+  var sections = [];
+  links.forEach(function(a){
+    var id = a.getAttribute('href').replace('#','');
+    var el = document.getElementById(id);
+    if(el) sections.push({id:id, el:el, a:a});
+  });
+  function onScroll(){
+    var scrollY = window.scrollY + 80;
+    var active = null;
+    for(var i=0;i<sections.length;i++){
+      if(sections[i].el.offsetTop <= scrollY) active = sections[i];
+    }
+    links.forEach(function(a){a.classList.remove('active');});
+    if(active) active.a.classList.add('active');
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+})();
+</script>
