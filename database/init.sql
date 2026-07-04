@@ -15,6 +15,7 @@ CREATE TABLE campanias (
     orden   INT  NOT NULL DEFAULT 0,
     activa  BOOLEAN NOT NULL DEFAULT false
 );
+CREATE UNIQUE INDEX uq_campanias_nombre ON campanias (trim(lower(nombre)));
 
 CREATE TABLE especies (
     id     TEXT PRIMARY KEY,
@@ -22,14 +23,15 @@ CREATE TABLE especies (
     sigla  TEXT,
     activo BOOLEAN NOT NULL DEFAULT true
 );
-CREATE UNIQUE INDEX uq_especies_nombre ON especies (lower(nombre));
+CREATE UNIQUE INDEX uq_especies_nombre ON especies (trim(lower(nombre)));
 
 CREATE TABLE unidades (
     id     TEXT PRIMARY KEY,
-    sigla  TEXT NOT NULL UNIQUE,
+    sigla  TEXT NOT NULL,
     nombre TEXT,
     activo BOOLEAN NOT NULL DEFAULT true
 );
+CREATE UNIQUE INDEX uq_unidades_sigla ON unidades (trim(lower(sigla)));
 
 -- sistema: HRAC (herbicidas), IRAC (insecticidas), FRAC (fungicidas)
 CREATE TABLE modos_accion (
@@ -39,12 +41,13 @@ CREATE TABLE modos_accion (
     descripcion TEXT,
     activo      BOOLEAN NOT NULL DEFAULT true
 );
-CREATE UNIQUE INDEX uq_modos_accion_sistema_codigo ON modos_accion (sistema, lower(codigo));
+CREATE UNIQUE INDEX uq_modos_accion_sistema_codigo ON modos_accion (sistema, trim(lower(codigo)));
 
 CREATE TABLE tipos_proveedor (
     id     TEXT PRIMARY KEY,
-    nombre TEXT NOT NULL UNIQUE
+    nombre TEXT NOT NULL
 );
+CREATE UNIQUE INDEX uq_tipos_proveedor_nombre ON tipos_proveedor (trim(lower(nombre)));
 
 -- Labores: lista global; el tipo LP/LC se define al emitir la OT
 CREATE TABLE labores (
@@ -53,7 +56,7 @@ CREATE TABLE labores (
     precio_ref NUMERIC(12,2) DEFAULT 0,
     activo     BOOLEAN NOT NULL DEFAULT true
 );
-CREATE UNIQUE INDEX uq_labores_nombre ON labores (lower(nombre));
+CREATE UNIQUE INDEX uq_labores_nombre ON labores (trim(lower(nombre)));
 
 CREATE TABLE herramientas (
     id          TEXT PRIMARY KEY,
@@ -83,7 +86,7 @@ CREATE TABLE clientes (
     direccion             TEXT,
     factura_centralizada  BOOLEAN NOT NULL DEFAULT true
 );
-CREATE UNIQUE INDEX uq_clientes_nombre ON clientes (lower(nombre));
+CREATE UNIQUE INDEX uq_clientes_nombre ON clientes (trim(lower(nombre)));
 
 CREATE TABLE empresas (
     id           TEXT PRIMARY KEY,
@@ -94,7 +97,7 @@ CREATE TABLE empresas (
     condicion_iva TEXT,
     activo       BOOLEAN NOT NULL DEFAULT true
 );
-CREATE UNIQUE INDEX uq_empresas_rs_cliente ON empresas (cliente_id, lower(razon_social));
+CREATE UNIQUE INDEX uq_empresas_rs_cliente ON empresas (cliente_id, trim(lower(razon_social)));
 
 CREATE TABLE campos (
     id         TEXT PRIMARY KEY,
@@ -105,7 +108,7 @@ CREATE TABLE campos (
     provincia  TEXT,
     ha_totales NUMERIC(10,2)
 );
-CREATE UNIQUE INDEX uq_campos_nombre_empresa ON campos (empresa_id, lower(nombre));
+CREATE UNIQUE INDEX uq_campos_nombre_empresa ON campos (empresa_id, trim(lower(nombre)));
 
 CREATE TABLE lotes (
     id         TEXT PRIMARY KEY,
@@ -114,6 +117,9 @@ CREATE TABLE lotes (
     nombre     TEXT,
     ha         NUMERIC(10,2)
 );
+-- Único por empresa (no por campo): así lo valida hoy el frontend
+-- (tablero_uso_suelo.html compara contra TODOS los lotes de la empresa).
+CREATE UNIQUE INDEX uq_lotes_nombre_empresa ON lotes (empresa_id, trim(lower(nombre)));
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECCIÓN 3: USUARIOS, SESIONES Y PERMISOS
@@ -122,13 +128,16 @@ CREATE TABLE lotes (
 CREATE TABLE usuarios (
     id            TEXT PRIMARY KEY,
     nombre        TEXT NOT NULL,
-    email         TEXT NOT NULL UNIQUE,
+    email         TEXT NOT NULL,
     password_hash TEXT,
     rol           TEXT NOT NULL DEFAULT 'usuario'
                       CHECK (rol IN ('admin_general','admin_cliente','usuario')),
     cliente_id    TEXT REFERENCES clientes(id),
     activo        BOOLEAN NOT NULL DEFAULT true
 );
+-- trim(lower(...)) porque /api/auth/login busca así (email.trim().toLowerCase());
+-- server.js normaliza el email antes de guardar para que siempre coincidan.
+CREATE UNIQUE INDEX uq_usuarios_email ON usuarios (trim(lower(email)));
 
 CREATE TABLE sesiones (
     token              TEXT PRIMARY KEY,
@@ -150,6 +159,23 @@ CREATE TABLE permisos (
     UNIQUE (usuario_id, empresa_id)
 );
 
+-- Locking pesimista de registros: evita que dos usuarios de la MISMA empresa
+-- pisen el mismo registro editando a la vez (concurrencia entre empresas
+-- distintas ya está resuelta por el aislamiento fila-por-fila del resto del
+-- esquema). 'tabla' es un identificador lógico del recurso (nombre de
+-- colección o namespace tipo 'plan_uso_suelo:lote'), no necesariamente el
+-- nombre físico de una tabla. No hace falta empresa_id en la clave: los ids
+-- se generan con uid() y ya son únicos entre empresas.
+CREATE TABLE registro_locks (
+    tabla         TEXT NOT NULL,
+    registro_id   TEXT NOT NULL,
+    empresa_id    TEXT REFERENCES empresas(id) ON DELETE CASCADE,
+    usuario_id    TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    bloqueado_en  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (tabla, registro_id)
+);
+CREATE INDEX idx_registro_locks_usuario ON registro_locks(usuario_id);
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECCIÓN 4: MAESTROS POR EMPRESA
 -- Almacenados como JSONB para flexibilidad y compatibilidad con pa-core.js.
@@ -165,7 +191,7 @@ CREATE TABLE terceros (
     PRIMARY KEY (id, empresa_id)
 );
 CREATE INDEX idx_terceros_empresa ON terceros(empresa_id);
-CREATE UNIQUE INDEX uq_terceros_nombre_empresa ON terceros (empresa_id, lower(datos->>'nombre'));
+CREATE UNIQUE INDEX uq_terceros_nombre_empresa ON terceros (empresa_id, trim(lower(datos->>'nombre')));
 
 -- Choferes (pertenecen a un tercero transportista)
 CREATE TABLE choferes (
@@ -177,7 +203,7 @@ CREATE TABLE choferes (
     FOREIGN KEY (tercero_id, empresa_id) REFERENCES terceros(id, empresa_id) ON DELETE CASCADE
 );
 CREATE INDEX idx_choferes_empresa ON choferes(empresa_id);
-CREATE UNIQUE INDEX uq_choferes_nombre_empresa ON choferes (empresa_id, lower(datos->>'nombre'));
+CREATE UNIQUE INDEX uq_choferes_nombre_empresa ON choferes (empresa_id, trim(lower(datos->>'nombre')));
 
 -- Depósitos (de insumos o acopio de granos)
 CREATE TABLE depositos (
@@ -187,7 +213,7 @@ CREATE TABLE depositos (
     PRIMARY KEY (id, empresa_id)
 );
 CREATE INDEX idx_depositos_empresa ON depositos(empresa_id);
-CREATE UNIQUE INDEX uq_depositos_nombre_empresa ON depositos (empresa_id, lower(datos->>'nombre'));
+CREATE UNIQUE INDEX uq_depositos_nombre_empresa ON depositos (empresa_id, trim(lower(datos->>'nombre')));
 
 -- Insumos (catálogo unificado agroquímicos + fertilizantes + otros)
 CREATE TABLE insumos (
@@ -197,7 +223,7 @@ CREATE TABLE insumos (
     PRIMARY KEY (id, empresa_id)
 );
 CREATE INDEX idx_insumos_empresa ON insumos(empresa_id);
-CREATE UNIQUE INDEX ux_insumos_empresa_nombre_tipo ON insumos (empresa_id, lower(datos->>'nombre'), (datos->>'tipo'));
+CREATE UNIQUE INDEX ux_insumos_empresa_nombre_tipo ON insumos (empresa_id, trim(lower(datos->>'nombre')), trim(datos->>'tipo'));
 
 -- Tipos de actividad (cultivos y usos del suelo, por empresa)
 CREATE TABLE tipos_actividad (
@@ -207,7 +233,7 @@ CREATE TABLE tipos_actividad (
     PRIMARY KEY (id, empresa_id)
 );
 CREATE INDEX idx_tipos_actividad_empresa ON tipos_actividad(empresa_id);
-CREATE UNIQUE INDEX uq_tipos_actividad_nombre_empresa ON tipos_actividad (empresa_id, lower(datos->>'nombre'));
+CREATE UNIQUE INDEX uq_tipos_actividad_nombre_empresa ON tipos_actividad (empresa_id, trim(lower(datos->>'nombre')));
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECCIÓN 5: DATOS OPERATIVOS

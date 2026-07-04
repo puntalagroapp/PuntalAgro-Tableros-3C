@@ -104,7 +104,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
       <div class="checklist" id="p-herramientas"></div>
     </div>
     <div class="row" style="margin-top:14px">
-      <button class="btn" onclick="asignarPermiso()">Guardar permiso</button>
+      <button class="btn" id="btn-asignar" onclick="asignarPermiso()">Guardar permiso</button>
       <button class="btn-sm" id="btn-borrar" style="display:none" onclick="borrarPermisoActual()">Quitar acceso a esta empresa</button>
       <span id="p-estado" style="font-size:11px;color:var(--muted)"></span>
     </div>
@@ -271,30 +271,54 @@ function cambiarUsuario(){
   precargar();
 }
 
+// Par usuario+empresa cuyo lock tiene tomado esta sesión (o null).
+var permisoBloqueado=null;
+function permisoTabla(usuarioId,empresaId){ return usuarioId+'_'+empresaId; }
+function liberarPermisoBloqueado(){
+  if(permisoBloqueado){
+    apiUnlock('permisos',permisoTabla(permisoBloqueado.usuarioId,permisoBloqueado.empresaId),function(){});
+    permisoBloqueado=null;
+  }
+}
+
 function precargar(){
   var usuarioId=document.getElementById('p-usuario').value;
   var empresaId=document.getElementById('p-empresa').value;
   var estado=document.getElementById('p-estado');
   var btnBorrar=document.getElementById('btn-borrar');
+  var btnAsignar=document.getElementById('btn-asignar');
   var todosCampos=document.getElementById('p-todos-campos');
-  if(!usuarioId||!empresaId){ renderChecklist([]); todosCampos.checked=true; renderCamposChecklist(empresaId,[],true); return; }
-  var p=findPerm(usuarioId,empresaId);
-  if(p){
-    document.getElementById('p-nivel').value=p.nivel;
-    renderChecklist(p.herramientas);
-    var especificos=p.campoIds && p.campoIds.length>0;
-    todosCampos.checked=!especificos;
-    renderCamposChecklist(empresaId,p.campoIds||[],!especificos);
-    estado.textContent='Editando permiso existente.';
-    btnBorrar.style.display='';
-  } else {
-    document.getElementById('p-nivel').value='ver';
-    renderChecklist([]);
-    todosCampos.checked=true;
-    renderCamposChecklist(empresaId,[],true);
-    estado.textContent='Nuevo permiso (sin acceso todavía).';
-    btnBorrar.style.display='none';
-  }
+  liberarPermisoBloqueado();
+  if(!usuarioId||!empresaId){ btnAsignar.disabled=false; renderChecklist([]); todosCampos.checked=true; renderCamposChecklist(empresaId,[],true); return; }
+  apiLock('permisos',permisoTabla(usuarioId,empresaId),empresaId,function(errLock){
+    // La selección pudo haber cambiado mientras esperábamos la respuesta.
+    if(usuarioId!==document.getElementById('p-usuario').value || empresaId!==document.getElementById('p-empresa').value) return;
+    if(errLock){
+      btnAsignar.disabled=true; btnBorrar.style.display='none';
+      estado.textContent=errLock.error||'No se pudo tomar este registro.';
+      renderChecklist([]); todosCampos.checked=true; renderCamposChecklist(empresaId,[],true);
+      return;
+    }
+    permisoBloqueado={usuarioId:usuarioId,empresaId:empresaId};
+    btnAsignar.disabled=false;
+    var p=findPerm(usuarioId,empresaId);
+    if(p){
+      document.getElementById('p-nivel').value=p.nivel;
+      renderChecklist(p.herramientas);
+      var especificos=p.campoIds && p.campoIds.length>0;
+      todosCampos.checked=!especificos;
+      renderCamposChecklist(empresaId,p.campoIds||[],!especificos);
+      estado.textContent='Editando permiso existente.';
+      btnBorrar.style.display='';
+    } else {
+      document.getElementById('p-nivel').value='ver';
+      renderChecklist([]);
+      todosCampos.checked=true;
+      renderCamposChecklist(empresaId,[],true);
+      estado.textContent='Nuevo permiso (sin acceso todavía).';
+      btnBorrar.style.display='none';
+    }
+  });
 }
 
 function crearUsuario(){
@@ -345,6 +369,7 @@ function asignarPermiso(){
     if(err){ alert(err.error||'Error al guardar permiso.'); return; }
     var txtCampos=campoIds.length?(campoIds.length+' campos'):'todos los campos';
     document.getElementById('p-estado').textContent='Permiso guardado ('+herr.length+' herramientas, '+txtCampos+', nivel '+nivel+').';
+    liberarPermisoBloqueado();
     recargarTodo(function(){ renderUsuarios(); precargar(); });
   });
 }
@@ -355,6 +380,7 @@ function borrarPermisoActual(){
   if(!confirm('¿Quitarle a este usuario todo el acceso a esta empresa?')) return;
   apiDelete('/api/permisos/'+encodeURIComponent(usuarioId)+'/'+encodeURIComponent(empresaId),function(err){
     if(err){ alert(err.error||'Error al quitar permiso.'); return; }
+    liberarPermisoBloqueado();
     recargarTodo(function(){ renderUsuarios(); precargar(); });
   });
 }

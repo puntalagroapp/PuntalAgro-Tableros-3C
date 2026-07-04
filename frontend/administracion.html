@@ -179,7 +179,33 @@ function renderTree(){
   }
 }
 
-function seleccionar(kind,id){ sel={kind:kind,id:id}; renderTree(); renderForm(); }
+// Lock del registro actualmente seleccionado (tabla física plural, distinta
+// del 'kind' singular que usa la navegación del árbol).
+var TABLA_POR_KIND={cliente:'clientes',empresa:'empresas',campo:'campos'};
+var bloqueoActual=null; // {kind,id} bloqueado por esta sesión
+function liberarBloqueoActual(){
+  if(bloqueoActual){ apiUnlock(TABLA_POR_KIND[bloqueoActual.kind],bloqueoActual.id,function(){}); bloqueoActual=null; }
+}
+function bloquearSeleccionActual(){
+  var kind=sel.kind, id=sel.id;
+  if(!id) return; // registro nuevo: nada que bloquear todavía
+  apiLock(TABLA_POR_KIND[kind],id,null,function(errLock){
+    if(sel.kind!==kind||sel.id!==id) return; // la selección cambió mientras esperábamos la respuesta
+    var btn=document.getElementById('btn-guardar');
+    if(errLock){
+      bloqueoActual=null;
+      if(btn) btn.disabled=true;
+      setMsg(errLock.error||'No se pudo tomar este registro.');
+      return;
+    }
+    bloqueoActual={kind:kind,id:id};
+  });
+}
+function seleccionar(kind,id){
+  liberarBloqueoActual();
+  sel={kind:kind,id:id}; renderTree(); renderForm();
+  bloquearSeleccionActual();
+}
 
 // ── Formularios ───────────────────────────────────────────────────────────────
 function field(label,elId,v,opcional,type){
@@ -215,7 +241,7 @@ function formCliente(){
       '<div class="fld full"><label class="chk"><input type="checkbox" id="c-central" '+((nuevo||c.facturaCentralizada)?'checked':'')+'> Facturación centralizada</label></div>'+
     '</div>'+
     '<div class="actions">'+
-      '<button class="btn" onclick="guardarCliente()">Guardar</button>'+
+      '<button class="btn" id="btn-guardar" onclick="guardarCliente()">Guardar</button>'+
       (nuevo?'':'<button class="btn-out" onclick="borrarCliente()">Eliminar cliente</button>')+
       (nuevo?'':'<button class="btn-link" onclick="irAUsuarios()">Asignar usuario admin →</button>')+
       '<span class="msg" id="msg"></span>'+
@@ -236,7 +262,7 @@ function formEmpresa(){
       '<div class="fld full">'+inner(field('Dirección','e-dir',e.direccion,true))+'</div>'+
     '</div>'+
     '<div class="actions">'+
-      '<button class="btn" onclick="guardarEmpresa(\''+esc(e.clienteId||'')+'\')">Guardar</button>'+
+      '<button class="btn" id="btn-guardar" onclick="guardarEmpresa(\''+esc(e.clienteId||'')+'\')">Guardar</button>'+
       (nuevo?'':'<button class="btn-out" onclick="borrarEmpresa()">Eliminar empresa</button>')+
       '<span class="msg" id="msg"></span>'+
     '</div>';
@@ -257,16 +283,16 @@ function formCampo(){
       field('Hectáreas totales','k-ha',k.haTotales,true,'number')+
     '</div>'+
     '<div class="actions">'+
-      '<button class="btn" onclick="guardarCampo(\''+esc(k.empresaId||'')+'\')">Guardar</button>'+
+      '<button class="btn" id="btn-guardar" onclick="guardarCampo(\''+esc(k.empresaId||'')+'\')">Guardar</button>'+
       (nuevo?'':'<button class="btn-out" onclick="borrarCampo()">Eliminar campo</button>')+
       '<span class="msg" id="msg"></span>'+
     '</div>';
 }
 
 // ── Nuevos ────────────────────────────────────────────────────────────────────
-function nuevoCliente(){ sel={kind:'cliente',id:null}; renderTree(); renderForm(); }
-function nuevaEmpresa(clienteId){ sel={kind:'empresa',id:null,_nuevoEnCliente:true,_clienteId:clienteId}; renderForm(); }
-function nuevoCampo(empresaId){ sel={kind:'campo',id:null,_nuevoEnEmpresa:true,_empresaId:empresaId}; renderForm(); }
+function nuevoCliente(){ liberarBloqueoActual(); sel={kind:'cliente',id:null}; renderTree(); renderForm(); }
+function nuevaEmpresa(clienteId){ liberarBloqueoActual(); sel={kind:'empresa',id:null,_nuevoEnCliente:true,_clienteId:clienteId}; renderForm(); }
+function nuevoCampo(empresaId){ liberarBloqueoActual(); sel={kind:'campo',id:null,_nuevoEnEmpresa:true,_empresaId:empresaId}; renderForm(); }
 
 // ── Guardar / Borrar ──────────────────────────────────────────────────────────
 function guardarCliente(){
@@ -285,7 +311,7 @@ function guardarCliente(){
     if(err){ setMsg(err.error||'Error al guardar.'); return; }
     var savedId=data.id||c.id;
     expand[savedId]=true; sel={kind:'cliente',id:savedId};
-    recargarTodo(function(){ renderTree(); renderForm(); setMsg('Guardado.'); });
+    recargarTodo(function(){ renderTree(); renderForm(); setMsg('Guardado.'); bloquearSeleccionActual(); });
   };
   if(isNew) apiPost('/api/clientes',c,cb);
   else apiPut('/api/clientes/'+encodeURIComponent(c.id),c,cb);
@@ -296,6 +322,7 @@ function borrarCliente(){
   var id=sel.id;
   apiDelete('/api/clientes/'+encodeURIComponent(id),function(err){
     if(err){ setMsg(err.error||'Error al eliminar.'); return; }
+    liberarBloqueoActual();
     sel={kind:null,id:null};
     recargarTodo(function(){ renderTree(); renderForm(); });
   });
@@ -314,7 +341,7 @@ function guardarEmpresa(clienteId){
     if(err){ setMsg(err.error||'Error al guardar.'); return; }
     var savedId=data.id||e.id;
     expand[clienteId]=true; expand[savedId]=true; sel={kind:'empresa',id:savedId};
-    recargarTodo(function(){ renderTree(); renderForm(); setMsg('Guardado.'); });
+    recargarTodo(function(){ renderTree(); renderForm(); setMsg('Guardado.'); bloquearSeleccionActual(); });
   };
   if(isNew) apiPost('/api/empresas',e,cb);
   else apiPut('/api/empresas/'+encodeURIComponent(e.id),e,cb);
@@ -325,6 +352,7 @@ function borrarEmpresa(){
   var id=sel.id;
   apiDelete('/api/empresas/'+encodeURIComponent(id),function(err){
     if(err){ setMsg(err.error||'Error al eliminar.'); return; }
+    liberarBloqueoActual();
     sel={kind:null,id:null};
     recargarTodo(function(){ renderTree(); renderForm(); });
   });
@@ -343,7 +371,7 @@ function guardarCampo(empresaId){
     if(err){ setMsg(err.error||'Error al guardar.'); return; }
     var savedId=data.id||k.id;
     expand[empresaId]=true; sel={kind:'campo',id:savedId};
-    recargarTodo(function(){ renderTree(); renderForm(); setMsg('Guardado.'); });
+    recargarTodo(function(){ renderTree(); renderForm(); setMsg('Guardado.'); bloquearSeleccionActual(); });
   };
   if(isNew) apiPost('/api/campos',k,cb);
   else apiPut('/api/campos/'+encodeURIComponent(k.id),k,cb);
@@ -354,6 +382,7 @@ function borrarCampo(){
   var id=sel.id;
   apiDelete('/api/campos/'+encodeURIComponent(id),function(err){
     if(err){ setMsg(err.error||'Error al eliminar.'); return; }
+    liberarBloqueoActual();
     sel={kind:null,id:null};
     recargarTodo(function(){ renderTree(); renderForm(); });
   });
