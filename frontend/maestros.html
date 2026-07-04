@@ -644,16 +644,19 @@ function abrirModal(){
 }
 function editar(id){
   var t=findById(_terceros,id); if(!t)return;
-  editId=id; document.getElementById('modal-title').textContent='Editar tercero';
-  document.getElementById('t-nombre').value=t.nombre||''; document.getElementById('t-cuit').value=t.cuit||'';
-  document.getElementById('t-tel').value=t.telefono||''; document.getElementById('t-email').value=t.email||'';
-  document.getElementById('t-dir').value=t.direccion||'';
-  document.getElementById('t-prov').checked=!!t.esProveedor; document.getElementById('t-cli').checked=!!t.esCliente;
-  renderTiposOpts(t.tiposProveedor||[]); toggleTipos();
-  document.getElementById('btn-del').style.display=''; msgSet('msg','');
-  document.getElementById('overlay').className='overlay open';
+  apiLock('terceros',id,empresaId,function(errLock){
+    if(errLock){ alert(errLock.error||'No se pudo tomar el registro.'); return; }
+    editId=id; document.getElementById('modal-title').textContent='Editar tercero';
+    document.getElementById('t-nombre').value=t.nombre||''; document.getElementById('t-cuit').value=t.cuit||'';
+    document.getElementById('t-tel').value=t.telefono||''; document.getElementById('t-email').value=t.email||'';
+    document.getElementById('t-dir').value=t.direccion||'';
+    document.getElementById('t-prov').checked=!!t.esProveedor; document.getElementById('t-cli').checked=!!t.esCliente;
+    renderTiposOpts(t.tiposProveedor||[]); toggleTipos();
+    document.getElementById('btn-del').style.display=''; msgSet('msg','');
+    document.getElementById('overlay').className='overlay open';
+  });
 }
-function cerrarModal(){ document.getElementById('overlay').className='overlay'; }
+function cerrarModal(){ if(editId) apiUnlock('terceros',editId,function(){}); document.getElementById('overlay').className='overlay'; }
 function guardar(){
   var nombre=document.getElementById('t-nombre').value.trim();
   if(!nombre){msgSet('msg','Falta el nombre.');return;}
@@ -741,13 +744,16 @@ function abrirModalChofer(){
 }
 function editarChofer(id){
   var c=findById(_choferes,id); if(!c)return;
-  editChofer=id; document.getElementById('modal-chofer-title').textContent='Editar chofer';
-  document.getElementById('c-nombre').value=c.nombre||''; document.getElementById('c-dni').value=c.dni||'';
-  document.getElementById('c-lic').value=c.licencia||''; cargarSelectTransportistas(c.terceroId);
-  document.getElementById('btn-del-chofer').style.display=''; msgSet('msg-chofer','');
-  document.getElementById('overlay-chofer').className='overlay open';
+  apiLock('choferes',id,empresaId,function(errLock){
+    if(errLock){ alert(errLock.error||'No se pudo tomar el registro.'); return; }
+    editChofer=id; document.getElementById('modal-chofer-title').textContent='Editar chofer';
+    document.getElementById('c-nombre').value=c.nombre||''; document.getElementById('c-dni').value=c.dni||'';
+    document.getElementById('c-lic').value=c.licencia||''; cargarSelectTransportistas(c.terceroId);
+    document.getElementById('btn-del-chofer').style.display=''; msgSet('msg-chofer','');
+    document.getElementById('overlay-chofer').className='overlay open';
+  });
 }
-function cerrarModalChofer(){ document.getElementById('overlay-chofer').className='overlay'; }
+function cerrarModalChofer(){ if(editChofer) apiUnlock('choferes',editChofer,function(){}); document.getElementById('overlay-chofer').className='overlay'; }
 function guardarChofer(){
   var nombre=document.getElementById('c-nombre').value.trim();
   if(!nombre){msgSet('msg-chofer','Falta el nombre.');return;}
@@ -824,13 +830,16 @@ function abrirModalDep(){
 }
 function editarDep(id){
   var d=findById(_depositos,id); if(!d)return;
-  editDep=id; document.getElementById('modal-dep-title').textContent='Editar depósito';
-  document.getElementById('d-nombre').value=d.nombre||''; poblarSelectCampos('d-campo',d.campoId||null);
-  document.getElementById('d-clase').value=d.clase||'insumos'; poblarSelectEspecie('d-especie',d.especieId||''); toggleClaseDep();
-  document.getElementById('btn-del-dep').style.display=''; msgSet('msg-dep','');
-  document.getElementById('overlay-dep').className='overlay open';
+  apiLock('depositos',id,empresaId,function(errLock){
+    if(errLock){ alert(errLock.error||'No se pudo tomar el registro.'); return; }
+    editDep=id; document.getElementById('modal-dep-title').textContent='Editar depósito';
+    document.getElementById('d-nombre').value=d.nombre||''; poblarSelectCampos('d-campo',d.campoId||null);
+    document.getElementById('d-clase').value=d.clase||'insumos'; poblarSelectEspecie('d-especie',d.especieId||''); toggleClaseDep();
+    document.getElementById('btn-del-dep').style.display=''; msgSet('msg-dep','');
+    document.getElementById('overlay-dep').className='overlay open';
+  });
 }
-function cerrarModalDep(){ document.getElementById('overlay-dep').className='overlay'; }
+function cerrarModalDep(){ if(editDep) apiUnlock('depositos',editDep,function(){}); document.getElementById('overlay-dep').className='overlay'; }
 function guardarDep(){
   var n=document.getElementById('d-nombre').value.trim();
   if(!n){msgSet('msg-dep','Falta el nombre.');return;}
@@ -882,12 +891,15 @@ function abrirModalLab(){
 }
 function editarLab(id){
   var x=findById(_labores,id); if(!x)return;
-  editLab=id; document.getElementById('modal-lab-title').textContent='Editar labor';
-  document.getElementById('l-nombre').value=x.nombre||''; document.getElementById('l-precio').value=x.precioRef||'';
-  document.getElementById('btn-del-lab').style.display=''; msgSet('msg-lab','');
-  document.getElementById('overlay-lab').className='overlay open';
+  apiLock('labores',id,null,function(errLock){
+    if(errLock){ alert(errLock.error||'No se pudo tomar el registro.'); return; }
+    editLab=id; document.getElementById('modal-lab-title').textContent='Editar labor';
+    document.getElementById('l-nombre').value=x.nombre||''; document.getElementById('l-precio').value=x.precioRef||'';
+    document.getElementById('btn-del-lab').style.display=''; msgSet('msg-lab','');
+    document.getElementById('overlay-lab').className='overlay open';
+  });
 }
-function cerrarModalLab(){ document.getElementById('overlay-lab').className='overlay'; }
+function cerrarModalLab(){ if(editLab) apiUnlock('labores',editLab,function(){}); document.getElementById('overlay-lab').className='overlay'; }
 function guardarLab(){
   var n=document.getElementById('l-nombre').value.trim();
   if(!n){msgSet('msg-lab','Falta el nombre.');return;}
@@ -941,13 +953,16 @@ function abrirModalCul(){
 }
 function editarCul(id){
   var x=findById(_cultivos,id); if(!x)return;
-  editCul=id; document.getElementById('modal-cul-title').textContent='Editar cultivo / uso';
-  document.getElementById('cu-nombre').value=x.nombre||''; document.getElementById('cu-sigla').value=x.sigla||'';
-  document.getElementById('cu-activ').value=x.actividad||''; poblarSelectEspecie('cu-especie',x.especieId||''); toggleEspecieCul();
-  document.getElementById('btn-del-cul').style.display=''; msgSet('msg-cul','');
-  document.getElementById('overlay-cul').className='overlay open';
+  apiLock('tipos-actividad',id,empresaId,function(errLock){
+    if(errLock){ alert(errLock.error||'No se pudo tomar el registro.'); return; }
+    editCul=id; document.getElementById('modal-cul-title').textContent='Editar cultivo / uso';
+    document.getElementById('cu-nombre').value=x.nombre||''; document.getElementById('cu-sigla').value=x.sigla||'';
+    document.getElementById('cu-activ').value=x.actividad||''; poblarSelectEspecie('cu-especie',x.especieId||''); toggleEspecieCul();
+    document.getElementById('btn-del-cul').style.display=''; msgSet('msg-cul','');
+    document.getElementById('overlay-cul').className='overlay open';
+  });
 }
-function cerrarModalCul(){ document.getElementById('overlay-cul').className='overlay'; }
+function cerrarModalCul(){ if(editCul) apiUnlock('tipos-actividad',editCul,function(){}); document.getElementById('overlay-cul').className='overlay'; }
 function guardarCul(){
   var n=document.getElementById('cu-nombre').value.trim();
   if(!n){msgSet('msg-cul','Falta el nombre.');return;}
@@ -995,12 +1010,15 @@ function abrirModalEsp(){
 }
 function editarEsp(id){
   var x=findById(_especies,id); if(!x)return;
-  editEsp=id; document.getElementById('modal-esp-title').textContent='Editar especie';
-  document.getElementById('e-nombre').value=x.nombre||''; document.getElementById('e-sigla').value=x.sigla||'';
-  document.getElementById('btn-del-esp').style.display=''; msgSet('msg-esp','');
-  document.getElementById('overlay-esp').className='overlay open';
+  apiLock('especies',id,null,function(errLock){
+    if(errLock){ alert(errLock.error||'No se pudo tomar el registro.'); return; }
+    editEsp=id; document.getElementById('modal-esp-title').textContent='Editar especie';
+    document.getElementById('e-nombre').value=x.nombre||''; document.getElementById('e-sigla').value=x.sigla||'';
+    document.getElementById('btn-del-esp').style.display=''; msgSet('msg-esp','');
+    document.getElementById('overlay-esp').className='overlay open';
+  });
 }
-function cerrarModalEsp(){ document.getElementById('overlay-esp').className='overlay'; }
+function cerrarModalEsp(){ if(editEsp) apiUnlock('especies',editEsp,function(){}); document.getElementById('overlay-esp').className='overlay'; }
 function guardarEsp(){
   var n=document.getElementById('e-nombre').value.trim();
   if(!n){msgSet('msg-esp','Falta el nombre.');return;}
@@ -1044,12 +1062,15 @@ function abrirModalUni(){
 }
 function editarUni(id){
   var x=findById(_unidades,id); if(!x)return;
-  editUni=id; document.getElementById('modal-uni-title').textContent='Editar unidad';
-  document.getElementById('u-sigla').value=x.sigla||''; document.getElementById('u-nombre').value=x.nombre||'';
-  document.getElementById('btn-del-uni').style.display=''; msgSet('msg-uni','');
-  document.getElementById('overlay-uni').className='overlay open';
+  apiLock('unidades',id,null,function(errLock){
+    if(errLock){ alert(errLock.error||'No se pudo tomar el registro.'); return; }
+    editUni=id; document.getElementById('modal-uni-title').textContent='Editar unidad';
+    document.getElementById('u-sigla').value=x.sigla||''; document.getElementById('u-nombre').value=x.nombre||'';
+    document.getElementById('btn-del-uni').style.display=''; msgSet('msg-uni','');
+    document.getElementById('overlay-uni').className='overlay open';
+  });
 }
-function cerrarModalUni(){ document.getElementById('overlay-uni').className='overlay'; }
+function cerrarModalUni(){ if(editUni) apiUnlock('unidades',editUni,function(){}); document.getElementById('overlay-uni').className='overlay'; }
 function guardarUni(){
   var s=document.getElementById('u-sigla').value.trim();
   if(!s){msgSet('msg-uni','Falta la sigla.');return;}
@@ -1153,19 +1174,22 @@ function abrirModalIns(){
 }
 function editarIns(id){
   var x=findById(_insumos,id); if(!x)return;
-  editIns=id; document.getElementById('modal-ins-title').textContent='Editar insumo';
-  document.getElementById('i-nombre').value=x.nombre||''; document.getElementById('i-tipo').value=x.tipo||'Herbicida';
-  poblarSelectUnidad(x.unidadId||''); poblarSelectModo(sistemaDeTipo(x.tipo),x.modoAccionId||'');
-  document.getElementById('i-eiq').value=(x.eiq!=null?x.eiq:'');
-  document.getElementById('i-conc').value=(x.concentracion!=null?x.concentracion:''); document.getElementById('i-concuni').value=x.concUnidad||'';
-  var n=x.nutrientes||{};
-  document.getElementById('i-n').value=(n.n!=null?n.n:''); document.getElementById('i-p').value=(n.p!=null?n.p:'');
-  document.getElementById('i-k').value=(n.k!=null?n.k:''); document.getElementById('i-s').value=(n.s!=null?n.s:'');
-  setBanda(x.bandaTox||''); toggleBloqueIns();
-  document.getElementById('btn-del-ins').style.display=''; msgSet('msg-ins','');
-  document.getElementById('overlay-ins').className='overlay open';
+  apiLock('insumos',id,empresaId,function(errLock){
+    if(errLock){ alert(errLock.error||'No se pudo tomar el registro.'); return; }
+    editIns=id; document.getElementById('modal-ins-title').textContent='Editar insumo';
+    document.getElementById('i-nombre').value=x.nombre||''; document.getElementById('i-tipo').value=x.tipo||'Herbicida';
+    poblarSelectUnidad(x.unidadId||''); poblarSelectModo(sistemaDeTipo(x.tipo),x.modoAccionId||'');
+    document.getElementById('i-eiq').value=(x.eiq!=null?x.eiq:'');
+    document.getElementById('i-conc').value=(x.concentracion!=null?x.concentracion:''); document.getElementById('i-concuni').value=x.concUnidad||'';
+    var n=x.nutrientes||{};
+    document.getElementById('i-n').value=(n.n!=null?n.n:''); document.getElementById('i-p').value=(n.p!=null?n.p:'');
+    document.getElementById('i-k').value=(n.k!=null?n.k:''); document.getElementById('i-s').value=(n.s!=null?n.s:'');
+    setBanda(x.bandaTox||''); toggleBloqueIns();
+    document.getElementById('btn-del-ins').style.display=''; msgSet('msg-ins','');
+    document.getElementById('overlay-ins').className='overlay open';
+  });
 }
-function cerrarModalIns(){ document.getElementById('overlay-ins').className='overlay'; }
+function cerrarModalIns(){ if(editIns) apiUnlock('insumos',editIns,function(){}); document.getElementById('overlay-ins').className='overlay'; }
 function guardarIns(){
   var n=document.getElementById('i-nombre').value.trim();
   if(!n){msgSet('msg-ins','Falta el nombre.');return;}
@@ -1228,13 +1252,16 @@ function abrirModalMoa(){
 }
 function editarMoa(id){
   var x=findById(_modosAcc,id); if(!x)return;
-  editMoa=id; document.getElementById('modal-moa-title').textContent='Editar modo de acción';
-  document.getElementById('m-sistema').value=x.sistema||'HRAC';
-  document.getElementById('m-codigo').value=x.codigo||''; document.getElementById('m-desc').value=x.descripcion||'';
-  document.getElementById('btn-del-moa').style.display=''; msgSet('msg-moa','');
-  document.getElementById('overlay-moa').className='overlay open';
+  apiLock('modos-accion',id,null,function(errLock){
+    if(errLock){ alert(errLock.error||'No se pudo tomar el registro.'); return; }
+    editMoa=id; document.getElementById('modal-moa-title').textContent='Editar modo de acción';
+    document.getElementById('m-sistema').value=x.sistema||'HRAC';
+    document.getElementById('m-codigo').value=x.codigo||''; document.getElementById('m-desc').value=x.descripcion||'';
+    document.getElementById('btn-del-moa').style.display=''; msgSet('msg-moa','');
+    document.getElementById('overlay-moa').className='overlay open';
+  });
 }
-function cerrarModalMoa(){ document.getElementById('overlay-moa').className='overlay'; }
+function cerrarModalMoa(){ if(editMoa) apiUnlock('modos-accion',editMoa,function(){}); document.getElementById('overlay-moa').className='overlay'; }
 function guardarMoa(){
   var c=document.getElementById('m-codigo').value.trim(); var d=document.getElementById('m-desc').value.trim();
   if(!c){msgSet('msg-moa','Falta el código.');return;} if(!d){msgSet('msg-moa','Falta la descripción.');return;}

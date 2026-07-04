@@ -92,8 +92,11 @@ const UNIQUE_ERROR_MESSAGES = {
   'uq_depositos_nombre_empresa':       'Ya existe un depósito con ese nombre en esta empresa',
   'uq_tipos_actividad_nombre_empresa': 'Ya existe un cultivo/uso con ese nombre en esta empresa',
   'ux_insumos_empresa_nombre_tipo':    'Ya existe un insumo con ese nombre y tipo para esta empresa',
-  'usuarios_email_key':                'El email ya está registrado por otro usuario',
-  'unidades_sigla_key':                'Ya existe una unidad de medida con esa sigla',
+  'uq_usuarios_email':                 'El email ya está registrado por otro usuario',
+  'uq_unidades_sigla':                 'Ya existe una unidad de medida con esa sigla',
+  'uq_tipos_proveedor_nombre':         'Ya existe un tipo de proveedor con ese nombre',
+  'uq_lotes_nombre_empresa':           'Ya existe un lote con ese nombre en esta empresa',
+  'uq_campanias_nombre':               'Ya existe una campaña con ese nombre',
 };
 function uniqueViolation(err) {
   if (err.code !== '23505') return null;
@@ -146,6 +149,30 @@ async function obtenerPermiso(req, empresaId) {
     [sesion.id, empresaId]
   );
   return r.rows[0] || null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOCKING PESIMISTA DE REGISTROS
+// Evita que dos usuarios de la MISMA empresa pisen el mismo registro editando
+// a la vez. 'tabla' es un identificador lógico (nombre de colección, o
+// namespace tipo 'plan_uso_suelo:lote' para sub-recursos dentro de un blob).
+// Un lock vence solo por timeout (no hay heartbeat); se acepta ese trade-off.
+// ─────────────────────────────────────────────────────────────────────────────
+const LOCK_TIMEOUT_MINUTES = 10;
+
+// Devuelve { usuarioId, usuarioNombre } si el registro está bloqueado por OTRO
+// usuario de forma vigente, o null si está libre / vencido / es el dueño.
+async function verificarLockPropio(tabla, id, sesion) {
+  const r = await pool.query(
+    `SELECT rl.usuario_id AS "usuarioId", u.nombre AS "usuarioNombre"
+       FROM registro_locks rl JOIN usuarios u ON u.id = rl.usuario_id
+      WHERE rl.tabla = $1 AND rl.registro_id = $2
+        AND rl.bloqueado_en > NOW() - ($3 || ' minutes')::interval`,
+    [tabla, id, String(LOCK_TIMEOUT_MINUTES)]
+  );
+  if (!r.rows.length) return null;
+  if (r.rows[0].usuarioId === sesion.id) return null;
+  return r.rows[0];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -465,7 +492,14 @@ app.post('/api/auth/logout', async (req, res) => {
   const auth  = req.headers['authorization'] || '';
   const token = auth.replace(/^Bearer\s+/i, '').trim();
   if (token) {
-    await pool.query('DELETE FROM sesiones WHERE token = $1', [token]).catch(() => {});
+    try {
+      const s = await pool.query('SELECT usuario_id FROM sesiones WHERE token = $1', [token]);
+      await pool.query('DELETE FROM sesiones WHERE token = $1', [token]);
+      // Libera todos los locks de registros que tuviera tomados este usuario.
+      if (s.rows.length) {
+        await pool.query('DELETE FROM registro_locks WHERE usuario_id = $1', [s.rows[0].usuario_id]);
+      }
+    } catch (e) {}
   }
   res.json({ status: 'ok' });
 });
@@ -569,6 +603,8 @@ app.post('/api/maestros/:coleccion', async (req, res) => {
 
     if (cfg.porEmpresa) {
       if (!obj.empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+      const permiso = await obtenerPermiso(req, obj.empresaId);
+      if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
       if (cfg.tabla === 'lotes') {
         await pool.query(
           `INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha)
@@ -631,6 +667,13 @@ app.put('/api/maestros/:coleccion/:id', async (req, res) => {
 
     if (cfg.porEmpresa) {
       if (!obj.empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+      const permiso = await obtenerPermiso(req, obj.empresaId);
+      if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    }
+    const bloqueo = await verificarLockPropio(req.params.coleccion, req.params.id, sesion);
+    if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
+
+    if (cfg.porEmpresa) {
       if (cfg.tabla === 'lotes') {
         await pool.query(
           `UPDATE lotes SET campo_id=$2, nombre=$3, ha=$4 WHERE id=$1`,
@@ -686,6 +729,12 @@ app.delete('/api/maestros/:coleccion/:id', async (req, res) => {
 
     const empresaId = req.query.empresaId;
     if (cfg.porEmpresa && !empresaId) return res.status(400).json({ error: 'Falta empresaId en query' });
+    if (cfg.porEmpresa) {
+      const permiso = await obtenerPermiso(req, empresaId);
+      if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    }
+    const bloqueo = await verificarLockPropio(req.params.coleccion, req.params.id, sesion);
+    if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
 
     if (cfg.tabla === 'lotes') {
       await pool.query('DELETE FROM lotes WHERE id = $1', [req.params.id]);
@@ -697,6 +746,61 @@ app.delete('/api/maestros/:coleccion/:id', async (req, res) => {
     res.json({ status: 'ok' });
   } catch (err) {
     console.error(`DELETE /api/maestros/${req.params.coleccion}/${req.params.id}:`, err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST   /api/locks/:tabla/:id   — tomar (o renovar) el lock de un registro
+// DELETE /api/locks/:tabla/:id   — liberar el lock (solo el dueño; idempotente)
+// ─────────────────────────────────────────────────────────────────────────────
+app.post('/api/locks/:tabla/:id', async (req, res) => {
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    const { tabla, id } = req.params;
+    const empresaId = (req.body && req.body.empresaId) || null;
+    if (empresaId) {
+      const permiso = await obtenerPermiso(req, empresaId);
+      if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    }
+    const r = await pool.query(
+      `INSERT INTO registro_locks (tabla, registro_id, empresa_id, usuario_id, bloqueado_en)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (tabla, registro_id) DO UPDATE
+         SET usuario_id = $4, empresa_id = $3, bloqueado_en = NOW()
+         WHERE registro_locks.usuario_id = $4
+            OR registro_locks.bloqueado_en < NOW() - ($5 || ' minutes')::interval
+       RETURNING usuario_id`,
+      [tabla, id, empresaId, sesion.id, String(LOCK_TIMEOUT_MINUTES)]
+    );
+    if (r.rows.length) return res.json({ status: 'ok' });
+    // No se pudo tomar: está en manos de otro usuario y sigue vigente.
+    const info = await pool.query(
+      `SELECT u.nombre AS "nombre", rl.bloqueado_en AS "desde"
+         FROM registro_locks rl JOIN usuarios u ON u.id = rl.usuario_id
+        WHERE rl.tabla = $1 AND rl.registro_id = $2`,
+      [tabla, id]
+    );
+    const b = info.rows[0] || {};
+    res.status(409).json({ error: 'Lo está editando ' + (b.nombre || 'otro usuario'), bloqueadoPor: b });
+  } catch (err) {
+    console.error('/api/locks POST error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.delete('/api/locks/:tabla/:id', async (req, res) => {
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    await pool.query(
+      'DELETE FROM registro_locks WHERE tabla = $1 AND registro_id = $2 AND usuario_id = $3',
+      [req.params.tabla, req.params.id, sesion.id]
+    );
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('/api/locks DELETE error:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
@@ -726,7 +830,8 @@ app.post('/api/usuarios', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
-  const { id, nombre, email, password, rol, clienteId, activo } = req.body || {};
+  const { id, nombre, password, rol, clienteId, activo } = req.body || {};
+  const email = (req.body && req.body.email) ? req.body.email.trim().toLowerCase() : req.body.email;
   if (!id || !nombre || !email) return res.status(400).json({ error: 'Faltan campos obligatorios (id, nombre, email)' });
   try {
     const hash = password ? await hashearPassword(password) : null;
@@ -737,7 +842,7 @@ app.post('/api/usuarios', async (req, res) => {
          password_hash = CASE WHEN $7 IS NULL THEN usuarios.password_hash ELSE $7 END`,
       [id, nombre, email, rol || 'usuario', clienteId || null, activo !== false, hash]
     );
-    res.status(201).json(req.body);
+    res.status(201).json({ ...req.body, email });
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
@@ -749,7 +854,10 @@ app.put('/api/usuarios/:id', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
-  const { nombre, email, password, rol, clienteId, activo } = req.body || {};
+  const bloqueo = await verificarLockPropio('usuarios', req.params.id, sesion);
+  if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
+  const { nombre, password, rol, clienteId, activo } = req.body || {};
+  const email = (req.body && req.body.email) ? req.body.email.trim().toLowerCase() : req.body.email;
   try {
     const hash = password ? await hashearPassword(password) : null;
     await pool.query(
@@ -758,7 +866,7 @@ app.put('/api/usuarios/:id', async (req, res) => {
        WHERE id=$1`,
       [req.params.id, nombre, email, rol || 'usuario', clienteId || null, activo !== false, hash]
     );
-    res.json({ ...req.body, id: req.params.id });
+    res.json({ ...req.body, id: req.params.id, email });
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
@@ -770,6 +878,8 @@ app.delete('/api/usuarios/:id', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
+  const bloqueo = await verificarLockPropio('usuarios', req.params.id, sesion);
+  if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
   try {
     await pool.query('DELETE FROM permisos WHERE usuario_id = $1', [req.params.id]);
     await pool.query('DELETE FROM usuarios WHERE id = $1', [req.params.id]);
@@ -810,6 +920,8 @@ app.post('/api/permisos', async (req, res) => {
   if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
   const { usuarioId, empresaId, campoIds, herramientas, nivel } = req.body || {};
   if (!usuarioId || !empresaId) return res.status(400).json({ error: 'Faltan usuarioId o empresaId' });
+  const bloqueo = await verificarLockPropio('permisos', usuarioId + '_' + empresaId, sesion);
+  if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
   try {
     await pool.query(
       `INSERT INTO permisos (usuario_id, empresa_id, campo_ids, herramientas, nivel)
@@ -826,6 +938,8 @@ app.delete('/api/permisos/:usuarioId/:empresaId', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
+  const bloqueo = await verificarLockPropio('permisos', req.params.usuarioId + '_' + req.params.empresaId, sesion);
+  if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
   try {
     await pool.query(
       'DELETE FROM permisos WHERE usuario_id = $1 AND empresa_id = $2',
@@ -968,6 +1082,8 @@ app.put('/api/clientes/:id', async (req, res) => {
   // admin_cliente solo puede editar su propio cliente
   if (sesion.rol === 'admin_cliente' && sesion.cliente_id !== req.params.id)
     return res.status(403).json({ error: 'Sin permiso sobre este cliente' });
+  const bloqueoC = await verificarLockPropio('clientes', req.params.id, sesion);
+  if (bloqueoC) return res.status(409).json({ error: 'Lo está editando ' + bloqueoC.usuarioNombre });
   const c = { ...req.body, id: req.params.id };
   try {
     await pool.query(
@@ -990,6 +1106,8 @@ app.delete('/api/clientes/:id', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   if (sesion.rol !== 'admin_general') return res.status(403).json({ error: 'Sin permiso' });
+  const bloqueo = await verificarLockPropio('clientes', req.params.id, sesion);
+  if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
   try {
     await pool.query('DELETE FROM clientes WHERE id=$1', [req.params.id]);
     res.json({ status: 'ok' });
@@ -1049,6 +1167,8 @@ app.put('/api/empresas/:id', async (req, res) => {
       const cid = await clienteDeEmpresa(req.params.id);
       if (cid !== sesion.cliente_id) return res.status(403).json({ error: 'Sin permiso sobre esa empresa' });
     }
+    const bloqueo = await verificarLockPropio('empresas', req.params.id, sesion);
+    if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
     await pool.query(
       `UPDATE empresas SET razon_social=$2, cuit=$3, condicion_iva=$4, direccion=$5, activo=$6
        WHERE id=$1`,
@@ -1071,6 +1191,8 @@ app.delete('/api/empresas/:id', async (req, res) => {
       const cid = await clienteDeEmpresa(req.params.id);
       if (cid !== sesion.cliente_id) return res.status(403).json({ error: 'Sin permiso sobre esa empresa' });
     }
+    const bloqueo = await verificarLockPropio('empresas', req.params.id, sesion);
+    if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
     await pool.query('DELETE FROM empresas WHERE id=$1', [req.params.id]);
     res.json({ status: 'ok' });
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
@@ -1142,6 +1264,8 @@ app.put('/api/campos/:id', async (req, res) => {
       const cid = await clienteDeCampo(req.params.id);
       if (cid !== sesion.cliente_id) return res.status(403).json({ error: 'Sin permiso sobre ese campo' });
     }
+    const bloqueo = await verificarLockPropio('campos', req.params.id, sesion);
+    if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
     await pool.query(
       `UPDATE campos SET nombre=$2, localidad=$3, partido=$4, provincia=$5, ha_totales=$6
        WHERE id=$1`,
@@ -1164,6 +1288,8 @@ app.delete('/api/campos/:id', async (req, res) => {
       const cid = await clienteDeCampo(req.params.id);
       if (cid !== sesion.cliente_id) return res.status(403).json({ error: 'Sin permiso sobre ese campo' });
     }
+    const bloqueo = await verificarLockPropio('campos', req.params.id, sesion);
+    if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
     await pool.query('DELETE FROM campos WHERE id=$1', [req.params.id]);
     res.json({ status: 'ok' });
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }

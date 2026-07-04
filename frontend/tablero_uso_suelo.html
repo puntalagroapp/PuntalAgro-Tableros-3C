@@ -772,6 +772,18 @@ function _esModoApi() {
   return typeof PA !== 'undefined' && PA.esModoApi && PA.esModoApi();
 }
 
+// Locking pesimista de registros (solo aplica en modo API; en demo local no
+// hay otros usuarios con quien pisarse). 'tabla' es un namespace lógico
+// ('plan_uso_suelo:lote' / 'plan_uso_suelo:ambiente'), no una tabla física.
+function lockRegistro(tabla, id, cb) {
+  if (!_esModoApi()) { cb(null); return; }
+  apiLock(tabla, id, CTX ? CTX.empresaActivaId : null, cb);
+}
+function unlockRegistro(tabla, id) {
+  if (!_esModoApi()) return;
+  apiUnlock(tabla, id, function () {});
+}
+
 function clavePlan() {
   return 'plan_uso_suelo_' + (CTX ? CTX.empresaActivaId : 'sin_empresa');
 }
@@ -1754,24 +1766,31 @@ var maEstado = { loteName: null, acts: [] };
 function openCeldaActividades(loteName){
   var l = LOTES.find(function(x){return x.l===loteName;});
   if(!l) return;
-  // Copia temporal de las actividades de la campaña activa
-  var orig = actsDe(l, state.campania);
-  maEstado = { loteName: loteName, acts: [] };
-  for(var i=0;i<orig.length;i++){
-    maEstado.acts.push({ c: orig[i].c, ha: orig[i].ha, seg: !!orig[i].seg });
-  }
-  document.getElementById('modalActsTitle').textContent = l.l + ' · Campaña ' + state.campania;
-  document.getElementById('modalActsSub').textContent = fInt(l.s||0) + ' ha · ambiente ' + (l.a || '—');
-  document.getElementById('maSupLote').textContent = fInt(l.s||0);
-  // Poblar el select de cultivo/uso desde el padrón
-  poblarSelectCultivos('maNuevoCult');
-  document.getElementById('maNuevoHa').value = (l.s!=null ? l.s : '');
-  document.getElementById('maNuevoSeg').checked = false;
-  document.getElementById('modalActsWarn').style.display = 'none';
-  renderActsList();
-  document.getElementById('modalActs').classList.add('on');
+  lockRegistro('plan_uso_suelo:lote', l._id, function(errLock){
+    if(errLock){ alert(errLock.error||'No se pudo tomar el registro.'); return; }
+    // Copia temporal de las actividades de la campaña activa
+    var orig = actsDe(l, state.campania);
+    maEstado = { loteName: loteName, acts: [] };
+    for(var i=0;i<orig.length;i++){
+      maEstado.acts.push({ c: orig[i].c, ha: orig[i].ha, seg: !!orig[i].seg });
+    }
+    document.getElementById('modalActsTitle').textContent = l.l + ' · Campaña ' + state.campania;
+    document.getElementById('modalActsSub').textContent = fInt(l.s||0) + ' ha · ambiente ' + (l.a || '—');
+    document.getElementById('maSupLote').textContent = fInt(l.s||0);
+    // Poblar el select de cultivo/uso desde el padrón
+    poblarSelectCultivos('maNuevoCult');
+    document.getElementById('maNuevoHa').value = (l.s!=null ? l.s : '');
+    document.getElementById('maNuevoSeg').checked = false;
+    document.getElementById('modalActsWarn').style.display = 'none';
+    renderActsList();
+    document.getElementById('modalActs').classList.add('on');
+  });
 }
-function closeActsModal(){ document.getElementById('modalActs').classList.remove('on'); maEstado = { loteName:null, acts:[] }; }
+function closeActsModal(){
+  var l = LOTES.find(function(x){return x.l===maEstado.loteName;});
+  if(l) unlockRegistro('plan_uso_suelo:lote', l._id);
+  document.getElementById('modalActs').classList.remove('on'); maEstado = { loteName:null, acts:[] };
+}
 
 // Llena un <select> con las opciones de cultivo/uso del padrón, agrupadas por tipo
 function poblarSelectCultivos(selId){
@@ -1954,7 +1973,8 @@ function renderPadron(){
 }
 
 // ---- Modal de lote (agregar / editar) ----
-var loteEditando = null; // null = nuevo lote; sino el nombre original
+var loteEditando = null;   // null = nuevo lote; sino el nombre original
+var loteEditandoId = null; // id del lote bloqueado (para liberar el lock aunque se le cambie el nombre)
 
 function buildAmbienteSelect(selectId, current){
   var sel = document.getElementById(selectId);
@@ -1966,39 +1986,54 @@ function buildAmbienteSelect(selectId, current){
 }
 
 function openLoteModal(loteName){
-  loteEditando = loteName || null;
-  document.getElementById('modalLoteWarn').style.display = 'none';
-  buildAmbienteSelect('mlAmbiente', '');
-  // En modo API: poblar select de campos desde el caché (filtrado por permisos)
-  if (_esModoApi() && CTX) {
-    var mlCampoSel = document.getElementById('mlCampo');
-    mlCampoSel.innerHTML = '';
-    var camposDisp = PA.demo.camposDeEmpresa(CTX.empresaActivaId);
-    for (var ci = 0; ci < camposDisp.length; ci++) {
-      var co = document.createElement('option');
-      co.value = camposDisp[ci].nombre;
-      co.textContent = camposDisp[ci].nombre;
-      mlCampoSel.appendChild(co);
+  var lExistente = loteName ? LOTES.find(function(x){return x.l===loteName;}) : null;
+  if (loteName && !lExistente) return;
+  var abrirModalLote = function(){
+    loteEditando = loteName || null;
+    loteEditandoId = lExistente ? lExistente._id : null;
+    document.getElementById('modalLoteWarn').style.display = 'none';
+    buildAmbienteSelect('mlAmbiente', '');
+    // En modo API: poblar select de campos desde el caché (filtrado por permisos)
+    if (_esModoApi() && CTX) {
+      var mlCampoSel = document.getElementById('mlCampo');
+      mlCampoSel.innerHTML = '';
+      var camposDisp = PA.demo.camposDeEmpresa(CTX.empresaActivaId);
+      for (var ci = 0; ci < camposDisp.length; ci++) {
+        var co = document.createElement('option');
+        co.value = camposDisp[ci].nombre;
+        co.textContent = camposDisp[ci].nombre;
+        mlCampoSel.appendChild(co);
+      }
     }
-  }
-  if(loteEditando){
-    var l = LOTES.find(function(x){return x.l===loteEditando;});
-    if(!l){ return; }
-    document.getElementById('modalLoteTitle').textContent = 'Editar lote · '+l.l;
-    document.getElementById('mlNombre').value = l.l;
-    document.getElementById('mlCampo').value = l.c || 'EC';
-    buildAmbienteSelect('mlAmbiente', l.a || '');
-    document.getElementById('mlSup').value = (l.s!=null ? l.s : '');
+    if(loteEditando){
+      var l = lExistente;
+      document.getElementById('modalLoteTitle').textContent = 'Editar lote · '+l.l;
+      document.getElementById('mlNombre').value = l.l;
+      document.getElementById('mlCampo').value = l.c || 'EC';
+      buildAmbienteSelect('mlAmbiente', l.a || '');
+      document.getElementById('mlSup').value = (l.s!=null ? l.s : '');
+    } else {
+      document.getElementById('modalLoteTitle').textContent = 'Agregar lote';
+      document.getElementById('mlNombre').value = '';
+      document.getElementById('mlCampo').value = (state.campo !== 'TODOS' ? state.campo : (_esModoApi() && CTX ? (PA.demo.camposDeEmpresa(CTX.empresaActivaId)[0] || {}).nombre || '' : 'EC'));
+      document.getElementById('mlSup').value = '';
+    }
+    document.getElementById('modalLote').classList.add('on');
+    setTimeout(function(){ document.getElementById('mlNombre').focus(); }, 60);
+  };
+  if (lExistente) {
+    lockRegistro('plan_uso_suelo:lote', lExistente._id, function(errLock){
+      if(errLock){ alert(errLock.error||'No se pudo tomar el registro.'); return; }
+      abrirModalLote();
+    });
   } else {
-    document.getElementById('modalLoteTitle').textContent = 'Agregar lote';
-    document.getElementById('mlNombre').value = '';
-    document.getElementById('mlCampo').value = (state.campo !== 'TODOS' ? state.campo : (_esModoApi() && CTX ? (PA.demo.camposDeEmpresa(CTX.empresaActivaId)[0] || {}).nombre || '' : 'EC'));
-    document.getElementById('mlSup').value = '';
+    abrirModalLote();
   }
-  document.getElementById('modalLote').classList.add('on');
-  setTimeout(function(){ document.getElementById('mlNombre').focus(); }, 60);
 }
-function closeLoteModal(){ document.getElementById('modalLote').classList.remove('on'); loteEditando = null; }
+function closeLoteModal(){
+  if (loteEditandoId) unlockRegistro('plan_uso_suelo:lote', loteEditandoId);
+  document.getElementById('modalLote').classList.remove('on'); loteEditando = null; loteEditandoId = null;
+}
 function confirmLoteModal(){
   var warn = document.getElementById('modalLoteWarn');
   var nombre = document.getElementById('mlNombre').value.trim();
