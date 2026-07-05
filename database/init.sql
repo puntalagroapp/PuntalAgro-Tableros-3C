@@ -418,7 +418,8 @@ INSERT INTO herramientas (id, nombre, descripcion, tipo, url, dominio, asignable
     ('ProgramaSiembra',    'Programa de Siembra',            'Planificación de siembra por lote y campaña',          'propia',  'ProgramaSiembra.html',    'Planificación',true),
     ('tablero_hacienda',   'Tablero de Relaciones Ganaderas','Manejo ganadero y carga animal',                       'propia',  'tablero_hacienda.html',   'Ganadería',    true),
     ('tablero_labores',    'Precio de Labores y Fletes',     'Referencia de tarifas CATAC y labores por campaña',    'propia',  'tablero_labores.html',    'Operativo',    true),
-    ('Fitosanitarios',     'Fitosanitarios',                  'Registro y auditoría de aplicaciones fitosanitarias', 'propia',  'Fitosanitarios.html',     'Operativo',    true);
+    ('Fitosanitarios',     'Fitosanitarios',                  'Registro y auditoría de aplicaciones fitosanitarias', 'propia',  'Fitosanitarios.html',     'Operativo',    true),
+    ('exist_prod_ganadera','Existencia y Producción Ganadera','Existencias de hacienda por negocio, rodeo y categoría. Movimientos, conciliación de stock y seguimiento de cabezas y kilos.', 'propia', 'exist_prod_ganadera.html', 'Ganadería', true);
 
 -- ─── CLIENTE / EMPRESA / CAMPO DEMO ─────────────────────────────────────────
 
