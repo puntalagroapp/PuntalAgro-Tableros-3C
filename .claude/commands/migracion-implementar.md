@@ -19,12 +19,15 @@ Actuá como un ingeniero de software senior especializado en migración de aplic
 ## PASO 0 — Verificar contexto
 
 1. Confirmar que estamos en la rama `feature/migracion-*` correcta (NO en main). Si estamos en main, detenerse.
-2. Leer el HTML original en `client-src/` como referencia inmutable.
-3. Leer el HTML de trabajo en `frontend/`.
-4. Leer `frontend/js/api.js` (funciones disponibles: apiGet, apiPost, apiPut, apiDelete).
-5. Leer `frontend/pa-core.js` (funciones PA, PA.esModoApi, PA.loadContext, PA.demo.*).
-6. Leer `backend/server.js` (endpoints existentes, función obtenerSesion, patrones usados).
-7. Leer `database/init.sql` y `database/migrations/` (esquema actual).
+2. Leer el diagnóstico generado por `/migracion-analizar` (o pedirlo si no está a mano) y confirmar el **Modo**: `primera_migracion` o `actualizacion`.
+3. Leer el HTML original en `client-src/` como referencia inmutable. **Si Modo = actualización**, leer también el `BASELINE_ANTERIOR` que indicó el diagnóstico, para tener el diff claro entre lo viejo y lo nuevo del cliente.
+4. Leer el HTML de trabajo en `frontend/` — en modo actualización, este archivo YA tiene la integración (boot/CTX/apiGet); es la base sobre la que se parchea, no se reemplaza.
+5. Leer `frontend/js/api.js` (funciones disponibles: apiGet, apiPost, apiPut, apiDelete).
+6. Leer `frontend/pa-core.js` (funciones PA, PA.esModoApi, PA.loadContext, PA.demo.*).
+7. Leer `backend/server.js` (endpoints existentes, función obtenerSesion, patrones usados).
+8. Leer `database/init.sql` y `database/migrations/` (esquema actual).
+
+**Si Modo = actualización:** el objetivo de PASO 7 en adelante no es re-migrar el tablero, es **aplicar sobre `frontend/NombreTablero.html` (el ya migrado) únicamente los cambios que el diagnóstico marcó como nuevos/modificados** respecto al `BASELINE_ANTERIOR`. Todo lo que ya estaba integrado (boot, CTX, llamadas a la API existentes) se mantiene intacto salvo que el propio diff lo afecte directamente.
 
 ---
 
@@ -36,6 +39,7 @@ Actuá como un ingeniero de software senior especializado en migración de aplic
 - **No usar frameworks** (React, Vue, Angular, etc.)
 - **Mantener ES5**: var, function, XMLHttpRequest, callbacks — sin let/const/arrow functions/fetch/class
 - **No duplicar** lógica que ya existe en pa-core.js o api.js
+- **En Modo actualización: parchear, no reemplazar.** El archivo del cliente ($ARGUMENTS) es su diseño standalone, sin integración — nunca copiarlo tal cual sobre `frontend/NombreTablero.html`. Tomar como base el `frontend/NombreTablero.html` ya migrado y aplicarle ahí, a mano, cada cambio que el diagnóstico marcó como nuevo/modificado (una función nueva, un campo agregado a un formulario, un ajuste de CSS, etc.), conservando todo el boot/CTX/apiGet/apiPost existente que el diff no toca.
 
 ### Agregar imports necesarios (si no están)
 

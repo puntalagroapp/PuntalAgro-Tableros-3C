@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(crontab -l)",
+      "Bash(docker compose logs*)",
+      "Bash(git checkout main)",
+      "Bash(git pull origin main)",
+      "Bash(git checkout -b feature/migracion-*)",
+      "Bash(git clone --depth 1 *)",
+      "Bash(mkdir -p *)"
+    ]
+  }
+}

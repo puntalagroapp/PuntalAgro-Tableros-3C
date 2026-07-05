@@ -25,6 +25,26 @@ Si $ARGUMENTS no incluye ruta al archivo, buscá en `frontend/` el HTML que coin
 
 ---
 
+## PASO 0.5 — Detectar si es primera migración o actualización
+
+El cliente va a mandar mejoras sobre tableros que ya migramos antes — esto va a pasar seguido, no es un caso raro. Antes de preservar nada, determinar en qué escenario estamos:
+
+1. Verificar si `frontend/NombreTablero.html` ya existe.
+   - **No existe** → MODO = `primera_migracion`. Continuar directo con PASO 1, sin más chequeos.
+   - **Existe** → buscar señales de integración ya migrada dentro de ese archivo: `PA.esModoApi`, `apiGet(`, `apiPost(`, `<script src="js/api.js">`, `var CTX`.
+     - **Ninguna señal** → el archivo está en `frontend/` pero nunca se migró (caso raro). Tratar como `primera_migracion`, pero avisarlo explícitamente en el diagnóstico como algo a confirmar con el usuario antes de seguir.
+     - **Hay señales** → MODO = `actualizacion`.
+
+2. Si MODO = `actualizacion`:
+   - Buscar todas las carpetas `client-src/*/NombreTablero.html` ya existentes (puede haber más de una si ya hubo actualizaciones previas). Tomar la de fecha más reciente **anterior a hoy** como `BASELINE_ANTERIOR` — el standalone del cliente tal como estaba la última vez que se migró.
+   - Si no se encuentra ninguna → no hay con qué diffear. Detenerse e informar la situación (puede ser que este tablero se haya migrado antes de que existiera este skill, o que se haya perdido el client-src) y pedir confirmación de cómo seguir en vez de asumir un camino — por ejemplo, si usar el `frontend/NombreTablero.html` migrado actual como aproximación de baseline (con las limitaciones que eso implica, porque ya tiene mezclada la integración).
+   - Correr un diff de texto real entre `BASELINE_ANTERIOR` y el HTML nuevo recibido ($ARGUMENTS) — no una comparación superficial ni "a ojo". Esto da la lista exacta de qué cambió el cliente en su diseño original: HTML agregado/quitado, funciones JS nuevas o modificadas, CSS, claves o campos nuevos.
+   - Este diff reemplaza al análisis completo desde cero en los pasos siguientes (ver nota en PASO 5).
+
+Informar el MODO detectado (y, si aplica, qué `BASELINE_ANTERIOR` se usó) antes de seguir con el resto de los pasos.
+
+---
+
 ## PASO 1 — Preservar el original
 
 1. Obtener la fecha actual (YYYY-MM-DD).
@@ -32,7 +52,7 @@ Si $ARGUMENTS no incluye ruta al archivo, buscá en `frontend/` el HTML que coin
 3. Copiar el HTML standalone (y cualquier asset que lo acompañe) a esa carpeta **sin modificar nada**.
 4. Verificar que la copia es idéntica al original.
 
-Esta carpeta es evidencia de entrada y nunca debe modificarse.
+Esta carpeta es evidencia de entrada y nunca debe modificarse. En MODO `actualizacion`, esta nueva carpeta queda disponible como `BASELINE_ANTERIOR` la próxima vez que el cliente mande otra mejora sobre este mismo tablero.
 
 ---
 
@@ -89,7 +109,9 @@ El objetivo es **no duplicar nada**. Si algo ya existe, se reutiliza.
 
 ## PASO 5 — Analizar el HTML standalone a migrar
 
-Leer el HTML standalone completo y documentar:
+**Si MODO = `actualizacion`:** no hace falta repetir este análisis completo — ya se hizo la vez pasada y esas decisiones siguen valiendo para todo lo que no cambió. Concentrarse exclusivamente en el diff calculado en el PASO 0.5: para cada cambio (HTML/función/clave nueva o modificada), completar las secciones 5a-5h **solo para eso**, comparando contra cómo está resuelto hoy en `frontend/NombreTablero.html`. Todo lo que el diff no toca ya tiene su estrategia decidida — no se re-analiza ni se re-propone.
+
+**Si MODO = `primera_migracion`:** leer el HTML standalone completo y documentar:
 
 **5a. Claves de localStorage** — tabla exhaustiva:
 
@@ -125,7 +147,9 @@ Para cada clave de localStorage, documentar la estructura JSON real:
 
 ## PASO 6 — Estrategia de migración por dato
 
-Para CADA clave de localStorage y CADA entidad detectada, asignar:
+**Si MODO = `actualizacion`:** esto aplica solo a las claves/entidades nuevas o modificadas que salieron del diff del PASO 0.5. Las que ya existían y no cambiaron mantienen la estrategia y el endpoint/tabla que ya se usan en `frontend/NombreTablero.html` — no se vuelven a decidir.
+
+Para CADA clave de localStorage y CADA entidad detectada (nueva o, en `primera_migracion`, todas), asignar:
 
 - **A — Reutilizar**: Ya existe endpoint/tabla equivalente → indicar cuál.
 - **B — Extender**: Existe parcialmente → indicar qué agregar y dónde.
@@ -148,26 +172,31 @@ Para las estrategias **A y B**, identificar exactamente:
 
 ## SALIDA ESPERADA
 
-Presentar el diagnóstico en este formato:
+Presentar el diagnóstico en este formato. La sección **Cambios detectados** solo aparece en MODO `actualizacion`; las demás aplican a ambos modos, pero en `actualizacion` quedan acotadas a lo nuevo/modificado.
 
 ---
 ### Diagnóstico de migración: [Nombre Tablero]
 
+**Modo:** `primera_migracion` | `actualizacion`
 **Archivo analizado:** `frontend/NombreTablero.html`
 **Rama creada:** `feature/migracion-nombre-YYYY-MM-DD`
 **Original preservado en:** `client-src/YYYY-MM-DD/`
+**(Si actualización) Baseline anterior usado para el diff:** `client-src/YYYY-MM-DD-anterior/NombreTablero.html`
+
+#### (Solo en actualización) Cambios detectados respecto a la versión anterior
+[resumen del diff: qué agregó/cambió/quitó el cliente en su HTML standalone — UI, funciones, claves de localStorage, CSS]
 
 #### Claves localStorage detectadas
-[tabla: clave | estructura | estrategia | motivo]
+[tabla: clave | estructura | estrategia | motivo — en actualización, solo las nuevas/modificadas]
 
 #### Entidades reutilizables (estrategias A/B)
-[lista]
+[lista — en actualización, incluye explícitamente lo que YA estaba resuelto de la migración anterior y sigue igual]
 
 #### Entidades a crear o modificar (estrategia C)
-[propuesta de DDL y endpoint para cada una]
+[propuesta de DDL y endpoint para cada una — solo lo nuevo]
 
 #### Patrón de boot recomendado
-[pseudocódigo del flujo de inicialización asincrónico]
+[pseudocódigo del flujo de inicialización asincrónico — en actualización, solo si el diff lo afecta; si no, "sin cambios respecto al boot() actual"]
 
 #### Riesgos y decisiones pendientes
 [lista de dudas que requieren confirmación antes de implementar]
