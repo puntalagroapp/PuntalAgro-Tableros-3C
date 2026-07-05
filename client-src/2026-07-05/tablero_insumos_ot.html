@@ -7,7 +7,6 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="pa-core.js"></script>
-<script src="js/api.js"></script>
 <style>
 :root{--bg:#E8ECF2;--card:#fff;--border:#D4DAE4;--text:#0F1923;--muted:#7A8899;--radius:12px;--mono:'DM Sans',sans-serif;--sans:'DM Sans',sans-serif;}
 [style*="--mono"],.num,.kpi-val,.ot-meta-i .v,.ot-row-num,td,input[type=number]{font-variant-numeric:tabular-nums}
@@ -826,34 +825,14 @@ var state=null; // referencia al state del espacio (empresa) activo
 var HERRAMIENTA = 'tablero_insumos_ot';
 var CTX = null;
 
-function _esModoApi(){
-  return typeof PA !== 'undefined' && PA.esModoApi && PA.esModoApi();
-}
-
-// Locking pesimista de registros (solo aplica en modo API). 'tabla' es el
-// nombre lógico del recurso ('ordenes_trabajo' / 'comprobantes'), no
-// necesariamente el nombre físico de la tabla.
-function lockRegistro(tabla, id, cb){
-  if (!_esModoApi()) { cb(null); return; }
-  apiLock(tabla, id, CTX ? CTX.empresaActivaId : null, cb);
-}
-function unlockRegistro(tabla, id){
-  if (!_esModoApi()) return;
-  apiUnlock(tabla, id, function(){});
-}
-
-// El blob compartido (tabla `tableros`, clave 'puntalagro_insumos_v4') se dejó
-// de usar: mezclaba el estado operativo de TODAS las empresas en una sola
-// fila. En modo API, OTs/comprobantes/config viven en sus propias tablas
-// (ver cargarOTsApi/cargarComprobantesApi/cargarConfigOperativaApi más abajo).
-// saveRoot/loadRoot solo persisten en localStorage para el modo demo local
-// (sin backend), igual que el resto de los tableros ya migrados.
 function saveRoot(){
-  if (_esModoApi()) return;
   try{ localStorage.setItem(LS_ROOT, JSON.stringify(root)); }catch(e){ console.warn('No se pudo guardar', e); }
 }
 function loadRoot(){
-  if (_esModoApi()) return;
+  // Esquema v4: root.espacios indexado por empresaId del contexto.
+  // Cada espacio = una empresa, con su estado OPERATIVO propio (movimientos, OTs, tc…).
+  // No se crea demo automático: la empresa activa se sincroniza desde el contexto
+  // en el boot (ver syncRootConContexto). Arranca vacío si no hay nada guardado.
   try{
     var raw=localStorage.getItem(LS_ROOT);
     if(raw){ root=JSON.parse(raw); }
@@ -864,9 +843,7 @@ function loadRoot(){
 // Asegura que exista un espacio (estado operativo) para la empresa activa del
 // contexto y lo deja activo. Llamada en el boot y al cambiar de empresa.
 // nombreEmpresa es opcional (para mostrar en el selector / header).
-// callback se llama cuando el estado está completamente listo (en modo API,
-// después de cargar OTs/comprobantes/config desde el backend).
-function syncRootConContexto(empresaId, nombreEmpresa, callback){
+function syncRootConContexto(empresaId, nombreEmpresa){
   if(!empresaId){
     // Fallback sin contexto: usar (o crear) un espacio demo local único.
     if(!Object.keys(root.espacios).length){
@@ -884,150 +861,13 @@ function syncRootConContexto(empresaId, nombreEmpresa, callback){
   state = root.espacios[root.activoId].state;
   // La empresa del "contexto" interno se deriva del CTX (no se edita a mano).
   if(state.contexto && nombreEmpresa){ state.contexto.empresa = nombreEmpresa; }
-  // Inyectar catálogos COMPARTIDOS (campos, lotes, actividades, contratistas,
-  // labores, depositos) desde pa-core, filtrados por la empresa activa. Son de
-  // SOLO LECTURA en este tablero: se crean/editan en Plan de Uso y Maestros.
+  // Inyectar catálogos COMPARTIDOS (campos, lotes, actividades, contratistas, labores)
+  // desde pa-core, filtrados por la empresa activa. Son de SOLO LECTURA en este tablero:
+  // se crean/editan en Plan de Uso y Maestros (modelo §8). Insumos NO se migra todavía.
   inyectarCatalogosDesdePA(empresaId);
-  if (!_esModoApi() || !empresaId) { saveRoot(); if(callback) callback(); return; }
-  // Modo API: OTs/comprobantes/config vienen de sus propias tablas, no del blob.
-  cargarOTsApi(function(){
-    cargarComprobantesApi(function(){
-      cargarConfigOperativaApi(function(){
-        if(callback) callback();
-      });
-    });
-  });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// INTEGRACIÓN BACKEND — OTs, comprobantes/movimientos y config operativa.
-// Reemplaza el blob compartido: cada entidad se carga/guarda por su cuenta,
-// aislada por empresa vía empresa_id en cada tabla (no por una clave de blob).
-// ─────────────────────────────────────────────────────────────────────────────
-function cargarOTsApi(callback){
-  apiGet('/api/ordenes-trabajo?empresaId='+encodeURIComponent(CTX.empresaActivaId), function(err, data){
-    if(err){ console.error('Error cargando OTs:', err); state.ots=[]; if(callback) callback(); return; }
-    state.ots=(data||[]).map(function(o){
-      return {
-        id:o.id, num:o.num, fecha:(o.fecha||'').slice(0,10), campaniaId:o.campaniaId||'',
-        laborTipo:o.laborTipo||'LP', contratistaId:o.contratistaId||'', obs:o.obs||'',
-        estado:o.estado||'Pendiente', estadoFact:o.estadoFact||'Sin facturar',
-        plantilla:o.plantilla||[], destinos:o.destinos||[], aplicaciones:[], _synced:true
-      };
-    });
-    if(callback) callback();
-  });
-}
-function cargarComprobantesApi(callback){
-  apiGet('/api/comprobantes?empresaId='+encodeURIComponent(CTX.empresaActivaId), function(err, data){
-    if(err){ console.error('Error cargando comprobantes:', err); state.comprobantes=[]; state.movtos=[]; if(callback) callback(); return; }
-    var comps=[], movs=[];
-    (data||[]).forEach(function(c){
-      comps.push({
-        id:c.id, fecha:(c.fecha||'').slice(0,10), tipo:c.tipo||'', comp_tipo:c.compTipo||'', comp_nro:c.compNro||'',
-        proveedorId:c.proveedorId||'', campaniaId:c.campaniaId||'', obs:c.obs||'',
-        refOt:c.refOt||'', refOtNum:c.refOtNum||'', _synced:true
-      });
-      (c.lineas||[]).forEach(function(m){
-        movs.push({ id:m.id, comprobanteId:m.comprobanteId, insumoId:m.insumoId, cant:Number(m.cant)||0,
-          origenId:m.origenId||'', destinoId:m.destinoId||'', refDest:m.refDest||'' });
-      });
-    });
-    state.comprobantes=comps; state.movtos=movs;
-    if(callback) callback();
-  });
-}
-function cargarConfigOperativaApi(callback){
-  apiGet('/api/config-operativa?empresaId='+encodeURIComponent(CTX.empresaActivaId), function(err, data){
-    var d=(!err && data) ? data : {};
-    state.tcUSD=Number(d.tcUSD)||1000; state.tcMensual=d.tcMensual||{};
-    state.tcApertura=Number(d.tcApertura)||0; state.tcCierre=Number(d.tcCierre)||0;
-    if(callback) callback();
-  });
-}
-
-function _otPayload(o){
-  return { empresaId:CTX.empresaActivaId, campaniaId:o.campaniaId||null, fecha:o.fecha||null,
-    laborTipo:o.laborTipo||null, contratistaId:o.contratistaId||null, obs:o.obs||null,
-    estado:o.estado||'Pendiente', estadoFact:o.estadoFact||'Sin facturar',
-    plantilla:o.plantilla||[], destinos:o.destinos||[] };
-}
-function guardarOTApi(o, callback){
-  if (!_esModoApi() || !CTX) { if(callback) callback(); return; }
-  var cb=function(err){ if(err) console.error('Error guardando OT:', err); if(callback) callback(); };
-  if (o._synced) apiPut('/api/ordenes-trabajo/'+encodeURIComponent(o.id), _otPayload(o), cb);
-  else apiPost('/api/ordenes-trabajo', _otPayload(o), function(err, resp){
-    if(!err && resp){ o.id=resp.id; o.num=resp.num; o._synced=true; }
-    cb(err);
-  });
-}
-function eliminarOTApi(id, callback){
-  if (!_esModoApi() || !CTX) { if(callback) callback(); return; }
-  apiDelete('/api/ordenes-trabajo/'+encodeURIComponent(id)+'?empresaId='+encodeURIComponent(CTX.empresaActivaId), function(err){
-    if(err) console.error('Error eliminando OT:', err);
-    if(callback) callback();
-  });
-}
-
-function _comprobantePayload(comp){
-  var lineas=[];
-  for(var i=0;i<state.movtos.length;i++){
-    var m=state.movtos[i];
-    if(m.comprobanteId===comp.id) lineas.push({id:m.id, insumoId:m.insumoId, cant:m.cant, origenId:m.origenId||null, destinoId:m.destinoId||null, refDest:m.refDest||null});
-  }
-  return { empresaId:CTX.empresaActivaId, fecha:comp.fecha||null, tipo:comp.tipo||null,
-    compTipo:comp.comp_tipo||null, compNro:comp.comp_nro||null, proveedorId:comp.proveedorId||null,
-    campaniaId:comp.campaniaId||null, obs:comp.obs||null, refOt:comp.refOt||null, refOtNum:comp.refOtNum||null,
-    lineas:lineas };
-}
-function guardarComprobanteApi(comp, callback){
-  if (!_esModoApi() || !CTX) { if(callback) callback(); return; }
-  var cb=function(err){ if(err) console.error('Error guardando comprobante:', err); if(callback) callback(); };
-  if (comp._synced) apiPut('/api/comprobantes/'+encodeURIComponent(comp.id), _comprobantePayload(comp), cb);
-  else apiPost('/api/comprobantes', _comprobantePayload(comp), function(err){
-    if(!err) comp._synced=true;
-    cb(err);
-  });
-}
-function eliminarComprobanteApi(id, callback){
-  if (!_esModoApi() || !CTX) { if(callback) callback(); return; }
-  apiDelete('/api/comprobantes/'+encodeURIComponent(id)+'?empresaId='+encodeURIComponent(CTX.empresaActivaId), function(err){
-    if(err) console.error('Error eliminando comprobante:', err);
-    if(callback) callback();
-  });
-}
-// Sincroniza contra la API los comprobantes que puedan haber quedado sin
-// líneas (deshacer aplicación de OT) — los borra; el resto los deja como están.
-function limpiarComprobantesHuerfanosApi(idsAntes, callback){
-  var conLineas={};
-  for(var i=0;i<state.movtos.length;i++){ conLineas[state.movtos[i].comprobanteId]=true; }
-  var huerfanos=idsAntes.filter(function(id){ return !conLineas[id]; });
-  state.comprobantes=state.comprobantes.filter(function(c){ return conLineas[c.id]; });
-  if(!_esModoApi() || !huerfanos.length){ if(callback) callback(); return; }
-  var pend=huerfanos.length;
-  huerfanos.forEach(function(id){ eliminarComprobanteApi(id, function(){ if(--pend<=0 && callback) callback(); }); });
-}
-
-function guardarConfigOperativaApi(callback){
-  if (!_esModoApi() || !CTX) { if(callback) callback(); return; }
-  apiPut('/api/config-operativa', { empresaId:CTX.empresaActivaId, tcUSD:state.tcUSD, tcMensual:state.tcMensual,
-    tcApertura:state.tcApertura, tcCierre:state.tcCierre }, function(err){
-    if(err) console.error('Error guardando config operativa:', err);
-    if(callback) callback();
-  });
-}
-
-// Insumos: la identidad (nombre/tipo/etc.) es de solo lectura acá; los campos
-// operativos (stockMin/precioUnitario/moneda/deposito default) sí se editan
-// en este tablero y se guardan mezclados en insumos.datos (el backend hace
-// merge, no reemplaza, para no perder la identidad del maestro).
-function guardarInsumoOperativoApi(idx){
-  if (!_esModoApi() || !CTX) return;
-  var x=state.insumos[idx]; if(!x) return;
-  apiPut('/api/maestros/insumos/'+encodeURIComponent(x.id), {
-    empresaId:CTX.empresaActivaId, id:x.id,
-    stockMin:x.stockMin, precioUnitario:x.precioUnitario, moneda:x.moneda, deposito:x.deposito
-  }, function(err){ if(err) console.error('Error guardando insumo:', err); });
+  // Migrar/limpiar el estado operativo si hiciera falta.
+  if(migrarOTsADestinos(state)) {/* limpieza aplicada */}
+  saveRoot();
 }
 
 // Rellena en state los catálogos compartidos desde PA.demo.*, mapeando al formato
@@ -1077,12 +917,6 @@ function inyectarCatalogosDesdePA(empresaId){
   // PROVEEDORES: terceros con rol 'proveedor' -> {id, nombre}. Cabecera de comprobantes de compra.
   var provs = PA.demo.listarTerceros(empresaId, 'proveedor') || [];
   state.proveedores = provs.map(function(t){ return { id:t.id, nombre:t.nombre }; });
-
-  // DEPÓSITOS: de solo lectura acá (se administran en Maestros, nivel empresa).
-  // renderMDepositos() ya sabe ocultar los controles de alta/baja cuando
-  // state.catalogosReadOnly es true — no hace falta bloquear nada más.
-  var deps = PA.demo.listarDepositos(empresaId) || [];
-  state.depositos = deps.map(function(d){ return { id:d.id, nombre:d.nombre, campoId:d.campoId||'' }; });
 
   // LABORES: lista global {id, nombre, precioRef}. El tablero separa LP (propias, con
   // tarifaDefault) y LC (contratadas). Mapeamos la misma lista a ambas, preservando
@@ -1381,6 +1215,12 @@ function getDepositoNombreById(id){ var d=getDepositoById(id); return d?d.nombre
 // Comprobante (cabecera) de una línea de movimiento. Devuelve null si no lo encuentra.
 function compDe(mov){ if(!mov||!mov.comprobanteId) return null; for(var i=0;i<state.comprobantes.length;i++) if(state.comprobantes[i].id===mov.comprobanteId) return state.comprobantes[i]; return null; }
 function getComprobanteById(id){ if(!id) return null; for(var i=0;i<state.comprobantes.length;i++) if(state.comprobantes[i].id===id) return state.comprobantes[i]; return null; }
+// Elimina comprobantes que quedaron sin ninguna línea (p.ej. tras deshacer una aplicación de OT).
+function limpiarComprobantesHuerfanos(){
+  var conLineas={};
+  for(var i=0;i<state.movtos.length;i++){ conLineas[state.movtos[i].comprobanteId]=true; }
+  state.comprobantes=state.comprobantes.filter(function(c){ return conLineas[c.id]; });
+}
 // Acceso uniforme a campos que ANTES vivían en la línea y ahora en la cabecera.
 // Con fallback al valor viejo en la propia línea (para datos sin migrar / robustez).
 function movFecha(m){ var c=compDe(m); return (c&&c.fecha)||m.fecha||''; }
@@ -1509,11 +1349,10 @@ function switchWs(id){
       if(!err && ctx){ CTX=ctx; }
       var emp=null;
       for(var i=0;i<CTX.empresasDisponibles.length;i++){ if(CTX.empresasDisponibles[i].id===id){ emp=CTX.empresasDisponibles[i]; break; } }
-      syncRootConContexto(id, emp?(emp.razonSocial||emp.nombre):null, function(){
-        refreshCtx();
-        setTab(currentTab, document.querySelector('.inst-btn[data-tab="'+currentTab+'"]'));
-        toast('Empresa: '+(emp?(emp.razonSocial||emp.nombre):id));
-      });
+      syncRootConContexto(id, emp?(emp.razonSocial||emp.nombre):null);
+      refreshCtx();
+      setTab(currentTab, document.querySelector('.inst-btn[data-tab="'+currentTab+'"]'));
+      toast('Empresa: '+(emp?(emp.razonSocial||emp.nombre):id));
     });
     return;
   }
@@ -1632,11 +1471,10 @@ function confirmarCierreStock(){
   function cabMas(){ if(!compMas){ compMas={id:uid(), fecha:corte, tipo:'Ajuste inventario (+)', comp_tipo:'Cierre', comp_nro:'', proveedorId:'', campaniaId:state.campaniaActivaId||'', obs:nota, refOt:'', refOtNum:''}; state.comprobantes.push(compMas); } return compMas; }
   function cabMenos(){ if(!compMenos){ compMenos={id:uid(), fecha:corte, tipo:'Ajuste inventario (-)', comp_tipo:'Cierre', comp_nro:'', proveedorId:'', campaniaId:state.campaniaActivaId||'', obs:nota, refOt:'', refOtNum:''}; state.comprobantes.push(compMenos); } return compMenos; }
   var ajustes=0;
-  var insumosTocados=[];
   for(var i=0;i<t.filas.length;i++){
     var fr=t.filas[i];
-    var insIdx=-1; for(var ii=0;ii<state.insumos.length;ii++){ if(state.insumos[ii].id===fr.insumoId){ insIdx=ii; break; } }
-    if(insIdx>=0){ state.insumos[insIdx].precioUnitario=Number(fr.precio)||0; insumosTocados.push(insIdx); } // valuación
+    var ins=getInsumo(fr.insumoId);
+    if(ins){ ins.precioUnitario=Number(fr.precio)||0; } // valuación
     var dif=(Number(fr.real)||0)-(Number(fr.teorico)||0);
     if(Math.abs(dif)<0.0001) continue;
     var depId=(getDepositoByNombre(fr.dep)||{}).id||'';
@@ -1647,10 +1485,7 @@ function confirmarCierreStock(){
     }
     ajustes++;
   }
-  if(compMas) guardarComprobanteApi(compMas);
-  if(compMenos) guardarComprobanteApi(compMenos);
-  insumosTocados.forEach(function(idx){ guardarInsumoOperativoApi(idx); });
-  saveRoot();
+  save();
   cierreTmp=null;
   closeModal();
   renderStock();
@@ -1998,7 +1833,7 @@ function saveMov(e){
     var L=lineasOK[k];
     state.movtos.push({id:uid(), comprobanteId:comp.id, insumoId:L.insumoId, cant:L.cant, origenId:L.origenId, destinoId:L.destinoId});
   }
-  guardarComprobanteApi(comp); resetMovForm(); renderMovtos(); renderStock();
+  save(); resetMovForm(); renderMovtos(); renderStock();
   toast(lineasOK.length>1 ? ('Movimiento registrado ('+lineasOK.length+' líneas)') : 'Movimiento registrado');
 }
 function resetMovForm(){
@@ -2019,7 +1854,7 @@ function delMov(comprobanteId){
   if(!confirm('¿Eliminar este comprobante'+(nLineas>1?' y sus '+nLineas+' líneas':'')+'?')) return;
   state.movtos=state.movtos.filter(function(x){ return x.comprobanteId!==comprobanteId; });
   state.comprobantes=state.comprobantes.filter(function(c){ return c.id!==comprobanteId; });
-  eliminarComprobanteApi(comprobanteId, function(){}); renderMovtos(); renderStock(); toast('Comprobante eliminado');
+  save(); renderMovtos(); renderStock(); toast('Comprobante eliminado');
 }
 function clearMovFilters(){
   byId('movSearch').value=''; byId('movTipoFilter').value=''; byId('movOrigenFilter').value=''; byId('movDesde').value=''; byId('movHasta').value=''; byId('movCampoFilter').value='';
@@ -2092,7 +1927,6 @@ function renderMovtos(){
 }
 // Nombre de proveedor desde state.proveedores (inyectado de pa-core)
 function getProveedorNombre(id){ var ps=state.proveedores||[]; for(var i=0;i<ps.length;i++) if(ps[i].id===id) return ps[i].nombre; return ''; }
-var comprobanteEditLockId=null;
 function openMovEditModal(comprobanteId){
   var cab=getComprobanteById(comprobanteId);
   if(!cab){ // compat: id de línea
@@ -2101,13 +1935,6 @@ function openMovEditModal(comprobanteId){
   }
   if(!cab){ return; }
   if(cab.refOt){ alert('Este comprobante fue generado por una OT. Editá la aplicación correspondiente.'); return; }
-  lockRegistro('comprobantes', comprobanteId, function(errLock){
-    if(errLock){ alert(errLock.error||'No se pudo tomar el registro.'); return; }
-    comprobanteEditLockId=comprobanteId;
-    _renderMovEditModal(cab, comprobanteId);
-  });
-}
-function _renderMovEditModal(cab, comprobanteId){
   var t=getTipoMov(cab.tipo);
   var lineas=[]; for(var i=0;i<state.movtos.length;i++) if(state.movtos[i].comprobanteId===comprobanteId) lineas.push(state.movtos[i]);
   var st='width:100%;font-size:13px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;background:var(--card)';
@@ -2178,7 +2005,7 @@ function saveMovEditModal(comprobanteId, nLineas){
       if(state.movtos[i].id===ch.lid){ state.movtos[i].cant=ch.cant; state.movtos[i].origenId=ch.origenId; state.movtos[i].destinoId=ch.destinoId; break; }
     }
   }
-  guardarComprobanteApi(cab); closeModal(); renderMovtos(); renderStock(); toast('Comprobante actualizado');
+  save(); closeModal(); renderMovtos(); renderStock(); toast('Comprobante actualizado');
 }
 
 /* ================================================================
@@ -2486,7 +2313,7 @@ function saveOT(e){
     existente.plantilla=plantilla;
     existente.destinos=aplicadosPrev.concat(destinos); // aplicados intactos + nuevos/editados
     recalcEstadoOT(existente);
-    guardarOTApi(existente, function(){ resetOtForm(); renderOtList(); });
+    save(); resetOtForm(); renderOtList();
     toast('OT #'+existente.num+' actualizada');
     return;
   }
@@ -2505,23 +2332,16 @@ function saveOT(e){
     aplicaciones:[] // se mantiene para compat; el cierre real vive en destinos (Etapa C)
   };
   state.ots.push(ot);
-  guardarOTApi(ot, function(){
-    resetOtForm();
-    renderOtList();
-    toast('OT #'+ot.num+' emitida con '+destinos.length+' lote(s)');
-  });
+  save();
+  resetOtForm();
+  renderOtList();
+  toast('OT #'+ot.num+' emitida con '+destinos.length+' lote(s)');
 }
 var editOtId=null; // null = modo nuevo; id = editando esa OT
 function startEditOT(id){
   var o=null; for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===id){ o=state.ots[i]; break; }
   if(!o){ return; }
   if(o.estado==='Cancelada'){ alert('Esta OT está cancelada. Reactivala antes de editar.'); return; }
-  lockRegistro('ordenes_trabajo', id, function(errLock){
-    if(errLock){ alert(errLock.error||'No se pudo tomar el registro.'); return; }
-    startEditOTContinuar(o, id);
-  });
-}
-function startEditOTContinuar(o, id){
   editOtId=id;
   // Precargar cabecera
   byId('o_fecha').value=o.fecha||todayISO();
@@ -2559,7 +2379,6 @@ function startEditOTContinuar(o, id){
   window.scrollTo(0,0);
 }
 function resetOtForm(){
-  if(editOtId) unlockRegistro('ordenes_trabajo', editOtId);
   byId('otForm').reset();
   editOtId=null;
   byId('o_fecha').value=todayISO();
@@ -2660,11 +2479,7 @@ function delOT(id){
   state.movtos=state.movtos.filter(function(m){ return !compsOT[m.comprobanteId]; });
   state.comprobantes=state.comprobantes.filter(function(c){ return c.refOt!==o.id; });
   state.ots=state.ots.filter(function(x){ return x.id!==id; });
-  var idsComp=Object.keys(compsOT);
-  var pend=idsComp.length;
-  var terminarDelOT=function(){ eliminarOTApi(id, function(){ renderOtList(); toast('OT eliminada'); }); };
-  if(!pend){ terminarDelOT(); return; }
-  idsComp.forEach(function(cid){ eliminarComprobanteApi(cid, function(){ if(--pend<=0) terminarDelOT(); }); });
+  save(); renderOtList(); toast('OT eliminada');
 }
 function viewOT(id){
   var o=null; for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===id){ o=state.ots[i]; break; }
@@ -3137,8 +2952,7 @@ function cerrarTanda(otId){
   if(compOTusado) state.comprobantes.push(compOT);
   recalcEstadoOT(o);
   aplicTmp=null; // resetear para la próxima
-  guardarOTApi(o);
-  if(compOTusado) guardarComprobanteApi(compOT);
+  save();
   viewOT(otId);
   toast(lotesSel.length+' lote(s) aplicado(s)');
 }
@@ -3148,25 +2962,16 @@ function deshacerAplicLote(otId, destId){
   if(!o) return;
   var de=null; for(var d=0;d<o.destinos.length;d++) if(o.destinos[d].id===destId){ de=o.destinos[d]; break; }
   if(!de) return;
-  // ids de comprobantes con líneas de este destino, antes de filtrar (para limpiar/sincronizar después)
-  var idsAfectados={};
-  for(var k=0;k<state.movtos.length;k++){ if(state.movtos[k].refDest===destId) idsAfectados[state.movtos[k].comprobanteId]=true; }
-  var idsAntes=Object.keys(idsAfectados);
   // borrar líneas de ese destino
   state.movtos=state.movtos.filter(function(m){ return m.refDest!==destId; });
-  // limpiar comprobantes que quedaron sin líneas; los que sobreviven con menos líneas se sincronizan
-  limpiarComprobantesHuerfanosApi(idsAntes, function(){
-    idsAntes.forEach(function(cid){
-      var c=getComprobanteById(cid);
-      if(c) guardarComprobanteApi(c);
-    });
-  });
+  // limpiar comprobantes de OT que quedaron sin líneas
+  limpiarComprobantesHuerfanos();
   // resetear líneas
   for(var j=0;j<de.lineas.length;j++){ de.lineas[j].entregada=0; de.lineas[j].usado=0; de.lineas[j].devStock=0; de.lineas[j].devBaja=0; }
   de.estadoLote='Pendiente'; de.fechaAplicReal='';
   recalcEstadoOT(o);
   aplicTmp=null;
-  guardarOTApi(o); viewOT(otId); toast('Aplicación deshecha');
+  save(); viewOT(otId); toast('Aplicación deshecha');
 }
 
 function cancelOT(otId){
@@ -3174,7 +2979,7 @@ function cancelOT(otId){
   var o=null; for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===otId){ o=state.ots[i]; break; }
   if(!o) return;
   o.estado='Cancelada';
-  guardarOTApi(o); viewOT(otId); toast('OT cancelada');
+  save(); viewOT(otId); toast('OT cancelada');
 }
 function reactivateOT(otId){
   if(!confirm('¿Reactivar esta OT? Volverá al estado según los lotes ya aplicados.')) return;
@@ -3182,7 +2987,7 @@ function reactivateOT(otId){
   if(!o) return;
   recalcEstadoOT(o);
   if(o.estado==='Cancelada') o.estado='Pendiente';
-  guardarOTApi(o); viewOT(otId); toast('OT reactivada (estado: '+o.estado+')');
+  save(); viewOT(otId); toast('OT reactivada (estado: '+o.estado+')');
 }
 
 /* ================================================================
@@ -4186,9 +3991,9 @@ function renderMInsumos(){
     rows+='<tr>'+
       celNombre+ celCat+ celUn+
       '<td class="num"><button class="btn btn-sm" onclick="openStockInicialModal(\''+x.id+'\')" title="Editar stock inicial por depósito">'+f(totIni,2)+(nDeps>1?' ('+nDeps+' dep.)':'')+' ✎</button></td>'+
-      '<td><select onchange="state.insumos['+i+'].deposito=this.value;guardarInsumoOperativoApi('+i+')" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;background:var(--card)" title="Depósito principal (default al aplicar)">'+optsD+'</select></td>'+
-      '<td class="num"><input type="number" step="0.01" min="0" value="'+(x.precioUnitario||0)+'" onchange="state.insumos['+i+'].precioUnitario=Number(this.value);guardarInsumoOperativoApi('+i+')" style="width:90px;font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;text-align:right"></td>'+
-      '<td><select onchange="state.insumos['+i+'].moneda=this.value;guardarInsumoOperativoApi('+i+')" style="width:65px;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;background:var(--card)">'+optsMon+'</select></td>'+
+      '<td><select onchange="state.insumos['+i+'].deposito=this.value;save()" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;background:var(--card)" title="Depósito principal (default al aplicar)">'+optsD+'</select></td>'+
+      '<td class="num"><input type="number" step="0.01" min="0" value="'+(x.precioUnitario||0)+'" onchange="state.insumos['+i+'].precioUnitario=Number(this.value);save()" style="width:90px;font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;text-align:right"></td>'+
+      '<td><select onchange="state.insumos['+i+'].moneda=this.value;save()" style="width:65px;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;background:var(--card)">'+optsMon+'</select></td>'+
       celDel+
       '</tr>';
   }
@@ -4265,18 +4070,14 @@ function saveStockInicialModal(insId){
     var v=Number(inp.value)||0;
     if(v!==0){ nuevas.push({depId:inp.getAttribute('data-depid'), cant:v}); algo=true; }
   }
-  var idsAntes=compIniId?[compIniId]:[];
   if(algo){
     var comp=getOrCreateCompInicial(fecha); compIniId=comp.id;
     for(var n=0;n<nuevas.length;n++){
       state.movtos.push({id:uid(), comprobanteId:compIniId, insumoId:insId, cant:nuevas[n].cant, origenId:'', destinoId:nuevas[n].depId});
     }
   }
-  limpiarComprobantesHuerfanosApi(idsAntes, function(){
-    var sobreviviente = compIniId ? getComprobanteById(compIniId) : null;
-    if(sobreviviente) guardarComprobanteApi(sobreviviente);
-  });
-  closeModal(); renderMInsumos(); renderStock(); toast('Stock inicial actualizado');
+  limpiarComprobantesHuerfanos();
+  save(); closeModal(); renderMInsumos(); renderStock(); toast('Stock inicial actualizado');
 }
 function addInsumo(){
   if(bloqueadoSiReadOnly('insumos'))return;
@@ -4531,14 +4332,12 @@ function refreshCtx(){
 // ni impone: en cada registro se puede elegir otra. Refresca los defaults de los forms.
 function setCampaniaDefecto(id){
   state.campaniaActivaId=id;
+  save();
   var mc=byId('m_campania'); if(mc) mc.value=id;
   var oc=byId('o_campania'); if(oc) oc.value=id;
   toast('Campaña por defecto: '+(getCampaniaNombre(id)||id));
 }
-function closeModal(){
-  byId('modalBg').classList.remove('on');
-  if(comprobanteEditLockId){ unlockRegistro('comprobantes', comprobanteEditLockId); comprobanteEditLockId=null; }
-}
+function closeModal(){ byId('modalBg').classList.remove('on'); }
 
 /* ================================================================
    EXPORT EXCEL
@@ -4673,17 +4472,17 @@ function init(){
     PA.init({}, function(){
       var arrancar=function(){
         PA.loadContext(null, function(err, ctx){
-          if(err && err.status===401){ location.href='login.html'; return; }
           if(!err && ctx){ CTX=ctx; }
           var nombreEmp=null;
           if(CTX){
             for(var i=0;i<CTX.empresasDisponibles.length;i++){
               if(CTX.empresasDisponibles[i].id===CTX.empresaActivaId){ nombreEmp=CTX.empresasDisponibles[i].razonSocial||CTX.empresasDisponibles[i].nombre; break; }
             }
-            syncRootConContexto(CTX.empresaActivaId, nombreEmp, arrancarUI);
+            syncRootConContexto(CTX.empresaActivaId, nombreEmp);
           } else {
-            syncRootConContexto(null, null, arrancarUI);
+            syncRootConContexto(null, null);
           }
+          arrancarUI();
         });
       };
       if(PA.haySesion && PA.haySesion()){ arrancar(); }
@@ -4692,7 +4491,8 @@ function init(){
     });
   } else {
     // Fallback total sin pa-core.js
-    syncRootConContexto(null, null, arrancarUI);
+    syncRootConContexto(null, null);
+    arrancarUI();
   }
 }
 // Inicialización de la UI una vez que el estado/contexto están listos.

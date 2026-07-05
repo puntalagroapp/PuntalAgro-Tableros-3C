@@ -255,12 +255,16 @@ CREATE INDEX idx_actividades_lote     ON actividades(lote_id, campania_id);
 CREATE INDEX idx_actividades_empresa  ON actividades(empresa_id, campania_id);
 
 -- Órdenes de trabajo
+-- labor_id/subactividad/tarifa quedan sin usar por el frontend real (la labor
+-- se define por lote dentro de destinos[].subact, no a nivel de cabecera) —
+-- se conservan por si se necesitan a futuro, no se dropean sin necesidad.
 CREATE TABLE ordenes_trabajo (
     id           TEXT NOT NULL,
     empresa_id   TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
     num          INTEGER NOT NULL,
     campania_id  TEXT REFERENCES campanias(id),
     fecha        DATE,
+    labor_tipo   TEXT CHECK (labor_tipo IN ('LP','LC')),
     labor_id     TEXT REFERENCES labores(id),
     subactividad TEXT,
     tercero_id   TEXT,
@@ -276,28 +280,62 @@ CREATE TABLE ordenes_trabajo (
     FOREIGN KEY (tercero_id, empresa_id) REFERENCES terceros(id, empresa_id) ON DELETE RESTRICT
 );
 CREATE INDEX idx_ots_empresa ON ordenes_trabajo(empresa_id, campania_id);
+CREATE UNIQUE INDEX uq_ordenes_trabajo_num_empresa ON ordenes_trabajo(empresa_id, num);
 
--- Movimientos de stock (se generan al confirmar aplicación de OT)
+-- Contador atómico de num de OT (evita la carrera de asignarlo en el cliente).
+CREATE TABLE contadores_ot (
+    empresa_id TEXT PRIMARY KEY REFERENCES empresas(id) ON DELETE CASCADE,
+    siguiente  INTEGER NOT NULL DEFAULT 1
+);
+
+-- Comprobantes: cabecera de movimiento, compartida por N líneas (movimientos).
+CREATE TABLE comprobantes (
+    id           TEXT NOT NULL,
+    empresa_id   TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    fecha        DATE,
+    tipo         TEXT,
+    comp_tipo    TEXT,
+    comp_nro     TEXT,
+    proveedor_id TEXT,
+    campania_id  TEXT REFERENCES campanias(id),
+    obs          TEXT,
+    ref_ot       TEXT,
+    ref_ot_num   INTEGER,
+    PRIMARY KEY (id, empresa_id),
+    FOREIGN KEY (proveedor_id, empresa_id) REFERENCES terceros(id, empresa_id) ON DELETE RESTRICT,
+    FOREIGN KEY (ref_ot, empresa_id)       REFERENCES ordenes_trabajo(id, empresa_id) ON DELETE SET NULL
+);
+CREATE INDEX idx_comprobantes_empresa ON comprobantes(empresa_id, campania_id);
+
+-- Movimientos de stock: líneas de un comprobante (se generan al confirmar
+-- aplicación de OT o al cargar un movimiento manual).
 CREATE TABLE movimientos (
     id                   TEXT NOT NULL,
     empresa_id           TEXT NOT NULL REFERENCES empresas(id),
+    comprobante_id       TEXT NOT NULL,
     insumo_id            TEXT NOT NULL,
-    fecha                DATE,
-    tipo                 TEXT,
     cantidad             NUMERIC(14,4),
     origen_deposito_id   TEXT,
     destino_deposito_id  TEXT,
-    comprobante_tipo     TEXT,
-    comprobante_nro      TEXT,
-    ot_id                TEXT,
-    obs                  TEXT,
+    ref_destino_id       TEXT, -- id del destino (lote) dentro del JSONB destinos de la OT, si aplica
     PRIMARY KEY (id, empresa_id),
+    FOREIGN KEY (comprobante_id, empresa_id)      REFERENCES comprobantes(id, empresa_id)     ON DELETE CASCADE,
     FOREIGN KEY (insumo_id, empresa_id)           REFERENCES insumos(id, empresa_id)          ON DELETE RESTRICT,
     FOREIGN KEY (origen_deposito_id, empresa_id)  REFERENCES depositos(id, empresa_id)        ON DELETE RESTRICT,
-    FOREIGN KEY (destino_deposito_id, empresa_id) REFERENCES depositos(id, empresa_id)        ON DELETE RESTRICT,
-    FOREIGN KEY (ot_id, empresa_id)               REFERENCES ordenes_trabajo(id, empresa_id)  ON DELETE RESTRICT
+    FOREIGN KEY (destino_deposito_id, empresa_id) REFERENCES depositos(id, empresa_id)        ON DELETE RESTRICT
 );
 CREATE INDEX idx_movimientos_empresa_insumo ON movimientos(empresa_id, insumo_id);
+CREATE INDEX idx_movimientos_comprobante ON movimientos(comprobante_id, empresa_id);
+
+-- Config operativa por empresa (tipo de cambio para valorizar stock). Único
+-- resto de config liviana de tablero_insumos_ot que antes vivía en el blob.
+CREATE TABLE config_operativa (
+    empresa_id  TEXT PRIMARY KEY REFERENCES empresas(id) ON DELETE CASCADE,
+    tc_usd      NUMERIC(12,2) DEFAULT 1000,
+    tc_mensual  JSONB NOT NULL DEFAULT '{}',
+    tc_apertura NUMERIC(12,2) DEFAULT 0,
+    tc_cierre   NUMERIC(12,2) DEFAULT 0
+);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECCIÓN 6: TABLEROS (JSON blob — compatibilidad con tableros legacy)

@@ -699,9 +699,15 @@ app.put('/api/maestros/:coleccion/:id', async (req, res) => {
           );
           if (dup.rows.length) return res.status(409).json({ error: 'Ya existe un insumo con ese nombre y tipo para esta empresa' });
         }
+        // insumos: merge en vez de reemplazar — tablero_insumos_ot.html guarda ahí
+        // campos operativos (stockMin/precioUnitario/moneda/deposito) que no debe
+        // perder cuando se edita la identidad (nombre/tipo/etc.) desde Maestros, y
+        // viceversa.
         await pool.query(
-          `UPDATE ${cfg.tabla} SET datos = $3${cfg.tabla === 'choferes' ? ', tercero_id = $4' : ''}
-            WHERE id = $1 AND empresa_id = $2`,
+          cfg.tabla === 'insumos'
+            ? `UPDATE insumos SET datos = datos || $3::jsonb WHERE id = $1 AND empresa_id = $2`
+            : `UPDATE ${cfg.tabla} SET datos = $3${cfg.tabla === 'choferes' ? ', tercero_id = $4' : ''}
+                WHERE id = $1 AND empresa_id = $2`,
           cfg.tabla === 'choferes'
             ? [obj.id, obj.empresaId, obj, obj.terceroId || null]
             : [obj.id, obj.empresaId, obj]
@@ -1433,6 +1439,306 @@ app.patch('/api/json-patch', async (req, res) => {
     );
     res.json({ status: 'ok' });
   } catch (err) {
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ÓRDENES DE TRABAJO (tablero_insumos_ot)
+// El número de OT se asigna de forma atómica vía contadores_ot, dentro de la
+// misma transacción del INSERT — evita la carrera de asignarlo en el cliente.
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/ordenes-trabajo', async (req, res) => {
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    const empresaId = req.query.empresaId;
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+
+    const params = [empresaId];
+    let sql = `SELECT id, num, campania_id AS "campaniaId", fecha, labor_tipo AS "laborTipo",
+                      tercero_id AS "contratistaId", obs, estado, estado_fact AS "estadoFact",
+                      plantilla, destinos
+                 FROM ordenes_trabajo WHERE empresa_id = $1`;
+    if (req.query.campaniaId) { params.push(req.query.campaniaId); sql += ` AND campania_id = $${params.length}`; }
+    sql += ' ORDER BY num DESC';
+    const r = await pool.query(sql, params);
+    res.json(r.rows);
+  } catch (err) {
+    console.error('/api/ordenes-trabajo GET error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.post('/api/ordenes-trabajo', async (req, res) => {
+  const o = req.body || {};
+  const empresaId = o.empresaId;
+  const client = await pool.connect();
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO contadores_ot (empresa_id, siguiente) VALUES ($1, 1) ON CONFLICT (empresa_id) DO NOTHING`,
+      [empresaId]
+    );
+    const numRes = await client.query(
+      `UPDATE contadores_ot SET siguiente = siguiente + 1 WHERE empresa_id = $1 RETURNING siguiente - 1 AS num`,
+      [empresaId]
+    );
+    const num = numRes.rows[0].num;
+    const id = o.id || ('ot_' + Date.now());
+    await client.query(
+      `INSERT INTO ordenes_trabajo (id, empresa_id, num, campania_id, fecha, labor_tipo, tercero_id, obs, estado, plantilla, destinos)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [id, empresaId, num, o.campaniaId || null, o.fecha || null, o.laborTipo || null,
+       o.contratistaId || null, o.obs || null, o.estado || 'Pendiente',
+       JSON.stringify(o.plantilla || []), JSON.stringify(o.destinos || [])]
+    );
+    await client.query('COMMIT');
+    res.status(201).json({ ...o, id, num, empresaId });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('/api/ordenes-trabajo POST error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
+  }
+});
+
+app.put('/api/ordenes-trabajo/:id', async (req, res) => {
+  const o = req.body || {};
+  const empresaId = o.empresaId;
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    const bloqueo = await verificarLockPropio('ordenes_trabajo', req.params.id, sesion);
+    if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
+
+    await pool.query(
+      `UPDATE ordenes_trabajo
+          SET campania_id=$3, fecha=$4, labor_tipo=$5, tercero_id=$6, obs=$7,
+              estado=$8, estado_fact=$9, plantilla=$10, destinos=$11
+        WHERE id=$1 AND empresa_id=$2`,
+      [req.params.id, empresaId, o.campaniaId || null, o.fecha || null, o.laborTipo || null,
+       o.contratistaId || null, o.obs || null, o.estado || 'Pendiente', o.estadoFact || 'Sin facturar',
+       JSON.stringify(o.plantilla || []), JSON.stringify(o.destinos || [])]
+    );
+    res.json({ ...o, id: req.params.id, empresaId });
+  } catch (err) {
+    console.error('/api/ordenes-trabajo PUT error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.delete('/api/ordenes-trabajo/:id', async (req, res) => {
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    const empresaId = req.query.empresaId;
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    const bloqueo = await verificarLockPropio('ordenes_trabajo', req.params.id, sesion);
+    if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
+
+    await pool.query('DELETE FROM ordenes_trabajo WHERE id=$1 AND empresa_id=$2', [req.params.id, empresaId]);
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('/api/ordenes-trabajo DELETE error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPROBANTES + MOVIMIENTOS (líneas embebidas)
+// Un comprobante siempre viaja con sus líneas — se crean/actualizan juntos
+// en una transacción. GET devuelve cada comprobante con sus líneas anidadas
+// en `lineas`, para reconstruir state.comprobantes/state.movtos en un viaje.
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/comprobantes', async (req, res) => {
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    const empresaId = req.query.empresaId;
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+
+    const params = [empresaId];
+    let sql = `SELECT id, fecha, tipo, comp_tipo AS "compTipo", comp_nro AS "compNro",
+                      proveedor_id AS "proveedorId", campania_id AS "campaniaId", obs,
+                      ref_ot AS "refOt", ref_ot_num AS "refOtNum"
+                 FROM comprobantes WHERE empresa_id = $1`;
+    if (req.query.campaniaId) { params.push(req.query.campaniaId); sql += ` AND campania_id = $${params.length}`; }
+    const comps = await pool.query(sql, params);
+
+    const movs = await pool.query(
+      `SELECT id, comprobante_id AS "comprobanteId", insumo_id AS "insumoId", cantidad AS "cant",
+              origen_deposito_id AS "origenId", destino_deposito_id AS "destinoId", ref_destino_id AS "refDest"
+         FROM movimientos WHERE empresa_id = $1`,
+      [empresaId]
+    );
+    const lineasPorComp = {};
+    for (const m of movs.rows) {
+      (lineasPorComp[m.comprobanteId] = lineasPorComp[m.comprobanteId] || []).push(m);
+    }
+    res.json(comps.rows.map(c => ({ ...c, lineas: lineasPorComp[c.id] || [] })));
+  } catch (err) {
+    console.error('/api/comprobantes GET error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+async function _guardarLineasComprobante(client, compId, empresaId, lineas) {
+  await client.query('DELETE FROM movimientos WHERE comprobante_id=$1 AND empresa_id=$2', [compId, empresaId]);
+  for (const ln of (lineas || [])) {
+    const lnId = ln.id || (compId + '_' + Math.random().toString(36).slice(2, 8));
+    await client.query(
+      `INSERT INTO movimientos (id, empresa_id, comprobante_id, insumo_id, cantidad, origen_deposito_id, destino_deposito_id, ref_destino_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [lnId, empresaId, compId, ln.insumoId, ln.cant || 0, ln.origenId || null, ln.destinoId || null, ln.refDest || null]
+    );
+  }
+}
+
+app.post('/api/comprobantes', async (req, res) => {
+  const c = req.body || {};
+  const empresaId = c.empresaId;
+  const client = await pool.connect();
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+
+    const id = c.id || ('comp_' + Date.now());
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO comprobantes (id, empresa_id, fecha, tipo, comp_tipo, comp_nro, proveedor_id, campania_id, obs, ref_ot, ref_ot_num)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [id, empresaId, c.fecha || null, c.tipo || null, c.compTipo || null, c.compNro || null,
+       c.proveedorId || null, c.campaniaId || null, c.obs || null, c.refOt || null, c.refOtNum || null]
+    );
+    await _guardarLineasComprobante(client, id, empresaId, c.lineas);
+    await client.query('COMMIT');
+    res.status(201).json({ ...c, id, empresaId });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('/api/comprobantes POST error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
+  }
+});
+
+app.put('/api/comprobantes/:id', async (req, res) => {
+  const c = req.body || {};
+  const empresaId = c.empresaId;
+  const client = await pool.connect();
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    const bloqueo = await verificarLockPropio('comprobantes', req.params.id, sesion);
+    if (bloqueo) { client.release(); return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre }); }
+
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE comprobantes
+          SET fecha=$3, tipo=$4, comp_tipo=$5, comp_nro=$6, proveedor_id=$7, campania_id=$8, obs=$9, ref_ot=$10, ref_ot_num=$11
+        WHERE id=$1 AND empresa_id=$2`,
+      [req.params.id, empresaId, c.fecha || null, c.tipo || null, c.compTipo || null, c.compNro || null,
+       c.proveedorId || null, c.campaniaId || null, c.obs || null, c.refOt || null, c.refOtNum || null]
+    );
+    await _guardarLineasComprobante(client, req.params.id, empresaId, c.lineas);
+    await client.query('COMMIT');
+    res.json({ ...c, id: req.params.id, empresaId });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('/api/comprobantes PUT error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
+  }
+});
+
+app.delete('/api/comprobantes/:id', async (req, res) => {
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    const empresaId = req.query.empresaId;
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    const bloqueo = await verificarLockPropio('comprobantes', req.params.id, sesion);
+    if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
+
+    // ON DELETE CASCADE en movimientos se encarga de las líneas.
+    await pool.query('DELETE FROM comprobantes WHERE id=$1 AND empresa_id=$2', [req.params.id, empresaId]);
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('/api/comprobantes DELETE error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIG OPERATIVA (tipo de cambio por empresa, tablero_insumos_ot)
+// Config de un solo "dueño" por empresa — bajo riesgo de pisado, sin lock.
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/config-operativa', async (req, res) => {
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    const empresaId = req.query.empresaId;
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+
+    const r = await pool.query(
+      `SELECT tc_usd AS "tcUSD", tc_mensual AS "tcMensual", tc_apertura AS "tcApertura", tc_cierre AS "tcCierre"
+         FROM config_operativa WHERE empresa_id = $1`,
+      [empresaId]
+    );
+    res.json(r.rows[0] || { tcUSD: 1000, tcMensual: {}, tcApertura: 0, tcCierre: 0 });
+  } catch (err) {
+    console.error('/api/config-operativa GET error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.put('/api/config-operativa', async (req, res) => {
+  const c = req.body || {};
+  const empresaId = c.empresaId;
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+
+    await pool.query(
+      `INSERT INTO config_operativa (empresa_id, tc_usd, tc_mensual, tc_apertura, tc_cierre)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (empresa_id) DO UPDATE SET tc_usd=$2, tc_mensual=$3, tc_apertura=$4, tc_cierre=$5`,
+      [empresaId, c.tcUSD || 1000, JSON.stringify(c.tcMensual || {}), c.tcApertura || 0, c.tcCierre || 0]
+    );
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('/api/config-operativa PUT error:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
