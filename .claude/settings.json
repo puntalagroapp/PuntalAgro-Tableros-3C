@@ -33,7 +33,8 @@
       "Bash(curl -s -X POST http://localhost:8080/api/maestros/tipos-actividad -H 'Authorization: Bearer tok_5ca27487be18f62fb67dfdddaeccfe8d783ca84dae6691f0a7e4545a86e67d1d' -H 'Content-Type: application/json' -d '{\"id\":\"ta_prueba2\",\"empresaId\":\"e_1\",\"nombre\":\"Soja Test\",\"sigla\":\"SJT\",\"esCultivo\":true,\"actividad\":\"AGR\",\"especieId\":\"esp_0\",\"graminea\":false,\"default2da\":true,\"activo\":true}')",
       "Bash(git commit -m ' *)",
       "Bash(curl -s -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' -H 'Authorization: Bearer PA_e5f208d00ad24d859032f68d253f06ac8ca3408eb6ebf4310eb5d3a94b5dbed0' -d '{\"email\":\"demo@puntalagro.com\",\"password\":\"demo1234\"}')",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(awk '{ if \\(length\\($0\\) > 500\\) print NR\": [linea larga omitida, \"length\\($0\\)\" chars]\"; else print }' /tmp/full_diff_maestros2.txt > /tmp/full_diff_maestros2_clean.txt *)"
     ],
     "additionalDirectories": [
       "/tmp"

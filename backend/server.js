@@ -228,7 +228,7 @@ app.get('/api/globales', async (req, res) => {
 
     const [labores, especies, unidades, modosAccion, tiposProveedor, campanias,
            categoriasInsumo, usos, formulaciones, principiosActivos] = await Promise.all([
-      pool.query('SELECT id, nombre, precio_ref AS "precioRef", activo FROM labores WHERE activo = true ORDER BY nombre'),
+      pool.query('SELECT id, nombre, unidad_labor AS "unidadLabor", precio_ref AS "precioRef", activo FROM labores WHERE activo = true ORDER BY nombre'),
       pool.query('SELECT id, nombre, sigla, activo FROM especies WHERE activo = true ORDER BY nombre'),
       pool.query('SELECT id, sigla, nombre, activo FROM unidades WHERE activo = true ORDER BY sigla'),
       pool.query('SELECT id, sistema, codigo, descripcion, activo FROM modos_accion WHERE activo = true ORDER BY sistema, codigo'),
@@ -588,7 +588,7 @@ app.get('/api/maestros/:coleccion', async (req, res) => {
     // Colecciones globales
     let q;
     if (cfg.tabla === 'labores') {
-      q = pool.query('SELECT id, nombre, precio_ref AS "precioRef", activo FROM labores WHERE activo = true ORDER BY nombre');
+      q = pool.query('SELECT id, nombre, unidad_labor AS "unidadLabor", precio_ref AS "precioRef", activo FROM labores WHERE activo = true ORDER BY nombre');
     } else if (cfg.tabla === 'especies') {
       q = pool.query('SELECT id, nombre, sigla, activo FROM especies WHERE activo = true ORDER BY nombre');
     } else if (cfg.tabla === 'unidades') {
@@ -988,10 +988,10 @@ app.delete('/api/permisos/:usuarioId/:empresaId', async (req, res) => {
 async function _upsertGlobal(tabla, obj) {
   if (tabla === 'labores') {
     await pool.query(
-      `INSERT INTO labores (id, nombre, precio_ref, activo)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (id) DO UPDATE SET nombre = $2, precio_ref = $3, activo = $4`,
-      [obj.id, obj.nombre, obj.precioRef || 0, obj.activo !== false]
+      `INSERT INTO labores (id, nombre, unidad_labor, precio_ref, activo)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (id) DO UPDATE SET nombre = $2, unidad_labor = $3, precio_ref = $4, activo = $5`,
+      [obj.id, obj.nombre, obj.unidadLabor || null, obj.precioRef || 0, obj.activo !== false]
     );
   } else if (tabla === 'especies') {
     await pool.query(

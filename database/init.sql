@@ -51,10 +51,11 @@ CREATE UNIQUE INDEX uq_tipos_proveedor_nombre ON tipos_proveedor (trim(lower(nom
 
 -- Labores: lista global; el tipo LP/LC se define al emitir la OT
 CREATE TABLE labores (
-    id         TEXT PRIMARY KEY,
-    nombre     TEXT NOT NULL,
-    precio_ref NUMERIC(12,2) DEFAULT 0,
-    activo     BOOLEAN NOT NULL DEFAULT true
+    id           TEXT PRIMARY KEY,
+    nombre       TEXT NOT NULL,
+    unidad_labor TEXT,
+    precio_ref   NUMERIC(12,2) DEFAULT 0,
+    activo       BOOLEAN NOT NULL DEFAULT true
 );
 CREATE UNIQUE INDEX uq_labores_nombre ON labores (trim(lower(nombre)));
 
