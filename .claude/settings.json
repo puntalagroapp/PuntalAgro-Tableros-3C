@@ -7,7 +7,36 @@
       "Bash(git pull origin main)",
       "Bash(git checkout -b feature/migracion-*)",
       "Bash(git clone --depth 1 *)",
-      "Bash(mkdir -p *)"
+      "Bash(mkdir -p *)",
+      "Bash(find *)",
+      "Bash(diff *)",
+      "Bash(python3)",
+      "Bash(node --check *)",
+      "Bash(node --check /home/mariana/projects/Tableros/PuntalAgro-Tableros-3C/backend/server.js)",
+      "Bash(curl -s http://localhost:8080/api/maestros/categorias-insumo -H 'Authorization: Bearer tok_5ca27487be18f62fb67dfdddaeccfe8d783ca84dae6691f0a7e4545a86e67d1d')",
+      "Bash(curl -s http://localhost:8080/api/maestros/socios?empresaId=e_1 -H 'Authorization: Bearer tok_5ca27487be18f62fb67dfdddaeccfe8d783ca84dae6691f0a7e4545a86e67d1d')",
+      "Bash(curl -s -X POST http://localhost:8080/api/maestros/socios -H 'Authorization: Bearer tok_5ca27487be18f62fb67dfdddaeccfe8d783ca84dae6691f0a7e4545a86e67d1d' -H 'Content-Type: application/json' -d '{\"id\":\"soc_test1\",\"empresaId\":\"e_1\",\"nombre\":\"Juan Perez\",\"obs\":\"test\",\"activo\":true}')",
+      "Bash(curl -s -X DELETE http://localhost:8080/api/maestros/socios/soc_test1?empresaId=e_1 -H 'Authorization: Bearer tok_5ca27487be18f62fb67dfdddaeccfe8d783ca84dae6691f0a7e4545a86e67d1d')",
+      "Bash(node --check /home/mariana/projects/Tableros/PuntalAgro-Tableros-3C/frontend/pa-core.js)",
+      "Bash(cp /home/mariana/projects/Tableros/PuntalAgro-Tableros-3C/frontend/maestros.html /tmp/maestros_mine.html)",
+      "Bash(cp /home/mariana/projects/Tableros/PuntalAgro-Tableros-3C/client-src/2026-07-05/maestros.html /tmp/maestros_base.html)",
+      "Bash(cp /home/mariana/projects/Tableros/PuntalAgro-Tableros-3C/client-src/2026-07-21/maestros.html /tmp/maestros_theirs.html)",
+      "Bash(git merge-file *)",
+      "Bash(echo \"exit code: $?\")",
+      "Bash(diff -u /home/mariana/projects/Tableros/PuntalAgro-Tableros-3C/client-src/2026-07-05/maestros.html /home/mariana/projects/Tableros/PuntalAgro-Tableros-3C/client-src/2026-07-21/maestros.html > /tmp/full_diff_maestros.txt *)",
+      "Bash(python3 -c ' *)",
+      "Bash(node --check /tmp/maestros_check.js)",
+      "Bash(curl -s http://localhost:8080/api/maestros/insumos?empresaId=e_1 -H 'Authorization: Bearer tok_5ca27487be18f62fb67dfdddaeccfe8d783ca84dae6691f0a7e4545a86e67d1d')",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s -X POST http://localhost:8080/api/maestros/socios -H 'Authorization: Bearer tok_5ca27487be18f62fb67dfdddaeccfe8d783ca84dae6691f0a7e4545a86e67d1d' -H 'Content-Type: application/json' -d '{\"id\":\"soc_prueba1\",\"empresaId\":\"e_1\",\"nombre\":\"Socio Prueba\",\"obs\":\"\",\"activo\":true}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/maestros/tipos-actividad -H 'Authorization: Bearer tok_5ca27487be18f62fb67dfdddaeccfe8d783ca84dae6691f0a7e4545a86e67d1d' -H 'Content-Type: application/json' -d '{\"id\":\"ta_prueba1\",\"empresaId\":\"e_1\",\"nombre\":\"Estructura Test\",\"sigla\":\"EST\",\"esCultivo\":false,\"actividad\":null,\"especieId\":null,\"graminea\":null,\"default2da\":false,\"activo\":true}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/maestros/tipos-actividad -H 'Authorization: Bearer tok_5ca27487be18f62fb67dfdddaeccfe8d783ca84dae6691f0a7e4545a86e67d1d' -H 'Content-Type: application/json' -d '{\"id\":\"ta_prueba2\",\"empresaId\":\"e_1\",\"nombre\":\"Soja Test\",\"sigla\":\"SJT\",\"esCultivo\":true,\"actividad\":\"AGR\",\"especieId\":\"esp_0\",\"graminea\":false,\"default2da\":true,\"activo\":true}')",
+      "Bash(git commit -m ' *)",
+      "Bash(curl -s -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' -H 'Authorization: Bearer PA_e5f208d00ad24d859032f68d253f06ac8ca3408eb6ebf4310eb5d3a94b5dbed0' -d '{\"email\":\"demo@puntalagro.com\",\"password\":\"demo1234\"}')",
+      "Bash(git commit *)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
     ]
   }
 }

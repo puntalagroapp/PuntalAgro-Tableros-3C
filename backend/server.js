@@ -97,6 +97,11 @@ const UNIQUE_ERROR_MESSAGES = {
   'uq_tipos_proveedor_nombre':         'Ya existe un tipo de proveedor con ese nombre',
   'uq_lotes_nombre_empresa':           'Ya existe un lote con ese nombre en esta empresa',
   'uq_campanias_nombre':               'Ya existe una campaña con ese nombre',
+  'uq_categorias_insumo_codigo':       'Ya existe una categoría de insumo con ese código',
+  'uq_usos_actividad_codigo':          'Ya existe un uso con ese código',
+  'uq_formulaciones_descripcion':      'Ya existe una formulación con esa descripción',
+  'uq_principios_activos_nombre':      'Ya existe un principio activo con ese nombre',
+  'uq_socios_nombre_empresa':          'Ya existe un socio con ese nombre en esta empresa',
 };
 function uniqueViolation(err) {
   if (err.code !== '23505') return null;
@@ -190,17 +195,22 @@ pool.query(`
 // porEmpresa = true  → los registros llevan empresa_id; se filtra al leer.
 // ─────────────────────────────────────────────────────────────────────────────
 const COLECCIONES = {
-  'terceros':        { tabla: 'terceros',        porEmpresa: true  },
-  'choferes':        { tabla: 'choferes',        porEmpresa: true  },
-  'depositos':       { tabla: 'depositos',       porEmpresa: true  },
-  'insumos':         { tabla: 'insumos',         porEmpresa: true  },
-  'tipos-actividad': { tabla: 'tipos_actividad', porEmpresa: true  },
-  'labores':         { tabla: 'labores',         porEmpresa: false },
-  'especies':        { tabla: 'especies',        porEmpresa: false },
-  'unidades':        { tabla: 'unidades',        porEmpresa: false },
-  'modos-accion':    { tabla: 'modos_accion',    porEmpresa: false },
-  'tipos-proveedor': { tabla: 'tipos_proveedor', porEmpresa: false },
-  'lotes':           { tabla: 'lotes',           porEmpresa: true  },
+  'terceros':          { tabla: 'terceros',          porEmpresa: true  },
+  'choferes':          { tabla: 'choferes',          porEmpresa: true  },
+  'depositos':         { tabla: 'depositos',         porEmpresa: true  },
+  'insumos':           { tabla: 'insumos',           porEmpresa: true  },
+  'tipos-actividad':   { tabla: 'tipos_actividad',   porEmpresa: true  },
+  'socios':            { tabla: 'socios',            porEmpresa: true  },
+  'labores':           { tabla: 'labores',           porEmpresa: false },
+  'especies':          { tabla: 'especies',          porEmpresa: false },
+  'unidades':          { tabla: 'unidades',          porEmpresa: false },
+  'modos-accion':      { tabla: 'modos_accion',      porEmpresa: false },
+  'tipos-proveedor':   { tabla: 'tipos_proveedor',   porEmpresa: false },
+  'categorias-insumo': { tabla: 'categorias_insumo', porEmpresa: false },
+  'usos':              { tabla: 'usos_actividad',    porEmpresa: false },
+  'formulaciones':     { tabla: 'formulaciones',     porEmpresa: false },
+  'principios-activos':{ tabla: 'principios_activos',porEmpresa: false },
+  'lotes':             { tabla: 'lotes',             porEmpresa: true  },
   'actividades':     { tabla: 'actividades',     porEmpresa: true  },
   'campanias':       { tabla: 'campanias',       porEmpresa: false },
 };
@@ -216,22 +226,31 @@ app.get('/api/globales', async (req, res) => {
     const sesion = await obtenerSesion(req);
     if (!sesion) return res.status(401).json({ error: 'No autenticado' });
 
-    const [labores, especies, unidades, modosAccion, tiposProveedor, campanias] = await Promise.all([
+    const [labores, especies, unidades, modosAccion, tiposProveedor, campanias,
+           categoriasInsumo, usos, formulaciones, principiosActivos] = await Promise.all([
       pool.query('SELECT id, nombre, precio_ref AS "precioRef", activo FROM labores WHERE activo = true ORDER BY nombre'),
       pool.query('SELECT id, nombre, sigla, activo FROM especies WHERE activo = true ORDER BY nombre'),
       pool.query('SELECT id, sigla, nombre, activo FROM unidades WHERE activo = true ORDER BY sigla'),
       pool.query('SELECT id, sistema, codigo, descripcion, activo FROM modos_accion WHERE activo = true ORDER BY sistema, codigo'),
       pool.query('SELECT id, nombre FROM tipos_proveedor ORDER BY nombre'),
       pool.query('SELECT id, nombre, orden, activa FROM campanias ORDER BY orden'),
+      pool.query('SELECT id, codigo, label, base, fito, subcat, activo FROM categorias_insumo WHERE activo = true ORDER BY label'),
+      pool.query('SELECT id, codigo, label, activo FROM usos_actividad WHERE activo = true ORDER BY label'),
+      pool.query('SELECT id, codigo, descripcion, orden, activo FROM formulaciones WHERE activo = true ORDER BY orden'),
+      pool.query('SELECT id, nombre, eiq, uso, activo FROM principios_activos WHERE activo = true ORDER BY nombre'),
     ]);
 
     const payload = {
-      labores:        labores.rows,
-      especies:       especies.rows,
-      unidades:       unidades.rows,
-      modosAccion:    modosAccion.rows,
-      tiposProveedor: tiposProveedor.rows,
-      campanias:      campanias.rows,
+      labores:            labores.rows,
+      especies:           especies.rows,
+      unidades:           unidades.rows,
+      modosAccion:        modosAccion.rows,
+      tiposProveedor:     tiposProveedor.rows,
+      campanias:          campanias.rows,
+      categoriasInsumo:   categoriasInsumo.rows,
+      usos:               usos.rows,
+      formulaciones:      formulaciones.rows,
+      principiosActivos:  principiosActivos.rows,
       empresas:       [],
       clientes:       [],
       campos:         [],
@@ -580,6 +599,14 @@ app.get('/api/maestros/:coleccion', async (req, res) => {
       q = pool.query('SELECT id, nombre FROM tipos_proveedor ORDER BY nombre');
     } else if (cfg.tabla === 'campanias') {
       q = pool.query('SELECT id, nombre, orden, activa FROM campanias ORDER BY orden');
+    } else if (cfg.tabla === 'categorias_insumo') {
+      q = pool.query('SELECT id, codigo, label, base, fito, subcat, activo FROM categorias_insumo WHERE activo = true ORDER BY label');
+    } else if (cfg.tabla === 'usos_actividad') {
+      q = pool.query('SELECT id, codigo, label, activo FROM usos_actividad WHERE activo = true ORDER BY label');
+    } else if (cfg.tabla === 'formulaciones') {
+      q = pool.query('SELECT id, codigo, descripcion, orden, activo FROM formulaciones WHERE activo = true ORDER BY orden');
+    } else if (cfg.tabla === 'principios_activos') {
+      q = pool.query('SELECT id, nombre, eiq, uso, activo FROM principios_activos WHERE activo = true ORDER BY nombre');
     } else {
       return res.status(500).json({ error: 'Tabla global sin query definida' });
     }
@@ -1001,11 +1028,40 @@ async function _upsertGlobal(tabla, obj) {
        ON CONFLICT (id) DO UPDATE SET nombre=$2, orden=$3, activa=$4`,
       [obj.id, obj.nombre, obj.orden || 0, obj.activa || false]
     );
+  } else if (tabla === 'categorias_insumo') {
+    await pool.query(
+      `INSERT INTO categorias_insumo (id, codigo, label, base, fito, subcat, activo)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (id) DO UPDATE SET codigo=$2, label=$3, base=$4, fito=$5, subcat=$6, activo=$7`,
+      [obj.id, obj.codigo, obj.label, obj.base || false, obj.fito || false, obj.subcat || false, obj.activo !== false]
+    );
+  } else if (tabla === 'usos_actividad') {
+    await pool.query(
+      `INSERT INTO usos_actividad (id, codigo, label, activo)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (id) DO UPDATE SET codigo=$2, label=$3, activo=$4`,
+      [obj.id, obj.codigo, obj.label, obj.activo !== false]
+    );
+  } else if (tabla === 'formulaciones') {
+    await pool.query(
+      `INSERT INTO formulaciones (id, codigo, descripcion, orden, activo)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (id) DO UPDATE SET codigo=$2, descripcion=$3, orden=$4, activo=$5`,
+      [obj.id, obj.codigo || null, obj.descripcion, obj.orden || 0, obj.activo !== false]
+    );
+  } else if (tabla === 'principios_activos') {
+    await pool.query(
+      `INSERT INTO principios_activos (id, nombre, eiq, uso, activo)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (id) DO UPDATE SET nombre=$2, eiq=$3, uso=$4, activo=$5`,
+      [obj.id, obj.nombre, obj.eiq != null ? obj.eiq : null, obj.uso || null, obj.activo !== false]
+    );
   }
 }
 
 async function _deleteGlobal(tabla, id) {
-  const tablas = ['labores','especies','unidades','modos_accion','tipos_proveedor','campanias'];
+  const tablas = ['labores','especies','unidades','modos_accion','tipos_proveedor','campanias',
+                  'categorias_insumo','usos_actividad','formulaciones','principios_activos'];
   if (tablas.indexOf(tabla) < 0) throw new Error('Tabla no permitida: ' + tabla);
   await pool.query(`DELETE FROM ${tabla} WHERE id = $1`, [id]);
 }

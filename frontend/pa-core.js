@@ -59,6 +59,11 @@
   var K_CLIENTES   = 'pa_clientes';
   var K_LOTES      = 'pa_lotes';
   var K_ACTIVIDADES = 'pa_actividades';
+  var K_CATEGORIAS = 'pa_categorias_insumo';
+  var K_USOS       = 'pa_usos_actividad';
+  var K_FORMUL     = 'pa_formulaciones';
+  var K_PRINACT    = 'pa_principios_activos';
+  var K_SOCIOS     = 'pa_socios';
   var K_CAMPANIAS  = 'pa_campanias';
   var K_USUARIOS   = 'pa_usuarios';
   // Solo estas dos persisten en localStorage también en producción:
@@ -194,7 +199,7 @@
   }
 
   // ── 6. SEED DEMO (solo modo local) ───────────────────────────────────────
-  var SEED_VERSION = '5';
+  var SEED_VERSION = '6';
 
   function sembrarDatos() {
     if (lsGet(LS_SEEDVER, null) === SEED_VERSION) return;
@@ -285,6 +290,192 @@
       { id: 'camp_1', nombre: '24/25', orden: 1, activa: false },
       { id: 'camp_2', nombre: '25/26', orden: 2, activa: true  }
     ]);
+    lsSet(K_CATEGORIAS, [
+      { id:'cat_sem',  codigo:'SEM',  label:'Semillas',                    base:true, fito:false, subcat:false, activo:true },
+      { id:'cat_cura', codigo:'CURA', label:'Curasemillas e Inoculantes',  base:true, fito:false, subcat:false, activo:true },
+      { id:'cat_herb', codigo:'HERB', label:'Herbicidas',                  base:true, fito:true,  subcat:false, activo:true },
+      { id:'cat_inse', codigo:'INSE', label:'Insecticidas',                base:true, fito:true,  subcat:false, activo:true },
+      { id:'cat_fung', codigo:'FUNG', label:'Fungicidas',                  base:true, fito:true,  subcat:false, activo:true },
+      { id:'cat_coad', codigo:'COAD', label:'Coadyuvantes y Correctores',  base:true, fito:false, subcat:true,  activo:true },
+      { id:'cat_fert', codigo:'FERT', label:'Fertilizantes',               base:true, fito:false, subcat:false, activo:true },
+      { id:'cat_otro', codigo:'OTRO', label:'Otros Insumos',               base:true, fito:false, subcat:false, activo:true }
+    ]);
+    lsSet(K_USOS, [
+      { id:'uso_agr', codigo:'AGR', label:'Agricultura',     activo:true },
+      { id:'uso_gan', codigo:'GAN', label:'Ganadería',       activo:true },
+      { id:'uso_dob', codigo:'DOB', label:'Doble propósito', activo:true }
+    ]);
+    lsSet(K_FORMUL, [
+      { id:'f_agua', codigo:'',   descripcion:'Agua (media carga, corrección dureza/pH)',    orden:1,  activo:true },
+      { id:'f_coad', codigo:'',   descripcion:'Coadyuvantes / correctores / secuestrantes',   orden:2,  activo:true },
+      { id:'f_anti', codigo:'',   descripcion:'Antiespumante',                                orden:3,  activo:true },
+      { id:'f_wp',   codigo:'WP', descripcion:'Polvos mojables',                              orden:4,  activo:true },
+      { id:'f_wg',   codigo:'WG', descripcion:'Gránulos dispersables',                        orden:5,  activo:true },
+      { id:'f_sg',   codigo:'SG', descripcion:'Gránulos solubles',                            orden:6,  activo:true },
+      { id:'f_od',   codigo:'OD', descripcion:'Dispersiones oleosas',                         orden:7,  activo:true },
+      { id:'f_sc',   codigo:'SC', descripcion:'Suspensiones concentradas',                    orden:8,  activo:true },
+      { id:'f_cs',   codigo:'CS', descripcion:'Suspensiones de encapsulados (microcápsulas)', orden:9,  activo:true },
+      { id:'f_se',   codigo:'SE', descripcion:'Suspo-emulsiones',                             orden:10, activo:true },
+      { id:'f_ew',   codigo:'EW', descripcion:'Emulsiones de aceite en agua',                 orden:11, activo:true },
+      { id:'f_ec',   codigo:'EC', descripcion:'Concentrados emulsionables',                   orden:12, activo:true },
+      { id:'f_sl',   codigo:'SL', descripcion:'Concentrados / líquidos solubles',             orden:13, activo:true },
+      { id:'f_acei', codigo:'',   descripcion:'Aceites / surfactantes / adyuvantes finales',  orden:14, activo:true },
+      { id:'f_foli', codigo:'',   descripcion:'Micronutrientes / fertilizantes foliares',     orden:15, activo:true }
+    ]);
+    lsSet(K_PRINACT, [
+      { id: 'pa_0', nombre: '(E,E)8,10-DODECADIENOL', eiq: null, uso: 'Feromona (control de plagas)', activo: true },
+      { id: 'pa_1', nombre: '(E,Z)7,9-DODECADIENIL ACETATO', eiq: null, uso: 'Feromona (control de plagas)', activo: true },
+      { id: 'pa_2', nombre: '(Z)/(E)-8-DODECENIL ACETATO', eiq: null, uso: 'Feromona (control de plagas)', activo: true },
+      { id: 'pa_3', nombre: '2,4 D', eiq: 19.27, uso: 'Herbicida', activo: true },
+      { id: 'pa_4', nombre: '2,4-DB', eiq: 19.27, uso: 'Herbicida', activo: true },
+      { id: 'pa_5', nombre: 'ABAMECTINA', eiq: 35.65, uso: 'Insecticida/Acaricida', activo: true },
+      { id: 'pa_6', nombre: 'ACEFATO', eiq: 18.45, uso: 'Insecticida', activo: true },
+      { id: 'pa_7', nombre: 'ACEITE DE SOJA', eiq: 5.0, uso: 'Coadyuvante', activo: true },
+      { id: 'pa_8', nombre: 'ACEITE MINERAL', eiq: 5.0, uso: 'Coadyuvante', activo: true },
+      { id: 'pa_9', nombre: 'ACETAMIPRID', eiq: 24.83, uso: 'Insecticida', activo: true },
+      { id: 'pa_10', nombre: 'ACETOCLOR', eiq: 22.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_11', nombre: 'ACIDO FOSFORICO', eiq: null, uso: 'Coadyuvante', activo: true },
+      { id: 'pa_12', nombre: 'ACIDO GIBERELICO', eiq: 5.0, uso: 'Regulador de crecimiento', activo: true },
+      { id: 'pa_13', nombre: 'AFIDOPYROPEN', eiq: 18.0, uso: 'Insecticida', activo: true },
+      { id: 'pa_14', nombre: 'ALCOHOL GRASO ETOXILADO', eiq: null, uso: 'Coadyuvante', activo: true },
+      { id: 'pa_15', nombre: 'ALCOHOL LAURICO ETOXILADO', eiq: null, uso: 'Coadyuvante', activo: true },
+      { id: 'pa_16', nombre: 'ALCOHOL LINEAL ETOXILADO', eiq: null, uso: 'Coadyuvante', activo: true },
+      { id: 'pa_17', nombre: 'ALCOHOLES GRASOS', eiq: null, uso: 'Coadyuvante', activo: true },
+      { id: 'pa_18', nombre: 'ALFACIPERMETRINA/ALFAMETRINA', eiq: 36.71, uso: 'Insecticida', activo: true },
+      { id: 'pa_19', nombre: 'ALQUIL ARIL POLIGLICOL ETER', eiq: null, uso: 'Coadyuvante', activo: true },
+      { id: 'pa_20', nombre: 'AMETRINA', eiq: 22.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_21', nombre: 'ATRAZINA', eiq: 22.71, uso: 'Herbicida', activo: true },
+      { id: 'pa_22', nombre: 'AZOXISTROBINA', eiq: 27.33, uso: 'Fungicida', activo: true },
+      { id: 'pa_23', nombre: 'AZUFRE', eiq: 33.0, uso: 'Fungicida/Acaricida', activo: true },
+      { id: 'pa_24', nombre: 'BACILLUS AMYLOLIQUEFACIENS', eiq: null, uso: 'Fungicida biológico', activo: true },
+      { id: 'pa_25', nombre: 'BACILLUS THURINGIENSIS', eiq: null, uso: 'Insecticida biológico', activo: true },
+      { id: 'pa_26', nombre: 'BACILLUS THURINGIENSIS var AIZAWAI', eiq: null, uso: 'Insecticida biológico', activo: true },
+      { id: 'pa_27', nombre: 'BENAZOLIN ETIL', eiq: 20.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_28', nombre: 'BENZOATO DE EMAMECTINA', eiq: 30.5, uso: 'Insecticida', activo: true },
+      { id: 'pa_29', nombre: 'BENZOVINDIFLUPIR', eiq: 22.0, uso: 'Fungicida', activo: true },
+      { id: 'pa_30', nombre: 'BICICLOPIRONA', eiq: 20.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_31', nombre: 'BIFENTRIN', eiq: 44.43, uso: 'Insecticida', activo: true },
+      { id: 'pa_32', nombre: 'BOSCALID', eiq: 19.43, uso: 'Fungicida', activo: true },
+      { id: 'pa_33', nombre: 'BROMOXINIL', eiq: 21.93, uso: 'Herbicida', activo: true },
+      { id: 'pa_34', nombre: 'Bacillus Velezensis', eiq: null, uso: 'Fungicida biológico', activo: true },
+      { id: 'pa_35', nombre: 'CAPTAN', eiq: 33.0, uso: 'Fungicida', activo: true },
+      { id: 'pa_36', nombre: 'CARBARIL', eiq: 22.83, uso: 'Insecticida', activo: true },
+      { id: 'pa_37', nombre: 'CARBENDAZIM', eiq: 33.0, uso: 'Fungicida', activo: true },
+      { id: 'pa_38', nombre: 'CARBONATO BASICO DE COBRE', eiq: 33.67, uso: 'Fungicida', activo: true },
+      { id: 'pa_39', nombre: 'CARFENTRAZONE ETIL', eiq: 19.83, uso: 'Herbicida', activo: true },
+      { id: 'pa_40', nombre: 'CIPERMETRINA', eiq: 36.71, uso: 'Insecticida', activo: true },
+      { id: 'pa_41', nombre: 'CIPROCONAZOLE', eiq: 21.67, uso: 'Fungicida', activo: true },
+      { id: 'pa_42', nombre: 'CLETODIM', eiq: 18.93, uso: 'Herbicida', activo: true },
+      { id: 'pa_43', nombre: 'CLOMAZONE', eiq: 23.13, uso: 'Herbicida', activo: true },
+      { id: 'pa_44', nombre: 'CLOPYRALID', eiq: 19.5, uso: 'Herbicida', activo: true },
+      { id: 'pa_45', nombre: 'CLOQUINTOCET MEXIL', eiq: 15.0, uso: 'Protector (safener)', activo: true },
+      { id: 'pa_46', nombre: 'CLORANTRANILIPROLE', eiq: 27.5, uso: 'Insecticida', activo: true },
+      { id: 'pa_47', nombre: 'CLORFENAPIR', eiq: 36.27, uso: 'Insecticida/Acaricida', activo: true },
+      { id: 'pa_48', nombre: 'CLORIMURON ETIL', eiq: 24.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_49', nombre: 'CLOROTALONIL', eiq: 33.0, uso: 'Fungicida', activo: true },
+      { id: 'pa_50', nombre: 'DELTAMETRINA', eiq: 27.13, uso: 'Insecticida', activo: true },
+      { id: 'pa_51', nombre: 'DICAMBA', eiq: 25.43, uso: 'Herbicida', activo: true },
+      { id: 'pa_52', nombre: 'DICLOSULAM', eiq: 17.83, uso: 'Herbicida', activo: true },
+      { id: 'pa_53', nombre: 'DIFENOCONAZOLE', eiq: 22.83, uso: 'Fungicida', activo: true },
+      { id: 'pa_54', nombre: 'DIFLUFENICAN', eiq: 19.83, uso: 'Herbicida', activo: true },
+      { id: 'pa_55', nombre: 'DIMETOATO', eiq: 32.71, uso: 'Insecticida', activo: true },
+      { id: 'pa_56', nombre: 'DIMETOMORF', eiq: 21.83, uso: 'Fungicida', activo: true },
+      { id: 'pa_57', nombre: 'DINOTEFURAN', eiq: 26.5, uso: 'Insecticida', activo: true },
+      { id: 'pa_58', nombre: 'DIQUAT', eiq: 33.93, uso: 'Herbicida', activo: true },
+      { id: 'pa_59', nombre: 'DIQUAT DIBROMURO', eiq: 33.93, uso: 'Herbicida', activo: true },
+      { id: 'pa_60', nombre: 'DIURON', eiq: 24.66, uso: 'Herbicida', activo: true },
+      { id: 'pa_61', nombre: 'DODECIL BENCEN SULFONICO', eiq: null, uso: 'Coadyuvante', activo: true },
+      { id: 'pa_62', nombre: 'EPOXICONAZOLE', eiq: 35.45, uso: 'Fungicida', activo: true },
+      { id: 'pa_63', nombre: 'ESTERES METILICOS DE ACIDOS GRASOS DE ACEITE DE SOJA', eiq: null, uso: 'Coadyuvante', activo: true },
+      { id: 'pa_64', nombre: 'ESTERES METILICOS DE ACIDOS GRASOS DE ACEITE VEGETAL', eiq: null, uso: 'Coadyuvante', activo: true },
+      { id: 'pa_65', nombre: 'ETEFON', eiq: 26.13, uso: 'Regulador de crecimiento', activo: true },
+      { id: 'pa_66', nombre: 'FENOXAPROP-P ETIL', eiq: 19.83, uso: 'Herbicida', activo: true },
+      { id: 'pa_67', nombre: 'FIPRONIL', eiq: 35.83, uso: 'Insecticida', activo: true },
+      { id: 'pa_68', nombre: 'FLUAZINAM', eiq: 21.13, uso: 'Fungicida', activo: true },
+      { id: 'pa_69', nombre: 'FLUDIOXONIL', eiq: 20.13, uso: 'Fungicida', activo: true },
+      { id: 'pa_70', nombre: 'FLUMETSULAM', eiq: 19.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_71', nombre: 'FLUMIOXAZIN', eiq: 17.66, uso: 'Herbicida', activo: true },
+      { id: 'pa_72', nombre: 'FLUROCLORIDONA', eiq: 22.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_73', nombre: 'FLUROXIPIR MEPTIL', eiq: 21.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_74', nombre: 'FLUTRIAFOL', eiq: 22.0, uso: 'Fungicida', activo: true },
+      { id: 'pa_75', nombre: 'FLUXAPIROXAD', eiq: 28.0, uso: 'Fungicida', activo: true },
+      { id: 'pa_76', nombre: 'FOMESAFEN', eiq: 19.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_77', nombre: 'FOSFURO DE ALUMINIO', eiq: 30.0, uso: 'Fumigante/Insecticida', activo: true },
+      { id: 'pa_78', nombre: 'GLIFOSATO', eiq: 15.33, uso: 'Herbicida', activo: true },
+      { id: 'pa_79', nombre: 'GLUFOSINATO DE AMONIO', eiq: 19.92, uso: 'Herbicida', activo: true },
+      { id: 'pa_80', nombre: 'HALAUXIFEN METIL', eiq: 19.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_81', nombre: 'HALOXIFOP-P METIL', eiq: 19.5, uso: 'Herbicida', activo: true },
+      { id: 'pa_82', nombre: 'HEPTAMETILTRISILOXANO', eiq: null, uso: 'Coadyuvante', activo: true },
+      { id: 'pa_83', nombre: 'HIDROXIDO DE COBRE', eiq: 33.67, uso: 'Fungicida', activo: true },
+      { id: 'pa_84', nombre: 'IMAZALIL', eiq: 24.0, uso: 'Fungicida', activo: true },
+      { id: 'pa_85', nombre: 'IMAZAPIC', eiq: 19.83, uso: 'Herbicida', activo: true },
+      { id: 'pa_86', nombre: 'IMAZAPIR', eiq: 19.87, uso: 'Herbicida', activo: true },
+      { id: 'pa_87', nombre: 'IMAZETAPIR', eiq: 19.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_88', nombre: 'IMIDACLOPRID', eiq: 36.71, uso: 'Insecticida', activo: true },
+      { id: 'pa_89', nombre: 'IPRODIONE', eiq: 30.5, uso: 'Fungicida', activo: true },
+      { id: 'pa_90', nombre: 'ISOXABEN', eiq: 21.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_91', nombre: 'ISOXAFLUTOLE', eiq: 22.5, uso: 'Herbicida', activo: true },
+      { id: 'pa_92', nombre: 'LAMBDA-CIALOTRINA', eiq: 44.45, uso: 'Insecticida', activo: true },
+      { id: 'pa_93', nombre: 'LECITINA DE SOJA', eiq: 10.0, uso: 'Coadyuvante', activo: true },
+      { id: 'pa_94', nombre: 'LUFENURON', eiq: 22.93, uso: 'Insecticida', activo: true },
+      { id: 'pa_95', nombre: 'M.C.P.A.', eiq: 19.5, uso: 'Herbicida', activo: true },
+      { id: 'pa_96', nombre: 'M.S.M.A.', eiq: 23.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_97', nombre: 'MANCOZEB', eiq: 32.87, uso: 'Fungicida', activo: true },
+      { id: 'pa_98', nombre: 'MESOTRIONE', eiq: 19.5, uso: 'Herbicida', activo: true },
+      { id: 'pa_99', nombre: 'METALAXIL', eiq: 22.13, uso: 'Fungicida', activo: true },
+      { id: 'pa_100', nombre: 'METALAXIL -M', eiq: 22.13, uso: 'Fungicida', activo: true },
+      { id: 'pa_101', nombre: 'METALDEHIDO', eiq: 22.0, uso: 'Molusquicida', activo: true },
+      { id: 'pa_102', nombre: 'METIL CICLOPROPENO', eiq: 10.0, uso: 'Regulador de crecimiento', activo: true },
+      { id: 'pa_103', nombre: 'METIL TIOFANATO', eiq: 35.0, uso: 'Fungicida', activo: true },
+      { id: 'pa_104', nombre: 'METOLACLORO', eiq: 21.61, uso: 'Herbicida', activo: true },
+      { id: 'pa_105', nombre: 'METOMIL', eiq: 36.5, uso: 'Insecticida', activo: true },
+      { id: 'pa_106', nombre: 'METOXIFENOCIDE', eiq: 22.93, uso: 'Insecticida', activo: true },
+      { id: 'pa_107', nombre: 'METRIBUZIN', eiq: 28.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_108', nombre: 'METSULFURON METIL', eiq: 21.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_109', nombre: 'MICLOBUTANIL', eiq: 22.0, uso: 'Fungicida', activo: true },
+      { id: 'pa_110', nombre: 'NICOSULFURON', eiq: 19.83, uso: 'Herbicida', activo: true },
+      { id: 'pa_111', nombre: 'NONIL FENOL ETOXILADO', eiq: null, uso: 'Coadyuvante', activo: true },
+      { id: 'pa_112', nombre: 'NOVALURON', eiq: 22.0, uso: 'Insecticida', activo: true },
+      { id: 'pa_113', nombre: 'OXICLORURO DE COBRE', eiq: 33.67, uso: 'Fungicida', activo: true },
+      { id: 'pa_114', nombre: 'OXIDO CUPROSO', eiq: 33.67, uso: 'Fungicida', activo: true },
+      { id: 'pa_115', nombre: 'OXIFLUORFEN', eiq: 27.43, uso: 'Herbicida', activo: true },
+      { id: 'pa_116', nombre: 'PARAQUAT DICLORURO', eiq: 38.07, uso: 'Herbicida', activo: true },
+      { id: 'pa_117', nombre: 'PENDIMETALIN', eiq: 23.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_118', nombre: 'PICLORAM', eiq: 19.83, uso: 'Herbicida', activo: true },
+      { id: 'pa_119', nombre: 'PICOXISTROBIN', eiq: 27.0, uso: 'Fungicida', activo: true },
+      { id: 'pa_120', nombre: 'PIDIFLUMETOFEN', eiq: 22.0, uso: 'Fungicida', activo: true },
+      { id: 'pa_121', nombre: 'PINOXADEN', eiq: 19.83, uso: 'Herbicida', activo: true },
+      { id: 'pa_122', nombre: 'PIRACLOSTROBIN', eiq: 31.5, uso: 'Fungicida', activo: true },
+      { id: 'pa_123', nombre: 'PIRIMETANIL', eiq: 19.43, uso: 'Fungicida', activo: true },
+      { id: 'pa_124', nombre: 'PIRIMIFOS METIL', eiq: 33.83, uso: 'Insecticida', activo: true },
+      { id: 'pa_125', nombre: 'PIRIPROXIFEN', eiq: 26.93, uso: 'Insecticida (regulador)', activo: true },
+      { id: 'pa_126', nombre: 'PIROXASULFONE', eiq: 18.5, uso: 'Herbicida', activo: true },
+      { id: 'pa_127', nombre: 'PROFENOFOS', eiq: 41.5, uso: 'Insecticida', activo: true },
+      { id: 'pa_128', nombre: 'PROHEXADIONE DE CALCIO', eiq: 15.0, uso: 'Regulador de crecimiento', activo: true },
+      { id: 'pa_129', nombre: 'PROMETRINA', eiq: 22.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_130', nombre: 'PROPICONAZOLE', eiq: 21.93, uso: 'Fungicida', activo: true },
+      { id: 'pa_131', nombre: 'PROTIOCONAZOLE', eiq: 22.0, uso: 'Fungicida', activo: true },
+      { id: 'pa_132', nombre: 'QUIZALOFOP-P ETIL', eiq: 20.83, uso: 'Herbicida', activo: true },
+      { id: 'pa_133', nombre: 'S-METOLACLORO', eiq: 21.61, uso: 'Herbicida', activo: true },
+      { id: 'pa_134', nombre: 'SAFLUFENACIL', eiq: 19.83, uso: 'Herbicida', activo: true },
+      { id: 'pa_135', nombre: 'SEDAXANE', eiq: 19.0, uso: 'Fungicida', activo: true },
+      { id: 'pa_136', nombre: 'SPINOSAD', eiq: 26.0, uso: 'Insecticida', activo: true },
+      { id: 'pa_137', nombre: 'SULFATO DE AMONIO', eiq: 10.0, uso: 'Coadyuvante', activo: true },
+      { id: 'pa_138', nombre: 'SULFATO DE COBRE PENTAHIDRATADO', eiq: 33.67, uso: 'Fungicida', activo: true },
+      { id: 'pa_139', nombre: 'SULFENTRAZONE', eiq: 23.5, uso: 'Herbicida', activo: true },
+      { id: 'pa_140', nombre: 'T.C.M.T.B.', eiq: 30.0, uso: 'Fungicida', activo: true },
+      { id: 'pa_141', nombre: 'TEBUCONAZOLE', eiq: 25.33, uso: 'Fungicida', activo: true },
+      { id: 'pa_142', nombre: 'TERBUTILAZINA', eiq: 23.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_143', nombre: 'TIABENDAZOL', eiq: 23.5, uso: 'Fungicida', activo: true },
+      { id: 'pa_144', nombre: 'TIAMETOXAM', eiq: 33.7, uso: 'Insecticida', activo: true },
+      { id: 'pa_145', nombre: 'TIENCARBAZONE METIL', eiq: 18.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_146', nombre: 'TIODICARB', eiq: 33.93, uso: 'Insecticida', activo: true },
+      { id: 'pa_147', nombre: 'TIRAM', eiq: 35.93, uso: 'Fungicida', activo: true },
+      { id: 'pa_148', nombre: 'TOPRAMEZONE', eiq: 19.0, uso: 'Herbicida', activo: true },
+      { id: 'pa_149', nombre: 'TRICHODERMA AFROHARZIANUM cepa Th2R199', eiq: null, uso: 'Fungicida biológico', activo: true },
+      { id: 'pa_150', nombre: 'TRICHODERMA HARZIANUM', eiq: null, uso: 'Fungicida biológico', activo: true },
+      { id: 'pa_151', nombre: 'TRIFLOXISTROBIN', eiq: 27.0, uso: 'Fungicida', activo: true }
+    ]);
     lsSet(LS_SEEDVER, SEED_VERSION);
   }
 
@@ -323,6 +514,10 @@
         if (data.modosAccion)    _cache[K_MODOSACC]  = data.modosAccion;
         if (data.tiposProveedor) _cache[K_TIPOPROV]  = data.tiposProveedor;
         if (data.campanias)      _cache[K_CAMPANIAS] = data.campanias;
+        if (data.categoriasInsumo) _cache[K_CATEGORIAS] = data.categoriasInsumo;
+        if (data.usos)             _cache[K_USOS]       = data.usos;
+        if (data.formulaciones)    _cache[K_FORMUL]     = data.formulaciones;
+        if (data.principiosActivos) _cache[K_PRINACT]   = data.principiosActivos;
         if (data.empresas)       _cache[K_EMPRESAS]  = data.empresas;
         if (data.sesion) {
           lsSet(LS_SESION, data.sesion);
@@ -622,6 +817,49 @@
 
     // ── TIPOS DE PROVEEDOR (lista global) ────────────────────────────────────
     listarTiposProveedor: function () { return cacheGet(K_TIPOPROV, []); },
+
+    // ── CATEGORÍAS DE INSUMO (lista global, confirmado con el cliente 2026-07-21) ─
+    // Se identifican por `codigo`, no por `id` (así las maneja maestros.html:
+    // guardarCategoria/borrarCategoria reciben el objeto/código, nunca el id).
+    // Por eso no se puede usar cacheGuardar/cacheBorrar tal cual: hay que
+    // resolver el id existente a partir del código antes de delegar en ellos.
+    listarCategorias: function () { return cacheGet(K_CATEGORIAS, []); },
+    guardarCategoria: function (c) {
+      if (!c.id) {
+        var lista = cacheGet(K_CATEGORIAS, []);
+        for (var i = 0; i < lista.length; i++) { if (lista[i].codigo === c.codigo) { c.id = lista[i].id; break; } }
+      }
+      return cacheGuardar(K_CATEGORIAS, 'categorias-insumo', c, 'cat');
+    },
+    borrarCategoria: function (cod) {
+      var lista = cacheGet(K_CATEGORIAS, []);
+      for (var i = 0; i < lista.length; i++) { if (lista[i].codigo === cod) { cacheBorrar(K_CATEGORIAS, 'categorias-insumo', lista[i].id); break; } }
+    },
+
+    // ── USOS (cultivo / unidad de negocio — lista global) ────────────────────
+    listarUsos: function () { return cacheGet(K_USOS, []); },
+    guardarUso: function (u) { return cacheGuardar(K_USOS, 'usos', u, 'uso'); },
+    borrarUso:  function (id) { cacheBorrar(K_USOS, 'usos', id); },
+
+    // ── FORMULACIONES (orden de mezclado en tanque — lista global) ──────────
+    listarFormulaciones: function () { return cacheGet(K_FORMUL, []); },
+    guardarFormulacion: function (f) { return cacheGuardar(K_FORMUL, 'formulaciones', f, 'f'); },
+    borrarFormulacion:  function (id) { cacheBorrar(K_FORMUL, 'formulaciones', id); },
+
+    // ── PRINCIPIOS ACTIVOS (lista global, EIQ) ───────────────────────────────
+    listarPrincipiosActivos: function () { return cacheGet(K_PRINACT, []); },
+    guardarPrincipioActivo: function (p) { return cacheGuardar(K_PRINACT, 'principios-activos', p, 'pa'); },
+    borrarPrincipioActivo:  function (id) { cacheBorrar(K_PRINACT, 'principios-activos', id); },
+
+    // ── SOCIOS (por empresa) ─────────────────────────────────────────────────
+    listarSocios: function (empresaId) {
+      var lista = cacheGet(K_SOCIOS, []);
+      var out   = [];
+      for (var i = 0; i < lista.length; i++) { if (lista[i].empresaId === empresaId) out.push(lista[i]); }
+      return out;
+    },
+    guardarSocio: function (s) { return cacheGuardar(K_SOCIOS, 'socios', s, 'soc'); },
+    borrarSocio:  function (id) { cacheBorrar(K_SOCIOS, 'socios', id); },
 
     // ── LOTES (por empresa y campo) ───────────────────────────────────────────
     listarLotes: function (empresaId, campoId) {
