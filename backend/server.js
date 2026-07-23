@@ -156,6 +156,18 @@ async function obtenerPermiso(req, empresaId) {
   return r.rows[0] || null;
 }
 
+// Sólo admin_general puede crear/editar/borrar catálogos globales (colecciones con porEmpresa=false).
+function esAdminGeneral(sesion) {
+  return sesion.rol === 'admin_general';
+}
+
+// admin_general/admin_cliente siempre pueden escribir maestros de empresa; un usuario
+// común necesita nivel 'cargar' o 'administrar' (nivel 'ver' sólo lee).
+function puedeEscribirMaestroEmpresa(sesion, permiso) {
+  return sesion.rol === 'admin_general' || sesion.rol === 'admin_cliente' ||
+    permiso.nivel === 'administrar' || permiso.nivel === 'cargar';
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // LOCKING PESIMISTA DE REGISTROS
 // Evita que dos usuarios de la MISMA empresa pisen el mismo registro editando
@@ -628,10 +640,15 @@ app.post('/api/maestros/:coleccion', async (req, res) => {
     const obj = req.body;
     if (!obj.id) return res.status(400).json({ error: 'Falta id en el registro' });
 
+    if (!cfg.porEmpresa && !esAdminGeneral(sesion)) {
+      return res.status(403).json({ error: 'Sin permiso' });
+    }
+
     if (cfg.porEmpresa) {
       if (!obj.empresaId) return res.status(400).json({ error: 'Falta empresaId' });
       const permiso = await obtenerPermiso(req, obj.empresaId);
       if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+      if (!puedeEscribirMaestroEmpresa(sesion, permiso)) return res.status(403).json({ error: 'Sin permiso' });
       if (cfg.tabla === 'lotes') {
         await pool.query(
           `INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha)
@@ -692,10 +709,15 @@ app.put('/api/maestros/:coleccion/:id', async (req, res) => {
 
     const obj = { ...req.body, id: req.params.id };
 
+    if (!cfg.porEmpresa && !esAdminGeneral(sesion)) {
+      return res.status(403).json({ error: 'Sin permiso' });
+    }
+
     if (cfg.porEmpresa) {
       if (!obj.empresaId) return res.status(400).json({ error: 'Falta empresaId' });
       const permiso = await obtenerPermiso(req, obj.empresaId);
       if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+      if (!puedeEscribirMaestroEmpresa(sesion, permiso)) return res.status(403).json({ error: 'Sin permiso' });
     }
     const bloqueo = await verificarLockPropio(req.params.coleccion, req.params.id, sesion);
     if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
@@ -760,11 +782,16 @@ app.delete('/api/maestros/:coleccion/:id', async (req, res) => {
     const sesion = await obtenerSesion(req);
     if (!sesion) return res.status(401).json({ error: 'No autenticado' });
 
+    if (!cfg.porEmpresa && !esAdminGeneral(sesion)) {
+      return res.status(403).json({ error: 'Sin permiso' });
+    }
+
     const empresaId = req.query.empresaId;
     if (cfg.porEmpresa && !empresaId) return res.status(400).json({ error: 'Falta empresaId en query' });
     if (cfg.porEmpresa) {
       const permiso = await obtenerPermiso(req, empresaId);
       if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+      if (!puedeEscribirMaestroEmpresa(sesion, permiso)) return res.status(403).json({ error: 'Sin permiso' });
     }
     const bloqueo = await verificarLockPropio(req.params.coleccion, req.params.id, sesion);
     if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });

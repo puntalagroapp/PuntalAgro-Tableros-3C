@@ -43,6 +43,15 @@ table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
 th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
 .rol-bdg{display:inline-block;font-size:10px;font-family:var(--mono);padding:2px 7px;border-radius:10px;margin:1px 2px 1px 0}
+body.ro-global [data-scope="global"] .panel-head .btn,
+body.ro-global [data-scope="global"] .btn-act-edit,
+body.ro-global [data-scope="global"] .btn-act-del,
+body.ro-global [data-scope="global"] .btn-act-add,
+body.ro-global [data-scope="global"] .ord-arrows,
+body.ro-empresa [data-scope="empresa"] .panel-head .btn,
+body.ro-empresa [data-scope="empresa"] .btn-act-edit,
+body.ro-empresa [data-scope="empresa"] .btn-act-del,
+body.ro-empresa [data-scope="empresa"] .btn-act-add{display:none}
 .rb-prov{background:#FBEDE3;color:#9A4A20}.rb-cli{background:#EEF3E8;color:#3A5128}.rb-tipo{background:#EEF0F3;color:#475569}
 .banda-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .banda-chip{font-size:11.5px;font-weight:600;border:2px solid var(--border);background:var(--card);color:var(--muted);border-radius:8px;padding:6px 12px;cursor:pointer;font-family:var(--sans)}
@@ -158,7 +167,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
 
   <div class="panel" id="panel">
     <!-- VISTA TERCEROS -->
-    <div id="vista-terceros">
+    <div id="vista-terceros" data-scope="empresa">
       <div class="panel-head">
         <h2>Proveedores y Clientes</h2>
         <button class="btn" onclick="abrirModal()">+ Nuevo</button>
@@ -179,7 +188,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
     </div>
 
     <!-- VISTA CHOFERES -->
-    <div id="vista-choferes" style="display:none">
+    <div id="vista-choferes" style="display:none" data-scope="empresa">
       <div class="panel-head">
         <h2>Choferes</h2>
         <button class="btn" id="btn-nuevo-chofer" onclick="abrirModalChofer()">+ Nuevo</button>
@@ -193,7 +202,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
     </div>
 
     <!-- VISTA SOCIOS -->
-    <div id="vista-socios" style="display:none">
+    <div id="vista-socios" style="display:none" data-scope="empresa">
       <div class="panel-head">
         <h2>Socios</h2>
         <button class="btn" onclick="abrirModalSocio()">+ Nuevo</button>
@@ -206,7 +215,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
     </div>
 
     <!-- VISTA DEPÓSITOS -->
-    <div id="vista-depositos" style="display:none">
+    <div id="vista-depositos" style="display:none" data-scope="empresa">
       <div class="panel-head">
         <h2>Depósitos / Acopios</h2>
         <button class="btn" onclick="abrirModalDep()">+ Nuevo</button>
@@ -220,7 +229,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
     </div>
 
     <!-- VISTA LABORES -->
-    <div id="vista-labores" style="display:none">
+    <div id="vista-labores" style="display:none" data-scope="global">
       <div class="panel-head">
         <h2>Labores</h2>
         <button class="btn" onclick="abrirModalLab()">+ Nuevo</button>
@@ -233,7 +242,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
     </div>
 
     <!-- VISTA CULTIVOS / USOS -->
-    <div id="vista-cultivos" style="display:none">
+    <div id="vista-cultivos" style="display:none" data-scope="empresa">
       <div class="panel-head">
         <h2>Cultivos/Unidades de Negocio</h2>
         <button class="btn" onclick="abrirModalCul()">+ Nuevo</button>
@@ -246,7 +255,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
     </div>
 
     <!-- VISTA USOS -->
-    <div id="vista-usos" style="display:none">
+    <div id="vista-usos" style="display:none" data-scope="global">
       <div class="panel-head">
         <h2>Usos</h2>
         <button class="btn" onclick="abrirModalUso()">+ Nuevo</button>
@@ -259,7 +268,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
     </div>
 
     <!-- VISTA ESPECIES / GRANOS -->
-    <div id="vista-especies" style="display:none">
+    <div id="vista-especies" style="display:none" data-scope="global">
       <div class="panel-head">
         <h2>Especies / Granos</h2>
         <button class="btn" onclick="abrirModalEsp()">+ Nuevo</button>
@@ -272,7 +281,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
     </div>
 
     <!-- VISTA UNIDADES -->
-    <div id="vista-unidades" style="display:none">
+    <div id="vista-unidades" style="display:none" data-scope="global">
       <div class="panel-head">
         <h2>Unidades de medida</h2>
         <button class="btn" onclick="abrirModalUni()">+ Nuevo</button>
@@ -285,7 +294,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
     </div>
 
     <!-- VISTA INSUMOS -->
-    <div id="vista-insumos" style="display:none">
+    <div id="vista-insumos" style="display:none" data-scope="empresa">
       <div class="panel-head">
         <h2>Insumos</h2>
         <button class="btn" onclick="abrirModalIns()">+ Nuevo</button>
@@ -304,7 +313,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
     </div>
 
     <!-- VISTA CATEGORÍAS DE INSUMO -->
-    <div id="vista-categorias" style="display:none">
+    <div id="vista-categorias" style="display:none" data-scope="global">
       <div class="panel-head">
         <h2>Categorías de insumo</h2>
         <button class="btn" onclick="abrirModalCateg()">+ Nueva</button>
@@ -318,7 +327,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
     </div>
 
     <!-- VISTA FORMULACIONES -->
-    <div id="vista-formul" style="display:none">
+    <div id="vista-formul" style="display:none" data-scope="global">
       <div class="panel-head">
         <h2>Formulaciones</h2>
         <button class="btn" onclick="abrirModalFormul()">+ Nueva</button>
@@ -332,7 +341,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
     </div>
 
     <!-- VISTA PRINCIPIOS ACTIVOS -->
-    <div id="vista-ppioactivo" style="display:none">
+    <div id="vista-ppioactivo" style="display:none" data-scope="global">
       <div class="panel-head">
         <h2>Principios activos</h2>
         <button class="btn" onclick="abrirModalPA()">+ Nuevo</button>
@@ -350,7 +359,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
     </div>
 
     <!-- VISTA MODOS DE ACCIÓN -->
-    <div id="vista-modosacc" style="display:none">
+    <div id="vista-modosacc" style="display:none" data-scope="global">
       <div class="panel-head">
         <h2>Modos de acción</h2>
         <button class="btn" onclick="abrirModalMoa()">+ Nuevo</button>
@@ -750,6 +759,8 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
 var empresaId = null;
 var catActual = 'terceros';
 var filtroMoa = '';
+var puedeEscribirGlobal = false;
+var puedeEscribirEmpresa = false;
 
 // Datos en memoria (solo para renderizar la pantalla actual)
 var _terceros = [], _choferes = [], _depositos = [], _labores = [];
@@ -864,11 +875,19 @@ function seleccionarCat(c){
 
 function cambiarEmpresa(id){
   empresaId=id;
-  apiGet('/api/context?empresaId='+encodeURIComponent(id),function(){});
+  apiGet('/api/context?empresaId='+encodeURIComponent(id),function(err,ctx){ if(!err&&ctx) aplicarPermisos(ctx); });
   apiGet('/api/campos?empresaId='+encodeURIComponent(id),function(err,lista){
     _campos=lista||[];
     seleccionarCat(catActual);
   });
+}
+function aplicarPermisos(ctx){
+  var rol=ctx.usuario&&ctx.usuario.rol;
+  var nivel=ctx.permiso&&ctx.permiso.nivel;
+  puedeEscribirGlobal=(rol==='admin_general');
+  puedeEscribirEmpresa=(rol==='admin_general'||rol==='admin_cliente'||nivel==='administrar'||nivel==='cargar');
+  document.body.classList.toggle('ro-global',!puedeEscribirGlobal);
+  document.body.classList.toggle('ro-empresa',!puedeEscribirEmpresa);
 }
 function poblarFiltroTipos(){
   var sel=document.getElementById('ter-tipo'); if(!sel) return;
@@ -2276,6 +2295,7 @@ function eliminarMoa(id){
     apiGet('/api/context',function(err,ctx){
       if(err){location.href='login.html';return;}
       empresaId=ctx.empresaActivaId;
+      aplicarPermisos(ctx);
       var sel=document.getElementById('hemp'); sel.innerHTML='';
       for(var i=0;i<ctx.empresasDisponibles.length;i++){
         var e=ctx.empresasDisponibles[i];
