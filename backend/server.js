@@ -168,6 +168,15 @@ function puedeEscribirMaestroEmpresa(sesion, permiso) {
     permiso.nivel === 'administrar' || permiso.nivel === 'cargar';
 }
 
+// Un usuario con campoIds restringidos solo puede cargar/editar/borrar depósitos
+// atados a uno de sus campos habilitados; los depósitos generales (sin campo)
+// se pueden ver pero no tocar si hay restricción.
+function depositoAccesibleParaEscritura(permiso, campoId) {
+  const campoIds = permiso.campoIds || [];
+  if (campoIds.length === 0) return true;
+  return !!campoId && campoIds.indexOf(campoId) !== -1;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // LOCKING PESIMISTA DE REGISTROS
 // Evita que dos usuarios de la MISMA empresa pisen el mismo registro editando
@@ -587,6 +596,17 @@ app.get('/api/maestros/:coleccion', async (req, res) => {
           filtraCampos ? [empresaId, campoIds] : [empresaId]
         );
         rows = r.rows.map(r => r.datos);
+      } else if (cfg.tabla === 'depositos') {
+        // Los depósitos sin campo (generales de la empresa) se ven siempre;
+        // los atados a un campo puntual solo si el usuario tiene acceso a ese campo.
+        const r = await pool.query(
+          filtraCampos
+            ? `SELECT datos FROM depositos WHERE empresa_id = $1
+                 AND (datos->>'campoId' IS NULL OR datos->>'campoId' = ANY($2::text[]))`
+            : `SELECT datos FROM depositos WHERE empresa_id = $1`,
+          filtraCampos ? [empresaId, campoIds] : [empresaId]
+        );
+        rows = r.rows.map(r => r.datos);
       } else {
         const r = await pool.query(
           `SELECT datos FROM ${cfg.tabla} WHERE empresa_id = $1`,
@@ -649,6 +669,9 @@ app.post('/api/maestros/:coleccion', async (req, res) => {
       const permiso = await obtenerPermiso(req, obj.empresaId);
       if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
       if (!puedeEscribirMaestroEmpresa(sesion, permiso)) return res.status(403).json({ error: 'Sin permiso' });
+      if (cfg.tabla === 'depositos' && !depositoAccesibleParaEscritura(permiso, obj.campoId || null)) {
+        return res.status(403).json({ error: 'Solo podés cargar depósitos en tus campos habilitados' });
+      }
       if (cfg.tabla === 'lotes') {
         await pool.query(
           `INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha)
@@ -718,6 +741,17 @@ app.put('/api/maestros/:coleccion/:id', async (req, res) => {
       const permiso = await obtenerPermiso(req, obj.empresaId);
       if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
       if (!puedeEscribirMaestroEmpresa(sesion, permiso)) return res.status(403).json({ error: 'Sin permiso' });
+      if (cfg.tabla === 'depositos' && (permiso.campoIds || []).length > 0) {
+        const actual = await pool.query(
+          `SELECT datos->>'campoId' AS "campoId" FROM depositos WHERE id = $1 AND empresa_id = $2`,
+          [obj.id, obj.empresaId]
+        );
+        const campoIdActual = actual.rows[0] ? actual.rows[0].campoId : null;
+        if (!depositoAccesibleParaEscritura(permiso, campoIdActual) ||
+            !depositoAccesibleParaEscritura(permiso, obj.campoId || null)) {
+          return res.status(403).json({ error: 'Solo podés modificar depósitos en tus campos habilitados' });
+        }
+      }
     }
     const bloqueo = await verificarLockPropio(req.params.coleccion, req.params.id, sesion);
     if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
@@ -792,6 +826,16 @@ app.delete('/api/maestros/:coleccion/:id', async (req, res) => {
       const permiso = await obtenerPermiso(req, empresaId);
       if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
       if (!puedeEscribirMaestroEmpresa(sesion, permiso)) return res.status(403).json({ error: 'Sin permiso' });
+      if (cfg.tabla === 'depositos' && (permiso.campoIds || []).length > 0) {
+        const actual = await pool.query(
+          `SELECT datos->>'campoId' AS "campoId" FROM depositos WHERE id = $1 AND empresa_id = $2`,
+          [req.params.id, empresaId]
+        );
+        const campoIdActual = actual.rows[0] ? actual.rows[0].campoId : null;
+        if (!depositoAccesibleParaEscritura(permiso, campoIdActual)) {
+          return res.status(403).json({ error: 'Solo podés borrar depósitos en tus campos habilitados' });
+        }
+      }
     }
     const bloqueo = await verificarLockPropio(req.params.coleccion, req.params.id, sesion);
     if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
@@ -1294,11 +1338,20 @@ app.get('/api/campos', async (req, res) => {
     const empresaId = req.query.empresaId;
     let q;
     if (empresaId) {
-      q = pool.query(
-        `SELECT id, empresa_id AS "empresaId", nombre, localidad, partido, provincia,
-                ha_totales AS "haTotales" FROM campos WHERE empresa_id = $1 ORDER BY nombre`,
-        [empresaId]
-      );
+      const permiso = await obtenerPermiso(req, empresaId);
+      if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+      const campoIds = permiso.campoIds || [];
+      q = campoIds.length > 0
+        ? pool.query(
+            `SELECT id, empresa_id AS "empresaId", nombre, localidad, partido, provincia,
+                    ha_totales AS "haTotales" FROM campos WHERE empresa_id = $1 AND id = ANY($2::text[]) ORDER BY nombre`,
+            [empresaId, campoIds]
+          )
+        : pool.query(
+            `SELECT id, empresa_id AS "empresaId", nombre, localidad, partido, provincia,
+                    ha_totales AS "haTotales" FROM campos WHERE empresa_id = $1 ORDER BY nombre`,
+            [empresaId]
+          );
     } else if (sesion.rol === 'admin_general') {
       q = pool.query(`SELECT id, empresa_id AS "empresaId", nombre, localidad, partido, provincia,
                              ha_totales AS "haTotales" FROM campos ORDER BY nombre`);
