@@ -195,13 +195,15 @@ function puedeEscribirMaestroEmpresa(sesion, permiso) {
     permiso.nivel === 'administrar' || permiso.nivel === 'cargar';
 }
 
-// Un usuario con campoIds restringidos solo puede cargar/editar/borrar depósitos
-// atados a uno de sus campos habilitados; los depósitos generales (sin campo)
-// se pueden ver pero no tocar si hay restricción.
+// Depósito general (sin campoId): lo ve cualquiera de la empresa, pero solo lo
+// crea/edita/borra nivel 'administrar' (admin_general/admin_cliente siempre
+// tienen ese nivel vía obtenerPermiso). Depósito de campo: alcanza 'cargar' +
+// que el campo esté dentro de los campoIds del usuario (si tiene restricción).
 function depositoAccesibleParaEscritura(permiso, campoId) {
+  if (!campoId) return permiso.nivel === 'administrar';
   const campoIds = permiso.campoIds || [];
   if (campoIds.length === 0) return true;
-  return !!campoId && campoIds.indexOf(campoId) !== -1;
+  return campoIds.indexOf(campoId) !== -1;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
