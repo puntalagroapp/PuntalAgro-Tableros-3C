@@ -760,7 +760,13 @@ INSERT INTO usuarios (id, nombre, email, rol, cliente_id, activo, password_hash)
      '5bee884e2c573755ecdf91f3222e8ef3:0cebb07c3dd38ebf349176a8e71570c6cf71df0815d4e3d6b30e7ac8221083ed2e6655e4518316276a02145196f52b420f30d27a50cbad2af83cf73eb28af6fb'),
     ('u_admin_puntal', 'Admin Puntal','admin@puntal.com',    'admin_general', null, true,
      '5bee884e2c573755ecdf91f3222e8ef3:0cebb07c3dd38ebf349176a8e71570c6cf71df0815d4e3d6b30e7ac8221083ed2e6655e4518316276a02145196f52b420f30d27a50cbad2af83cf73eb28af6fb'),
-    ('u_maria',        'María Albor', 'maria@albor.com',     'usuario',       null, true,
+    -- cliente_id de María fijado a cli_demo: es una 'usuario' del cliente demo
+    -- (su único permiso, sobre e_1, pertenece a ese cliente).
+    ('u_maria',        'María Albor', 'maria@albor.com',     'usuario',       'cli_demo', true,
+     '5bee884e2c573755ecdf91f3222e8ef3:0cebb07c3dd38ebf349176a8e71570c6cf71df0815d4e3d6b30e7ac8221083ed2e6655e4518316276a02145196f52b420f30d27a50cbad2af83cf73eb28af6fb'),
+    -- admin_cliente de prueba: permiso propio en e_1 acotado (nivel 'cargar',
+    -- 1 herramienta, 1 campo) para poder probar el techo de delegación "= o menor".
+    ('u_rosario',      'Rosario Cliente','rosario@albor.com', 'admin_cliente', 'cli_demo', true,
      '5bee884e2c573755ecdf91f3222e8ef3:0cebb07c3dd38ebf349176a8e71570c6cf71df0815d4e3d6b30e7ac8221083ed2e6655e4518316276a02145196f52b420f30d27a50cbad2af83cf73eb28af6fb');
 
 INSERT INTO permisos (usuario_id, empresa_id, campo_ids, herramientas, nivel) VALUES
@@ -768,7 +774,8 @@ INSERT INTO permisos (usuario_id, empresa_id, campo_ids, herramientas, nivel) VA
     ('u_admin',        'e_2', '{}', '{}', 'administrar'),
     ('u_admin_puntal', 'e_1', '{}', '{}', 'administrar'),
     ('u_admin_puntal', 'e_2', '{}', '{}', 'administrar'),
-    ('u_maria',        'e_1', '{}', '{}', 'ver');
+    ('u_maria',        'e_1', '{}', '{}', 'ver'),
+    ('u_rosario',      'e_1', '{c_1}', '{tablero_uso_suelo}', 'cargar');
 
 -- Sesión demo con token fijo (para desarrollo local sin login)
 INSERT INTO sesiones (token, usuario_id, expira_en) VALUES
