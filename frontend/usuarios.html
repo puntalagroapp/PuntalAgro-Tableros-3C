@@ -176,6 +176,7 @@ function renderUsuarios(){
     var u=us[i];
     var permisosTxt='';
     if(u.rol==='admin_general'){ permisosTxt='<span class="bdg">acceso total</span>'; }
+    else if(u.rol==='admin_cliente'){ permisosTxt='<span class="bdg">administra todo su cliente</span>'; }
     else {
       for(var j=0;j<_permisos.length;j++){
         if(_permisos[j].usuarioId===u.id){
@@ -193,9 +194,11 @@ function renderUsuarios(){
     tb.appendChild(tr);
   }
 
+  // Solo el rol 'usuario' tiene filas en `permisos` — admin_general y
+  // admin_cliente ya administran todo su alcance por su propio rol.
   var su=document.getElementById('p-usuario'); su.innerHTML='';
   for(var k=0;k<us.length;k++){
-    if(us[k].rol==='admin_general') continue;
+    if(us[k].rol!=='usuario') continue;
     var o=document.createElement('option'); o.value=us[k].id; o.textContent=us[k].nombre;
     su.appendChild(o);
   }

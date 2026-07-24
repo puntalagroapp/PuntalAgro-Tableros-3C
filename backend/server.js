@@ -1075,6 +1075,11 @@ app.post('/api/permisos', async (req, res) => {
   if (!(await puedeSobreUsuario(sesion, usuarioId))) {
     return res.status(403).json({ error: 'No podés asignar permisos a este usuario' });
   }
+  // admin_general y admin_cliente ya tienen acceso pleno por su rol — una fila
+  // en `permisos` solo tiene sentido (y efecto) para el rol 'usuario'.
+  if ((await rolDeUsuario(usuarioId)) !== 'usuario') {
+    return res.status(400).json({ error: 'Este usuario ya administra todo su alcance por su rol; no necesita un permiso por empresa' });
+  }
   if (sesion.rol === 'admin_cliente' && (await clienteDeEmpresa(empresaId)) !== sesion.cliente_id) {
     return res.status(403).json({ error: 'No podés asignar permisos sobre esta empresa' });
   }

@@ -49,7 +49,8 @@
       "Bash(curl -s -X POST http://localhost:8080/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"rosario@albor.com\",\"password\":\"puntal123\"}')",
       "Bash(curl -s -X POST http://localhost:8080/api/usuarios -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-test-rosario\" -d '{\"id\":\"u_hack2\",\"nombre\":\"Hack2\",\"email\":\"hack2@x.com\",\"rol\":\"admin_general\",\"password\":\"x\"}')",
       "Bash(curl -s -X PUT http://localhost:8080/api/usuarios/u_admin -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-test-rosario\" -d '{\"nombre\":\"Hackeado\"}')",
-      "Bash(curl -s -X DELETE http://localhost:8080/api/usuarios/u_rosario -H \"Authorization: Bearer token-test-rosario\")"
+      "Bash(curl -s -X DELETE http://localhost:8080/api/usuarios/u_rosario -H \"Authorization: Bearer token-test-rosario\")",
+      "Bash(curl -s -w '\\\\nHTTP_STATUS:%{http_code}\\\\n' -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' -H 'Authorization: Bearer PA_e5f208d00ad24d859032f68d253f06ac8ca3408eb6ebf4310eb5d3a94b5dbed0' -d '{\"email\":\"rosario@albor.com\",\"password\":\"demo1234\"}')"
     ],
     "additionalDirectories": [
       "/tmp"
