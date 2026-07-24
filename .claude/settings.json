@@ -38,7 +38,8 @@
       "Bash(curl -s -X POST http://localhost:8080/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"maria@albor.com\",\"password\":\"demo1234\"}')",
       "Bash(node --check backend/server.js)",
       "Bash(xargs -I{} basename {})",
-      "Bash(git fetch *)"
+      "Bash(git fetch *)",
+      "Bash(git merge *)"
     ],
     "additionalDirectories": [
       "/tmp"
