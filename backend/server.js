@@ -1079,33 +1079,6 @@ app.post('/api/permisos', async (req, res) => {
     return res.status(403).json({ error: 'No podés asignar permisos sobre esta empresa' });
   }
 
-  // Regla "= o menor": el techo es la fila propia del otorgante en esa empresa
-  // (admin_general no tiene techo). Sin fila propia, no puede delegar nada ahí.
-  if (sesion.rol !== 'admin_general') {
-    const propio = await permisoPropioEnEmpresa(sesion, empresaId);
-    if (!propio) {
-      return res.status(403).json({ error: 'No tenés permiso propio en esta empresa, no podés delegar acceso' });
-    }
-    const nivelPedido = nivel || 'ver';
-    if ((ORDEN_NIVEL[nivelPedido] || 99) > (ORDEN_NIVEL[propio.nivel] || 0)) {
-      return res.status(403).json({ error: 'No podés otorgar un nivel mayor al que vos tenés en esta empresa' });
-    }
-    const misHerr = propio.herramientas || [];
-    for (const h of (herramientas || [])) {
-      if (misHerr.indexOf(h) === -1) {
-        return res.status(403).json({ error: 'No podés otorgar una herramienta que no tenés habilitada' });
-      }
-    }
-    const misCampos = propio.campoIds || [];
-    if (misCampos.length > 0) {
-      for (const c of (campoIds || [])) {
-        if (misCampos.indexOf(c) === -1) {
-          return res.status(403).json({ error: 'No podés otorgar acceso a un campo que no ves' });
-        }
-      }
-    }
-  }
-
   const bloqueo = await verificarLockPropio('permisos', usuarioId + '_' + empresaId, sesion);
   if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
   try {
@@ -1244,17 +1217,16 @@ async function clienteDeCampo(campoId) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DELEGACIÓN DE PERMISOS (modelo_datos_permisos.md §7.3–§7.5 del cliente)
+// DELEGACIÓN DE PERMISOS
 // - admin_general: sin techo, sobre cualquier cliente/empresa/usuario.
-// - admin_cliente: solo dentro de su propio cliente; puede crear 'usuario' y
-//   'admin_cliente', nunca 'admin_general'; nunca toca un usuario admin_general.
-// - Regla "= o menor": lo que un otorgante (admin_cliente) puede CEDER a otro
-//   usuario (nivel/herramientas/campoIds) no puede superar lo que él MISMO
-//   tiene registrado en `permisos` para esa empresa puntual — no su rol.
-//   admin_general no tiene techo. Si el otorgante no tiene fila propia en esa
-//   empresa, no puede delegar nada ahí.
+// - admin_cliente: acceso administrar sobre TODAS las empresas de su propio
+//   cliente (sin necesidad de una fila propia en `permisos` — ver obtenerPermiso());
+//   puede crear/gestionar 'usuario' y 'admin_cliente', nunca 'admin_general';
+//   nunca toca un usuario admin_general; no ve ni asigna permisos fuera de su cliente.
+// - usuario: solo tiene acceso a las empresas donde tiene una fila explícita en
+//   `permisos`, con el nivel que esa fila indique — nunca delega a otros (esta
+//   pantalla ni /api/usuarios ni /api/permisos son alcanzables con este rol).
 // ─────────────────────────────────────────────────────────────────────────────
-const ORDEN_NIVEL = { ver: 1, cargar: 2, administrar: 3 };
 
 async function clienteDeUsuario(usuarioId) {
   const r = await pool.query('SELECT cliente_id FROM usuarios WHERE id = $1', [usuarioId]);
@@ -1282,15 +1254,6 @@ async function puedeSobreUsuario(sesion, usuarioId) {
   if (rolDestino === 'admin_general') return false;
   const clienteDestino = await clienteDeUsuario(usuarioId);
   return clienteDestino === sesion.cliente_id;
-}
-
-// Fila propia del otorgante en `permisos` para esa empresa (su techo de delegación).
-async function permisoPropioEnEmpresa(sesion, empresaId) {
-  const r = await pool.query(
-    'SELECT campo_ids AS "campoIds", herramientas, nivel FROM permisos WHERE usuario_id = $1 AND empresa_id = $2',
-    [sesion.id, empresaId]
-  );
-  return r.rows[0] || null;
 }
 
 app.get('/api/clientes', async (req, res) => {

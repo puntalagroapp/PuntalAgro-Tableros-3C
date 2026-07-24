@@ -91,7 +91,6 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
       <div class="fld"><label>Empresa</label><select id="p-empresa" onchange="precargar()"></select></div>
       <div class="fld"><label>Nivel</label>
         <select id="p-nivel"><option value="ver">ver</option><option value="cargar">cargar</option><option value="administrar">administrar</option></select>
-        <div id="p-nivel-nota" style="font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.4"></div>
       </div>
     </div>
     <div class="fld" style="margin-top:14px"><label>Campos habilitados</label>
@@ -129,61 +128,16 @@ function findPerm(usuarioId, empresaId){
 }
 
 /* ==========================================================================
-   DELEGACIÓN "= O MENOR"
-   El backend es quien realmente corta esto (ver server.js); acá solo se
-   refleja en la UI para no ofrecer opciones que después van a rechazarse.
-   admin_general no tiene techo. admin_cliente: el techo es SU PROPIA fila en
-   `permisos` para esa empresa (no su rol) — sin fila propia ahí, no delega nada.
+   DELEGACIÓN
+   admin_general y admin_cliente tienen acceso administrar pleno sobre
+   cualquier empresa de su alcance (admin_cliente: las de su propio cliente) —
+   no hace falta ningún techo adicional para lo que pueden delegar.
    ========================================================================== */
-var ORDEN_NIVEL = { ver:1, cargar:2, administrar:3 };
-function esAdminPuntal(){ return !!(CTX && CTX.usuario && CTX.usuario.rol==='admin_general'); }
-function esAdminCliente(){ return !!(CTX && CTX.usuario && CTX.usuario.rol==='admin_cliente'); }
-function miPermisoEn(empresaId){
-  if(!CTX || !CTX.usuario) return null;
-  return findPerm(CTX.usuario.id, empresaId);
-}
-function nivelMaximoOtorgable(empresaId){
-  if(esAdminPuntal()) return 'administrar';
-  var p=miPermisoEn(empresaId);
-  return p ? p.nivel : null;
-}
 function herramientasOtorgables(empresaId){
-  var todas=_herramientas.filter(function(h){ return h.asignable; });
-  if(esAdminPuntal()) return todas;
-  var p=miPermisoEn(empresaId);
-  if(!p) return [];
-  var mias=p.herramientas||[];
-  return todas.filter(function(h){ return mias.indexOf(h.id)>=0; });
+  return _herramientas.filter(function(h){ return h.asignable; });
 }
 function camposOtorgables(empresaId){
-  var todos=empresaId?_campos.filter(function(k){ return k.empresaId===empresaId; }):[];
-  if(esAdminPuntal()) return todos;
-  var p=miPermisoEn(empresaId);
-  if(!p) return [];
-  var ids=p.campoIds||[];
-  if(!ids.length) return todos; // sin restricción propia: ve todos
-  return todos.filter(function(k){ return ids.indexOf(k.id)>=0; });
-}
-/* Deja en el selector de nivel solo los niveles que el otorgante puede dar
-   en esa empresa (regla "= o menor"). */
-function limitarNiveles(empresaId){
-  var sel=document.getElementById('p-nivel'); if(!sel) return;
-  var techo=nivelMaximoOtorgable(empresaId);
-  var max=techo?(ORDEN_NIVEL[techo]||0):0;
-  var opts=sel.options, primeroValido=null;
-  for(var i=0;i<opts.length;i++){
-    var bloq=(ORDEN_NIVEL[opts[i].value]||99)>max;
-    opts[i].disabled=bloq;
-    opts[i].style.color=bloq?'#B9C2CE':'';
-    if(!bloq && primeroValido===null) primeroValido=opts[i].value;
-  }
-  if(sel.value && (ORDEN_NIVEL[sel.value]||99)>max){ sel.value=primeroValido||''; }
-  var nota=document.getElementById('p-nivel-nota');
-  if(nota){
-    nota.textContent = techo
-      ? (esAdminPuntal() ? '' : 'Tu nivel en esta empresa es "'+techo+'": no podés otorgar más que eso.')
-      : 'No tenés permiso propio en esta empresa: no podés delegar acceso.';
-  }
+  return empresaId ? _campos.filter(function(k){ return k.empresaId===empresaId; }) : [];
 }
 
 function recargarTodo(cb){
@@ -355,7 +309,6 @@ function precargar(){
   var btnAsignar=document.getElementById('btn-asignar');
   var todosCampos=document.getElementById('p-todos-campos');
   liberarPermisoBloqueado();
-  limitarNiveles(empresaId);
   if(!usuarioId||!empresaId){ btnAsignar.disabled=false; renderChecklist([],empresaId); todosCampos.checked=true; renderCamposChecklist(empresaId,[],true); return; }
   apiLock('permisos',permisoTabla(usuarioId,empresaId),empresaId,function(errLock){
     // La selección pudo haber cambiado mientras esperábamos la respuesta.

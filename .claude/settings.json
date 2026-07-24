@@ -44,7 +44,12 @@
       "Bash(curl -s -X POST http://localhost:8080/api/maestros/depositos -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-test-maria\" -d '{\"id\":\"dep_test_gral2\",\"empresaId\":\"e_1\",\"nombre\":\"Dep General Test\",\"clase\":\"empresa\"}')",
       "Bash(curl -s -X POST http://localhost:8080/api/maestros/depositos -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-test-maria\" -d '{\"id\":\"dep_test_campo2\",\"empresaId\":\"e_1\",\"nombre\":\"Dep Campo Test\",\"campoId\":\"c_1\",\"clase\":\"campo\"}')",
       "Bash(curl -s -X POST http://localhost:8080/api/maestros/depositos -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-demo\" -d '{\"id\":\"dep_test_gral3\",\"empresaId\":\"e_1\",\"nombre\":\"Dep General Admin\",\"clase\":\"empresa\"}')",
-      "Bash(python3 -c \"import json; json.load\\(open\\('.claude/settings.json'\\)\\); print\\('JSON valido'\\)\")"
+      "Bash(python3 -c \"import json; json.load\\(open\\('.claude/settings.json'\\)\\); print\\('JSON valido'\\)\")",
+      "Bash(curl -s -X POST http://localhost:8080/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"rosario@albor.com\",\"password\":\"demo1234\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"rosario@albor.com\",\"password\":\"puntal123\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/usuarios -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-test-rosario\" -d '{\"id\":\"u_hack2\",\"nombre\":\"Hack2\",\"email\":\"hack2@x.com\",\"rol\":\"admin_general\",\"password\":\"x\"}')",
+      "Bash(curl -s -X PUT http://localhost:8080/api/usuarios/u_admin -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-test-rosario\" -d '{\"nombre\":\"Hackeado\"}')",
+      "Bash(curl -s -X DELETE http://localhost:8080/api/usuarios/u_rosario -H \"Authorization: Bearer token-test-rosario\")"
     ],
     "additionalDirectories": [
       "/tmp"
