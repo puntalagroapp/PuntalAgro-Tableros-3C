@@ -757,18 +757,18 @@ INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha) VALUES
 -- (hash generado con crypto.scrypt, salt:key)
 INSERT INTO usuarios (id, nombre, email, rol, cliente_id, activo, password_hash) VALUES
     ('u_admin',        'Admin Demo',  'demo@puntalagro.com', 'admin_general', null, true,
-     '5bee884e2c573755ecdf91f3222e8ef3:0cebb07c3dd38ebf349176a8e71570c6cf71df0815d4e3d6b30e7ac8221083ed2e6655e4518316276a02145196f52b420f30d27a50cbad2af83cf73eb28af6fb'),
+     'f9d96ba1bb52f529519548307fe46d75:05bfad622333d9e7c64127c73a3f4182a4def4b7a708a2d58276903873d080f63e48aa433bab45710ec9b194bcd0b42cf498305436327a9f619a818fc5b78e58'),
     ('u_admin_puntal', 'Admin Puntal','admin@puntal.com',    'admin_general', null, true,
-     '5bee884e2c573755ecdf91f3222e8ef3:0cebb07c3dd38ebf349176a8e71570c6cf71df0815d4e3d6b30e7ac8221083ed2e6655e4518316276a02145196f52b420f30d27a50cbad2af83cf73eb28af6fb'),
+     'f9d96ba1bb52f529519548307fe46d75:05bfad622333d9e7c64127c73a3f4182a4def4b7a708a2d58276903873d080f63e48aa433bab45710ec9b194bcd0b42cf498305436327a9f619a818fc5b78e58'),
     -- cliente_id de María fijado a cli_demo: es una 'usuario' del cliente demo
     -- (su único permiso, sobre e_1, pertenece a ese cliente).
     ('u_maria',        'María Albor', 'maria@albor.com',     'usuario',       'cli_demo', true,
-     '5bee884e2c573755ecdf91f3222e8ef3:0cebb07c3dd38ebf349176a8e71570c6cf71df0815d4e3d6b30e7ac8221083ed2e6655e4518316276a02145196f52b420f30d27a50cbad2af83cf73eb28af6fb'),
+     'f9d96ba1bb52f529519548307fe46d75:05bfad622333d9e7c64127c73a3f4182a4def4b7a708a2d58276903873d080f63e48aa433bab45710ec9b194bcd0b42cf498305436327a9f619a818fc5b78e58'),
     -- admin_cliente de prueba: NO necesita fila propia en `permisos` — ya tiene
     -- acceso administrar pleno sobre todas las empresas de su cliente (ver
     -- obtenerPermiso() en server.js). Sirve para probar el scoping por cliente.
     ('u_rosario',      'Rosario Cliente','rosario@albor.com', 'admin_cliente', 'cli_demo', true,
-     '5bee884e2c573755ecdf91f3222e8ef3:0cebb07c3dd38ebf349176a8e71570c6cf71df0815d4e3d6b30e7ac8221083ed2e6655e4518316276a02145196f52b420f30d27a50cbad2af83cf73eb28af6fb');
+     'f9d96ba1bb52f529519548307fe46d75:05bfad622333d9e7c64127c73a3f4182a4def4b7a708a2d58276903873d080f63e48aa433bab45710ec9b194bcd0b42cf498305436327a9f619a818fc5b78e58');
 
 INSERT INTO permisos (usuario_id, empresa_id, campo_ids, herramientas, nivel) VALUES
     ('u_admin',        'e_1', '{}', '{}', 'administrar'),
