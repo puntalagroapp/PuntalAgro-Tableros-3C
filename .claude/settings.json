@@ -40,7 +40,10 @@
       "Bash(xargs -I{} basename {})",
       "Bash(git fetch *)",
       "Bash(git merge *)",
-      "Bash(awk '{ if \\(length\\($0\\) > 400\\) print NR\": [linea larga omitida, \"length\\($0\\)\" chars]\"; else print }')"
+      "Bash(awk '{ if \\(length\\($0\\) > 400\\) print NR\": [linea larga omitida, \"length\\($0\\)\" chars]\"; else print }')",
+      "Bash(curl -s -X POST http://localhost:8080/api/maestros/depositos -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-test-maria\" -d '{\"id\":\"dep_test_gral2\",\"empresaId\":\"e_1\",\"nombre\":\"Dep General Test\",\"clase\":\"empresa\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/maestros/depositos -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-test-maria\" -d '{\"id\":\"dep_test_campo2\",\"empresaId\":\"e_1\",\"nombre\":\"Dep Campo Test\",\"campoId\":\"c_1\",\"clase\":\"campo\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/maestros/depositos -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-demo\" -d '{\"id\":\"dep_test_gral3\",\"empresaId\":\"e_1\",\"nombre\":\"Dep General Admin\",\"clase\":\"empresa\"}')"
     ],
     "additionalDirectories": [
       "/tmp"
