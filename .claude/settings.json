@@ -37,7 +37,8 @@
       "Bash(awk '{ if \\(length\\($0\\) > 500\\) print NR\": [linea larga omitida, \"length\\($0\\)\" chars]\"; else print }' /tmp/full_diff_maestros2.txt > /tmp/full_diff_maestros2_clean.txt *)",
       "Bash(curl -s -X POST http://localhost:8080/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"maria@albor.com\",\"password\":\"demo1234\"}')",
       "Bash(node --check backend/server.js)",
-      "Bash(xargs -I{} basename {})"
+      "Bash(xargs -I{} basename {})",
+      "Bash(git fetch *)"
     ],
     "additionalDirectories": [
       "/tmp"
