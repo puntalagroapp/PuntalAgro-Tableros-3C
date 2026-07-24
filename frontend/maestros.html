@@ -761,6 +761,7 @@ var catActual = 'terceros';
 var filtroMoa = '';
 var puedeEscribirGlobal = false;
 var puedeEscribirEmpresa = false;
+var puedeEscribirDepositoGeneral = false;
 
 // Datos en memoria (solo para renderizar la pantalla actual)
 var _terceros = [], _choferes = [], _depositos = [], _labores = [];
@@ -886,6 +887,7 @@ function aplicarPermisos(ctx){
   var nivel=ctx.permiso&&ctx.permiso.nivel;
   puedeEscribirGlobal=(rol==='admin_general');
   puedeEscribirEmpresa=(rol==='admin_general'||rol==='admin_cliente'||nivel==='administrar'||nivel==='cargar');
+  puedeEscribirDepositoGeneral=(rol==='admin_general'||rol==='admin_cliente'||nivel==='administrar');
   document.body.classList.toggle('ro-global',!puedeEscribirGlobal);
   document.body.classList.toggle('ro-empresa',!puedeEscribirEmpresa);
 }
@@ -1186,9 +1188,13 @@ function renderDepositos(){
         var en=nombreEspecie(d.especieId)||'';
         tipo='<span class="rol-bdg rb-prov">Granos</span>'+(en?' · '+esc(en):'');
       } else { tipo='<span class="rol-bdg rb-cli">Insumos</span>'; }
+      // El depósito general (sin campo) solo lo edita/borra nivel administrar o admin.
+      var accD = (d.campoId || puedeEscribirDepositoGeneral)
+        ? '<button class="btn-act-edit" title="Editar" onclick="editarDep(\''+esc(d.id)+'\')">✎</button><button class="btn-act-del" title="Eliminar" onclick="eliminarDep(\''+esc(d.id)+'\')">×</button>'
+        : '';
       var tr=document.createElement('tr');
       tr.innerHTML='<td><strong>'+esc(d.nombre)+'</strong></td><td>'+esc(nombreCampo(d.campoId))+'</td><td>'+tipo+'</td>'+
-        '<td class="row-actions"><button class="btn-act-edit" title="Editar" onclick="editarDep(\''+esc(d.id)+'\')">✎</button><button class="btn-act-del" title="Eliminar" onclick="eliminarDep(\''+esc(d.id)+'\')">×</button></td>';
+        '<td class="row-actions">'+accD+'</td>';
       tb.appendChild(tr);
     })(_depositos[i]);
   }
