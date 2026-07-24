@@ -1261,21 +1261,21 @@ app.get('/api/clientes', async (req, res) => {
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
   try {
+    // Acá solo llegan admin_general o admin_cliente ('usuario' está bloqueado
+    // arriba). admin_cliente ve su propio cliente completo, sin depender de
+    // ninguna fila en `permisos` (no la necesita, ver obtenerPermiso()).
     const q = sesion.rol === 'admin_general'
       ? pool.query(`SELECT id, nombre, email, telefono, nombre_contacto AS "nombreContacto",
                            razon_social AS "razonSocial", cuit, direccion,
                            factura_centralizada AS "facturaCentralizada",
                            activo, fecha_alta AS "fechaAlta" FROM clientes ORDER BY nombre`)
       : pool.query(
-          `SELECT DISTINCT c.id, c.nombre, c.email, c.telefono,
-                  c.nombre_contacto AS "nombreContacto", c.razon_social AS "razonSocial",
-                  c.cuit, c.direccion, c.factura_centralizada AS "facturaCentralizada",
-                  c.activo, c.fecha_alta AS "fechaAlta"
-             FROM clientes c
-             JOIN empresas e ON e.cliente_id = c.id
-             JOIN permisos p ON p.empresa_id = e.id
-            WHERE p.usuario_id = $1 ORDER BY c.nombre`,
-          [sesion.id]
+          `SELECT id, nombre, email, telefono, nombre_contacto AS "nombreContacto",
+                  razon_social AS "razonSocial", cuit, direccion,
+                  factura_centralizada AS "facturaCentralizada",
+                  activo, fecha_alta AS "fechaAlta"
+             FROM clientes WHERE id = $1 ORDER BY nombre`,
+          [sesion.cliente_id]
         );
     res.json((await q).rows);
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
@@ -1352,9 +1352,18 @@ app.get('/api/empresas', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   try {
+    // admin_general: todas. admin_cliente: todas las de su propio cliente (no
+    // depende de ninguna fila en `permisos`). usuario: solo donde tiene permiso.
     const q = sesion.rol === 'admin_general'
       ? pool.query(`SELECT id, cliente_id AS "clienteId", razon_social AS "razonSocial", cuit,
                            condicion_iva AS "condicionIVA", direccion, activo FROM empresas ORDER BY razon_social`)
+      : sesion.rol === 'admin_cliente'
+      ? pool.query(
+          `SELECT id, cliente_id AS "clienteId", razon_social AS "razonSocial", cuit,
+                  condicion_iva AS "condicionIVA", direccion, activo
+             FROM empresas WHERE cliente_id = $1 ORDER BY razon_social`,
+          [sesion.cliente_id]
+        )
       : pool.query(
           `SELECT e.id, e.cliente_id AS "clienteId", e.razon_social AS "razonSocial", e.cuit,
                   e.condicion_iva AS "condicionIVA", e.direccion, e.activo
@@ -1456,6 +1465,17 @@ app.get('/api/campos', async (req, res) => {
     } else if (sesion.rol === 'admin_general') {
       q = pool.query(`SELECT id, empresa_id AS "empresaId", nombre, localidad, partido, provincia,
                              ha_totales AS "haTotales" FROM campos ORDER BY nombre`);
+    } else if (sesion.rol === 'admin_cliente') {
+      // Todos los campos de las empresas de su propio cliente, sin depender
+      // de ninguna fila en `permisos` (no la necesita).
+      q = pool.query(
+        `SELECT c.id, c.empresa_id AS "empresaId", c.nombre, c.localidad,
+                c.partido, c.provincia, c.ha_totales AS "haTotales"
+           FROM campos c
+           JOIN empresas e ON e.id = c.empresa_id
+          WHERE e.cliente_id = $1 ORDER BY c.nombre`,
+        [sesion.cliente_id]
+      );
     } else {
       q = pool.query(
         `SELECT DISTINCT c.id, c.empresa_id AS "empresaId", c.nombre, c.localidad,
