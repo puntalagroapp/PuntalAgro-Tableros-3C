@@ -39,7 +39,8 @@
       "Bash(node --check backend/server.js)",
       "Bash(xargs -I{} basename {})",
       "Bash(git fetch *)",
-      "Bash(git merge *)"
+      "Bash(git merge *)",
+      "Bash(awk '{ if \\(length\\($0\\) > 400\\) print NR\": [linea larga omitida, \"length\\($0\\)\" chars]\"; else print }')"
     ],
     "additionalDirectories": [
       "/tmp"
