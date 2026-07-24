@@ -961,9 +961,15 @@ app.post('/api/usuarios', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
-  const { id, nombre, password, rol, clienteId, activo } = req.body || {};
+  const { id, nombre, password, activo } = req.body || {};
+  const rol = (req.body || {}).rol || 'usuario';
   const email = (req.body && req.body.email) ? req.body.email.trim().toLowerCase() : req.body.email;
   if (!id || !nombre || !email) return res.status(400).json({ error: 'Faltan campos obligatorios (id, nombre, email)' });
+  if (!puedeAsignarRol(sesion, rol)) return res.status(403).json({ error: 'No podés crear un usuario con ese rol' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return res.status(400).json({ error: 'El email no tiene un formato válido' });
+  // admin_cliente solo crea usuarios de su propio cliente: se ignora cualquier
+  // clienteId que venga en el body y se fuerza el propio.
+  const clienteId = sesion.rol === 'admin_cliente' ? sesion.cliente_id : ((req.body || {}).clienteId || null);
   try {
     const hash = password ? await hashearPassword(password) : null;
     await pool.query(
@@ -971,9 +977,9 @@ app.post('/api/usuarios', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (id) DO UPDATE SET nombre=$2, email=$3, rol=$4, cliente_id=$5, activo=$6,
          password_hash = CASE WHEN $7 IS NULL THEN usuarios.password_hash ELSE $7 END`,
-      [id, nombre, email, rol || 'usuario', clienteId || null, activo !== false, hash]
+      [id, nombre, email, rol, clienteId, activo !== false, hash]
     );
-    res.status(201).json({ ...req.body, email });
+    res.status(201).json({ ...req.body, rol, clienteId, email });
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
@@ -985,19 +991,27 @@ app.put('/api/usuarios/:id', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
+  if (!(await puedeSobreUsuario(sesion, req.params.id))) {
+    return res.status(403).json({ error: 'No podés modificar este usuario' });
+  }
+  const rol = (req.body || {}).rol || 'usuario';
+  if (!puedeAsignarRol(sesion, rol)) return res.status(403).json({ error: 'No podés asignar ese rol' });
+  const email = (req.body && req.body.email) ? req.body.email.trim().toLowerCase() : req.body.email;
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return res.status(400).json({ error: 'El email no tiene un formato válido' });
   const bloqueo = await verificarLockPropio('usuarios', req.params.id, sesion);
   if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
-  const { nombre, password, rol, clienteId, activo } = req.body || {};
-  const email = (req.body && req.body.email) ? req.body.email.trim().toLowerCase() : req.body.email;
+  const { nombre, password, activo } = req.body || {};
+  // admin_cliente no puede reasignar el usuario a otro cliente.
+  const clienteId = sesion.rol === 'admin_cliente' ? sesion.cliente_id : ((req.body || {}).clienteId || null);
   try {
     const hash = password ? await hashearPassword(password) : null;
     await pool.query(
       `UPDATE usuarios SET nombre=$2, email=$3, rol=$4, cliente_id=$5, activo=$6,
          password_hash = CASE WHEN $7 IS NULL THEN password_hash ELSE $7 END
        WHERE id=$1`,
-      [req.params.id, nombre, email, rol || 'usuario', clienteId || null, activo !== false, hash]
+      [req.params.id, nombre, email, rol, clienteId, activo !== false, hash]
     );
-    res.json({ ...req.body, id: req.params.id, email });
+    res.json({ ...req.body, id: req.params.id, rol, clienteId, email });
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
@@ -1009,6 +1023,10 @@ app.delete('/api/usuarios/:id', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
+  if (req.params.id === sesion.id) return res.status(403).json({ error: 'No podés borrarte a vos mismo' });
+  if (!(await puedeSobreUsuario(sesion, req.params.id))) {
+    return res.status(403).json({ error: 'No podés borrar este usuario' });
+  }
   const bloqueo = await verificarLockPropio('usuarios', req.params.id, sesion);
   if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
   try {
@@ -1051,6 +1069,41 @@ app.post('/api/permisos', async (req, res) => {
   if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
   const { usuarioId, empresaId, campoIds, herramientas, nivel } = req.body || {};
   if (!usuarioId || !empresaId) return res.status(400).json({ error: 'Faltan usuarioId o empresaId' });
+
+  if (!(await puedeSobreUsuario(sesion, usuarioId))) {
+    return res.status(403).json({ error: 'No podés asignar permisos a este usuario' });
+  }
+  if (sesion.rol === 'admin_cliente' && (await clienteDeEmpresa(empresaId)) !== sesion.cliente_id) {
+    return res.status(403).json({ error: 'No podés asignar permisos sobre esta empresa' });
+  }
+
+  // Regla "= o menor": el techo es la fila propia del otorgante en esa empresa
+  // (admin_general no tiene techo). Sin fila propia, no puede delegar nada ahí.
+  if (sesion.rol !== 'admin_general') {
+    const propio = await permisoPropioEnEmpresa(sesion, empresaId);
+    if (!propio) {
+      return res.status(403).json({ error: 'No tenés permiso propio en esta empresa, no podés delegar acceso' });
+    }
+    const nivelPedido = nivel || 'ver';
+    if ((ORDEN_NIVEL[nivelPedido] || 99) > (ORDEN_NIVEL[propio.nivel] || 0)) {
+      return res.status(403).json({ error: 'No podés otorgar un nivel mayor al que vos tenés en esta empresa' });
+    }
+    const misHerr = propio.herramientas || [];
+    for (const h of (herramientas || [])) {
+      if (misHerr.indexOf(h) === -1) {
+        return res.status(403).json({ error: 'No podés otorgar una herramienta que no tenés habilitada' });
+      }
+    }
+    const misCampos = propio.campoIds || [];
+    if (misCampos.length > 0) {
+      for (const c of (campoIds || [])) {
+        if (misCampos.indexOf(c) === -1) {
+          return res.status(403).json({ error: 'No podés otorgar acceso a un campo que no ves' });
+        }
+      }
+    }
+  }
+
   const bloqueo = await verificarLockPropio('permisos', usuarioId + '_' + empresaId, sesion);
   if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
   try {
@@ -1069,6 +1122,12 @@ app.delete('/api/permisos/:usuarioId/:empresaId', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
+  if (!(await puedeSobreUsuario(sesion, req.params.usuarioId))) {
+    return res.status(403).json({ error: 'No podés modificar los permisos de este usuario' });
+  }
+  if (sesion.rol === 'admin_cliente' && (await clienteDeEmpresa(req.params.empresaId)) !== sesion.cliente_id) {
+    return res.status(403).json({ error: 'No podés modificar permisos sobre esta empresa' });
+  }
   const bloqueo = await verificarLockPropio('permisos', req.params.usuarioId + '_' + req.params.empresaId, sesion);
   if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
   try {
@@ -1180,6 +1239,56 @@ async function clienteDeCampo(campoId) {
     [campoId]
   );
   return r.rows.length ? r.rows[0].cliente_id : null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELEGACIÓN DE PERMISOS (modelo_datos_permisos.md §7.3–§7.5 del cliente)
+// - admin_general: sin techo, sobre cualquier cliente/empresa/usuario.
+// - admin_cliente: solo dentro de su propio cliente; puede crear 'usuario' y
+//   'admin_cliente', nunca 'admin_general'; nunca toca un usuario admin_general.
+// - Regla "= o menor": lo que un otorgante (admin_cliente) puede CEDER a otro
+//   usuario (nivel/herramientas/campoIds) no puede superar lo que él MISMO
+//   tiene registrado en `permisos` para esa empresa puntual — no su rol.
+//   admin_general no tiene techo. Si el otorgante no tiene fila propia en esa
+//   empresa, no puede delegar nada ahí.
+// ─────────────────────────────────────────────────────────────────────────────
+const ORDEN_NIVEL = { ver: 1, cargar: 2, administrar: 3 };
+
+async function clienteDeUsuario(usuarioId) {
+  const r = await pool.query('SELECT cliente_id FROM usuarios WHERE id = $1', [usuarioId]);
+  return r.rows.length ? r.rows[0].cliente_id : null;
+}
+
+async function rolDeUsuario(usuarioId) {
+  const r = await pool.query('SELECT rol FROM usuarios WHERE id = $1', [usuarioId]);
+  return r.rows.length ? r.rows[0].rol : null;
+}
+
+// admin_cliente puede crear/reasignar 'usuario' o 'admin_cliente', nunca 'admin_general'.
+function puedeAsignarRol(sesion, rolDestino) {
+  if (sesion.rol === 'admin_general') return true;
+  if (sesion.rol === 'admin_cliente') return rolDestino === 'usuario' || rolDestino === 'admin_cliente';
+  return false;
+}
+
+// ¿Puede este otorgante gestionar (editar/borrar/asignarle permisos a) este usuario?
+// admin_cliente: solo usuarios de su propio cliente, y nunca un admin_general.
+async function puedeSobreUsuario(sesion, usuarioId) {
+  if (sesion.rol === 'admin_general') return true;
+  if (sesion.rol !== 'admin_cliente') return false;
+  const rolDestino = await rolDeUsuario(usuarioId);
+  if (rolDestino === 'admin_general') return false;
+  const clienteDestino = await clienteDeUsuario(usuarioId);
+  return clienteDestino === sesion.cliente_id;
+}
+
+// Fila propia del otorgante en `permisos` para esa empresa (su techo de delegación).
+async function permisoPropioEnEmpresa(sesion, empresaId) {
+  const r = await pool.query(
+    'SELECT campo_ids AS "campoIds", herramientas, nivel FROM permisos WHERE usuario_id = $1 AND empresa_id = $2',
+    [sesion.id, empresaId]
+  );
+  return r.rows[0] || null;
 }
 
 app.get('/api/clientes', async (req, res) => {
