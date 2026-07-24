@@ -18,8 +18,10 @@
 
 const express = require('express');
 const path    = require('path');
+const fs      = require('fs');
 const cors    = require('cors');
 const crypto  = require('crypto');
+const multer  = require('multer');
 const { Pool } = require('pg');
 
 function hashearPassword(password) {
@@ -79,6 +81,31 @@ function loginRateLimitExcedido(ip) {
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+// ── PDFs de herramientas externas (subidos por admin_general) ──────────────
+const HERRAMIENTAS_UPLOADS_DIR = path.join(__dirname, '../frontend/uploads/herramientas');
+fs.mkdirSync(HERRAMIENTAS_UPLOADS_DIR, { recursive: true });
+
+const uploadPdfHerramienta = multer({
+  storage: multer.diskStorage({
+    destination: function (req, file, cb) { cb(null, HERRAMIENTAS_UPLOADS_DIR); },
+    filename: function (req, file, cb) { cb(null, req.params.id + '_' + Date.now() + '.pdf'); }
+  }),
+  fileFilter: function (req, file, cb) {
+    if (file.mimetype !== 'application/pdf') return cb(new Error('Solo se aceptan archivos PDF'));
+    cb(null, true);
+  },
+  limits: { fileSize: 15 * 1024 * 1024 } // 15MB
+}).single('pdf');
+
+// Borra un archivo previamente subido a HERRAMIENTAS_UPLOADS_DIR a partir de la
+// url guardada en la fila (nunca fuera de esa carpeta: path.basename() descarta
+// cualquier intento de traversal en el valor guardado).
+function borrarPdfHerramientaSiPropio(urlAnterior) {
+  if (!urlAnterior || urlAnterior.indexOf('uploads/herramientas/') !== 0) return;
+  const archivo = path.basename(urlAnterior);
+  fs.unlink(path.join(HERRAMIENTAS_UPLOADS_DIR, archivo), function () {});
+}
 
 const UNIQUE_ERROR_MESSAGES = {
   'uq_clientes_nombre':                'Ya existe un cliente con ese nombre',
@@ -1447,7 +1474,10 @@ app.get('/api/herramientas', async (req, res) => {
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   try {
     const r = await pool.query(
-      'SELECT id, nombre, descripcion, tipo, url, dominio, activa, asignable FROM herramientas ORDER BY nombre'
+      `SELECT id, nombre, descripcion, tipo, url, dominio, fuente,
+              vigencia_desde AS "vigenciaDesde", vigencia_hasta AS "vigenciaHasta",
+              orden, activa, asignable
+         FROM herramientas ORDER BY orden, nombre`
     );
     res.json(r.rows);
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
@@ -1461,12 +1491,14 @@ app.post('/api/herramientas', async (req, res) => {
   if (!h.id || !h.nombre) return res.status(400).json({ error: 'Faltan id o nombre' });
   try {
     await pool.query(
-      `INSERT INTO herramientas (id, nombre, descripcion, tipo, url, dominio, activa, asignable)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      `INSERT INTO herramientas (id, nombre, descripcion, tipo, url, dominio, fuente, vigencia_desde, vigencia_hasta, orden, activa, asignable)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
        ON CONFLICT (id) DO UPDATE
-         SET nombre=$2, descripcion=$3, tipo=$4, url=$5, dominio=$6, activa=$7, asignable=$8`,
-      [h.id, h.nombre, h.descripcion||null, h.tipo||'propia', h.url||null,
-       h.dominio||null, h.activa !== false, h.asignable !== false]
+         SET nombre=$2, descripcion=$3, tipo=$4, url=$5, dominio=$6, fuente=$7,
+             vigencia_desde=$8, vigencia_hasta=$9, orden=$10, activa=$11, asignable=$12`,
+      [h.id, h.nombre, h.descripcion||null, h.tipo||'propia', h.url||null, h.dominio||null,
+       h.fuente||null, h.vigenciaDesde||null, h.vigenciaHasta||null, h.orden||0,
+       h.activa !== false, h.asignable !== false]
     );
     res.status(201).json(h);
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
@@ -1479,10 +1511,12 @@ app.put('/api/herramientas/:id', async (req, res) => {
   const h = { ...req.body, id: req.params.id };
   try {
     await pool.query(
-      `UPDATE herramientas SET nombre=$2, descripcion=$3, tipo=$4, url=$5, dominio=$6, activa=$7, asignable=$8
+      `UPDATE herramientas SET nombre=$2, descripcion=$3, tipo=$4, url=$5, dominio=$6, fuente=$7,
+              vigencia_desde=$8, vigencia_hasta=$9, orden=$10, activa=$11, asignable=$12
        WHERE id=$1`,
-      [h.id, h.nombre, h.descripcion||null, h.tipo||'propia', h.url||null,
-       h.dominio||null, h.activa !== false, h.asignable !== false]
+      [h.id, h.nombre, h.descripcion||null, h.tipo||'propia', h.url||null, h.dominio||null,
+       h.fuente||null, h.vigenciaDesde||null, h.vigenciaHasta||null, h.orden||0,
+       h.activa !== false, h.asignable !== false]
     );
     res.json(h);
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
@@ -1493,9 +1527,39 @@ app.delete('/api/herramientas/:id', async (req, res) => {
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   if (sesion.rol !== 'admin_general') return res.status(403).json({ error: 'Sin permiso' });
   try {
+    const actual = await pool.query('SELECT url FROM herramientas WHERE id=$1', [req.params.id]);
     await pool.query('DELETE FROM herramientas WHERE id=$1', [req.params.id]);
+    if (actual.rows.length) borrarPdfHerramientaSiPropio(actual.rows[0].url);
     res.json({ status: 'ok' });
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
+});
+
+// Subida de PDF para una herramienta externa existente: reemplaza `url` por la
+// ruta del archivo servido de forma estática, y borra el PDF anterior si
+// también era uno subido por este mismo endpoint (no si era un link externo).
+app.post('/api/herramientas/:id/pdf', async (req, res) => {
+  const sesion = await obtenerSesion(req);
+  if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+  if (sesion.rol !== 'admin_general') return res.status(403).json({ error: 'Sin permiso' });
+
+  uploadPdfHerramienta(req, res, async function (err) {
+    if (err) return res.status(400).json({ error: err.message || 'Error al subir el archivo' });
+    if (!req.file) return res.status(400).json({ error: 'Falta el archivo PDF' });
+    try {
+      const actual = await pool.query('SELECT url FROM herramientas WHERE id = $1', [req.params.id]);
+      if (!actual.rows.length) {
+        fs.unlink(req.file.path, function () {});
+        return res.status(404).json({ error: 'Herramienta no encontrada' });
+      }
+      const nuevaUrl = 'uploads/herramientas/' + req.file.filename;
+      await pool.query('UPDATE herramientas SET url = $2 WHERE id = $1', [req.params.id, nuevaUrl]);
+      borrarPdfHerramientaSiPropio(actual.rows[0].url);
+      res.json({ id: req.params.id, url: nuevaUrl });
+    } catch (e) {
+      console.error('POST /api/herramientas/:id/pdf error:', e);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

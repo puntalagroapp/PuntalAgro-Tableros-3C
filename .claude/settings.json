@@ -35,7 +35,9 @@
       "Bash(curl -s -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' -H 'Authorization: Bearer PA_e5f208d00ad24d859032f68d253f06ac8ca3408eb6ebf4310eb5d3a94b5dbed0' -d '{\"email\":\"demo@puntalagro.com\",\"password\":\"demo1234\"}')",
       "Bash(git commit *)",
       "Bash(awk '{ if \\(length\\($0\\) > 500\\) print NR\": [linea larga omitida, \"length\\($0\\)\" chars]\"; else print }' /tmp/full_diff_maestros2.txt > /tmp/full_diff_maestros2_clean.txt *)",
-      "Bash(curl -s -X POST http://localhost:8080/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"maria@albor.com\",\"password\":\"demo1234\"}')"
+      "Bash(curl -s -X POST http://localhost:8080/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"maria@albor.com\",\"password\":\"demo1234\"}')",
+      "Bash(node --check backend/server.js)",
+      "Bash(xargs -I{} basename {})"
     ],
     "additionalDirectories": [
       "/tmp"

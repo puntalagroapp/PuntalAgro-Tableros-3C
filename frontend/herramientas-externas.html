@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Herramientas externas · Puntal Agro</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F0F2F5;--card:#fff;--border:#E4E8EE;--text:#0F1923;--muted:#7A8899;--olive:#4A6533;--ochre:#A86A1F;--terra:#C8642D;--radius:12px;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15px;min-height:100vh;display:flex;flex-direction:column}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.logo-title{font-size:13px;font-weight:600}.logo-sub{font-size:11px;color:var(--muted)}
+.h-actions{display:flex;gap:8px}
+.lnk{font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:20px;padding:5px 12px;cursor:pointer;text-decoration:none}
+.lnk:hover{color:var(--olive);border-color:var(--olive)}
+.intro{padding:20px 24px 0;max-width:1000px;width:100%;margin:0 auto}
+.intro h1{font-size:20px;font-weight:600;letter-spacing:-.3px}
+.intro p{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.5}
+main{padding:18px 24px 24px;display:flex;flex-direction:column;gap:18px;flex:1;max-width:1000px;width:100%;margin:0 auto}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.panel h2{font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.fld{display:flex;flex-direction:column;gap:4px}
+.fld.full{grid-column:1/-1}
+.fld label{font-size:11px;font-weight:600;color:var(--muted)}
+.fld .opt{font-weight:400;text-transform:none;color:var(--muted)}
+.fld input,.fld textarea,.fld select{border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-family:var(--sans);font-size:13px;width:100%}
+.fld textarea{resize:vertical;min-height:60px}
+.fld input:focus,.fld textarea:focus,.fld select:focus{outline:none;border-color:var(--olive)}
+.modo-row{display:flex;gap:16px;align-items:center}
+.modo-row label{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:400;cursor:pointer}
+.pdf-actual{font-size:12px;color:var(--muted)}
+.pdf-actual a{color:var(--olive)}
+.btn{background:var(--olive);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer}
+.btn:hover{background:#3c5429}
+.btn-out{background:var(--card);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:9px 14px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer}
+.btn-out:hover{border-color:var(--olive);color:var(--olive)}
+.btn-sm{font-size:11px;padding:5px 9px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;margin-right:4px}
+.btn-sm:hover{color:var(--olive);border-color:var(--olive)}
+.btn-sm.del:hover{color:var(--terra);border-color:var(--terra)}
+.actions-row{display:flex;gap:8px;align-items:center;margin-top:14px}
+.msg{font-size:11px;color:var(--terra)}
+.bdg{font-size:10px;font-family:var(--mono);padding:2px 7px;border-radius:10px;background:var(--bg);border:1px solid var(--border)}
+.ord-arrows{display:inline-flex;flex-direction:column;margin-right:6px;vertical-align:middle}
+.ord-btn{border:none;background:none;cursor:pointer;color:var(--muted);font-size:9px;line-height:1;padding:1px}
+.ord-btn:hover{color:var(--olive)}
+.ord-btn:disabled{opacity:.3;cursor:default}
+.empty{font-size:12.5px;color:var(--muted);padding:10px 0}
+.note{font-size:11px;color:var(--muted);background:#FBF1E0;border:1px solid #EAD9B8;border-radius:8px;padding:10px 12px;line-height:1.5}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo-title">Herramientas externas · Puntal Agro</div>
+    <div class="logo-sub">Administración</div>
+  </div>
+  <div class="h-actions">
+    <a class="lnk" href="index.html">← Menú</a>
+    <a class="lnk" href="administracion.html">Estructura de clientes</a>
+    <a class="lnk" href="usuarios.html">Usuarios</a>
+  </div>
+</header>
+
+<div class="intro">
+  <h1>Herramientas externas</h1>
+  <p>Calculadoras, informes y links que se muestran en el inicio bajo "Externos". Cada una puede apuntar a una página externa o a un PDF que subís acá. Si definís un rango de vigencia, fuera de esas fechas no se muestra.</p>
+</div>
+
+<main>
+  <div class="note">Es una lista global: la ven todos los clientes por igual. Solo el administrador general puede crear, editar o borrar estas herramientas.</div>
+
+  <div class="panel">
+    <h2 id="form-title">Nueva herramienta externa</h2>
+    <div class="grid2">
+      <div class="fld"><label>Nombre</label><input id="he-nombre" maxlength="120" placeholder="Ej: Calculadora de Alquileres"></div>
+      <div class="fld"><label>Fuente <span class="opt">(opcional)</span></label><input id="he-fuente" maxlength="80" placeholder="Ej: Simpleza, CREA"></div>
+      <div class="fld full"><label>Descripción</label><textarea id="he-desc" maxlength="400"></textarea></div>
+
+      <div class="fld full">
+        <label>Link o PDF</label>
+        <div class="modo-row">
+          <label><input type="radio" name="he-modo" value="link" checked onchange="toggleModoHerrExt()"> Link externo</label>
+          <label><input type="radio" name="he-modo" value="pdf" onchange="toggleModoHerrExt()"> Subir PDF</label>
+        </div>
+      </div>
+      <div class="fld full" id="fld-he-url"><label>URL</label><input id="he-url" type="url" placeholder="https://..."></div>
+      <div class="fld full" id="fld-he-pdf" style="display:none">
+        <label>Archivo PDF <span class="opt">(máx. 15MB)</span></label>
+        <input id="he-pdf" type="file" accept="application/pdf,.pdf">
+        <div class="pdf-actual" id="he-pdf-actual"></div>
+      </div>
+
+      <div class="fld"><label>Vigente desde <span class="opt">(opcional)</span></label><input id="he-desde" type="date"></div>
+      <div class="fld"><label>Vigente hasta <span class="opt">(opcional)</span></label><input id="he-hasta" type="date"></div>
+    </div>
+    <div class="actions-row">
+      <button class="btn" onclick="guardarHerrExt()">Guardar</button>
+      <button class="btn-out" onclick="nuevaHerrExt()">Nueva</button>
+      <button class="btn-sm del" id="btn-borrar-herrext" style="display:none" onclick="borrarHerrExtActual()">Eliminar</button>
+      <span class="msg" id="he-msg"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Herramientas externas cargadas</h2>
+    <table id="tbl-herrext">
+      <thead><tr><th>Orden</th><th>Nombre</th><th>Fuente</th><th>Vigencia</th><th>Tipo</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="empty" id="empty-herrext" style="display:none">No hay herramientas externas cargadas todavía.</div>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script>
+var CTX = null;
+var _herrExt = [];
+var editId = null;
+
+function uid(){ return 'x_' + Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function findById(id){ for(var i=0;i<_herrExt.length;i++){ if(_herrExt[i].id===id) return _herrExt[i]; } return null; }
+function esPdfPropio(url){ return !!url && url.indexOf('uploads/herramientas/')===0; }
+function nombreArchivo(url){ return url ? url.split('/').pop() : ''; }
+
+function recargarTodo(cb){
+  apiGet('/api/herramientas', function(err, lista){
+    _herrExt = (lista||[]).filter(function(h){ return h.tipo==='externa'; });
+    if(cb) cb();
+  });
+}
+
+function fmtFecha(f){
+  if(!f) return '';
+  var p=String(f).slice(0,10).split('-'); if(p.length!==3) return f;
+  return p[2]+'/'+p[1]+'/'+p[0];
+}
+
+function renderTabla(){
+  var lista=_herrExt.slice().sort(function(a,b){ return (a.orden||0)-(b.orden||0); });
+  var tb=document.querySelector('#tbl-herrext tbody'); tb.innerHTML='';
+  for(var i=0;i<lista.length;i++){(function(h,idx){
+    var vig = (h.vigenciaDesde||h.vigenciaHasta)
+      ? (fmtFecha(h.vigenciaDesde)||'…')+' – '+(fmtFecha(h.vigenciaHasta)||'…')
+      : '<span style="color:var(--muted)">sin límite</span>';
+    var tipo = esPdfPropio(h.url) ? '<span class="bdg">PDF</span>' : '<span class="bdg">Link</span>';
+    var arribaDis=idx===0?' disabled':'';
+    var abajoDis=idx===lista.length-1?' disabled':'';
+    var flechas='<span class="ord-arrows">'+
+      '<button class="ord-btn" title="Subir"'+arribaDis+' onclick="moverHerrExt('+idx+',-1)">▲</button>'+
+      '<button class="ord-btn" title="Bajar"'+abajoDis+' onclick="moverHerrExt('+idx+',1)">▼</button></span>';
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+flechas+(h.orden!=null?h.orden:'—')+'</td>'+
+      '<td><strong>'+esc(h.nombre)+'</strong></td>'+
+      '<td>'+esc(h.fuente||'—')+'</td>'+
+      '<td>'+vig+'</td>'+
+      '<td>'+tipo+'</td>'+
+      '<td><button class="btn-sm" onclick="editarHerrExt(\''+esc(h.id)+'\')">Editar</button>'+
+      '<button class="btn-sm del" onclick="borrarHerrExt(\''+esc(h.id)+'\')">Borrar</button></td>';
+    tb.appendChild(tr);
+  })(lista[i],i);}
+  document.getElementById('empty-herrext').style.display=lista.length?'none':'block';
+  document.getElementById('tbl-herrext').style.display=lista.length?'':'none';
+}
+
+function moverHerrExt(idx,dir){
+  var lista=_herrExt.slice().sort(function(a,b){ return (a.orden||0)-(b.orden||0); });
+  var j=idx+dir; if(j<0||j>=lista.length) return;
+  var tmp=lista[idx]; lista[idx]=lista[j]; lista[j]=tmp;
+  var pend=lista.length;
+  for(var k=0;k<lista.length;k++){
+    lista[k].orden=k+1;
+    apiPut('/api/herramientas/'+encodeURIComponent(lista[k].id),lista[k],function(){ if(--pend<=0) recargarTodo(renderTabla); });
+  }
+}
+
+function toggleModoHerrExt(){
+  var modo=document.querySelector('input[name="he-modo"]:checked').value;
+  document.getElementById('fld-he-url').style.display = modo==='link' ? '' : 'none';
+  document.getElementById('fld-he-pdf').style.display = modo==='pdf' ? '' : 'none';
+}
+
+function liberarLockHerrExt(){ if(editId){ apiUnlock('herramientas',editId,function(){}); } }
+
+function nuevaHerrExt(){
+  liberarLockHerrExt();
+  editId=null;
+  document.getElementById('form-title').textContent='Nueva herramienta externa';
+  document.getElementById('he-nombre').value='';
+  document.getElementById('he-fuente').value='';
+  document.getElementById('he-desc').value='';
+  document.getElementById('he-url').value='';
+  document.getElementById('he-pdf').value='';
+  document.getElementById('he-pdf-actual').textContent='';
+  document.getElementById('he-desde').value='';
+  document.getElementById('he-hasta').value='';
+  document.querySelector('input[name="he-modo"][value="link"]').checked=true;
+  toggleModoHerrExt();
+  document.getElementById('btn-borrar-herrext').style.display='none';
+  document.getElementById('he-msg').textContent='';
+}
+
+function editarHerrExt(id){
+  var h=findById(id); if(!h) return;
+  liberarLockHerrExt();
+  apiLock('herramientas',id,null,function(errLock){
+    if(errLock){ document.getElementById('he-msg').textContent=errLock.error||'No se pudo tomar este registro.'; return; }
+    editId=id;
+    document.getElementById('form-title').textContent='Editar herramienta externa';
+    document.getElementById('he-nombre').value=h.nombre||'';
+    document.getElementById('he-fuente').value=h.fuente||'';
+    document.getElementById('he-desc').value=h.descripcion||'';
+    document.getElementById('he-desde').value=h.vigenciaDesde?String(h.vigenciaDesde).slice(0,10):'';
+    document.getElementById('he-hasta').value=h.vigenciaHasta?String(h.vigenciaHasta).slice(0,10):'';
+    document.getElementById('he-pdf').value='';
+    if(esPdfPropio(h.url)){
+      document.querySelector('input[name="he-modo"][value="pdf"]').checked=true;
+      document.getElementById('he-pdf-actual').innerHTML='Archivo actual: <a href="'+esc(h.url)+'" target="_blank" rel="noopener">'+esc(nombreArchivo(h.url))+'</a> (elegí uno nuevo para reemplazarlo)';
+      document.getElementById('he-url').value='';
+    } else {
+      document.querySelector('input[name="he-modo"][value="link"]').checked=true;
+      document.getElementById('he-url').value=h.url||'';
+      document.getElementById('he-pdf-actual').textContent='';
+    }
+    toggleModoHerrExt();
+    document.getElementById('btn-borrar-herrext').style.display='';
+    document.getElementById('he-msg').textContent='';
+    window.scrollTo(0,0);
+  });
+}
+
+function guardarHerrExt(){
+  var msg=document.getElementById('he-msg'); msg.textContent='';
+  var nombre=document.getElementById('he-nombre').value.trim();
+  if(!nombre){ msg.textContent='Falta el nombre.'; return; }
+  var modo=document.querySelector('input[name="he-modo"]:checked').value;
+  var urlInput=document.getElementById('he-url').value.trim();
+  var fileInput=document.getElementById('he-pdf');
+  var archivo=fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+  var existente=editId?findById(editId):null;
+
+  var url;
+  if(modo==='link'){
+    if(!urlInput){ msg.textContent='Falta la URL.'; return; }
+    url=urlInput;
+  } else {
+    if(!archivo && !(existente && esPdfPropio(existente.url))){ msg.textContent='Subí un PDF.'; return; }
+    url = archivo ? '' : existente.url; // si hay archivo nuevo, el upload define la url real
+  }
+
+  var desde=document.getElementById('he-desde').value||null;
+  var hasta=document.getElementById('he-hasta').value||null;
+  if(desde && hasta && desde>hasta){ msg.textContent='"Vigente desde" no puede ser posterior a "vigente hasta".'; return; }
+
+  var obj={
+    id: editId||uid(),
+    nombre: nombre,
+    descripcion: document.getElementById('he-desc').value.trim()||null,
+    tipo: 'externa',
+    url: url,
+    fuente: document.getElementById('he-fuente').value.trim()||null,
+    vigenciaDesde: desde,
+    vigenciaHasta: hasta,
+    orden: existente ? (existente.orden||0) : (_herrExt.length+1),
+    activa: true,
+    asignable: false
+  };
+  var isNew=!editId;
+  var cb=function(err){
+    if(err){ msg.textContent=err.error||'Error al guardar.'; return; }
+    var idGuardado=obj.id;
+    if(archivo){
+      apiUpload('/api/herramientas/'+encodeURIComponent(idGuardado)+'/pdf', archivo, 'pdf', function(err2){
+        if(err2){ msg.textContent=err2.error||'Se guardó, pero falló la subida del PDF.'; recargarTodo(renderTabla); return; }
+        liberarLockHerrExt(); editId=null;
+        recargarTodo(function(){ renderTabla(); nuevaHerrExt(); });
+      });
+    } else {
+      liberarLockHerrExt(); editId=null;
+      recargarTodo(function(){ renderTabla(); nuevaHerrExt(); });
+    }
+  };
+  if(isNew) apiPost('/api/herramientas',obj,cb);
+  else apiPut('/api/herramientas/'+encodeURIComponent(editId),obj,cb);
+}
+
+function borrarHerrExt(id){
+  if(!confirm('¿Borrar esta herramienta externa?')) return;
+  apiDelete('/api/herramientas/'+encodeURIComponent(id),function(err){
+    if(err){ alert(err.error||'Error al borrar.'); return; }
+    if(editId===id){ editId=null; nuevaHerrExt(); }
+    recargarTodo(renderTabla);
+  });
+}
+function borrarHerrExtActual(){ if(editId) borrarHerrExt(editId); }
+
+(function(){
+  try{
+    var s=JSON.parse(localStorage.getItem('pa_sesion_activa')||'null');
+    if(!s||!s.token){ location.href='login.html'; return; }
+  }catch(e){ location.href='login.html'; return; }
+
+  apiGet('/api/context',function(err,ctx){
+    if(err){ location.href='login.html'; return; }
+    CTX=ctx;
+    if(ctx.usuario.rol!=='admin_general'){ location.href='index.html'; return; }
+    recargarTodo(function(){ renderTabla(); toggleModoHerrExt(); });
+  });
+})();
+</script>
+
+</body>
+</html>

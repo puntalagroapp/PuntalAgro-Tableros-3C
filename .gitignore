@@ -2,3 +2,4 @@ backend/node_modules/
 .env
 .DS_Store
 backend/Dockerfile~
+frontend/uploads/

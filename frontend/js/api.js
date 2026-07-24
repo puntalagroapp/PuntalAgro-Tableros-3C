@@ -8,6 +8,7 @@
      apiDelete(path, cb)        — DELETE con Authorization Bearer
      apiLock(tabla, id, empresaId, cb)   — tomar/renovar el lock de un registro
      apiUnlock(tabla, id, cb)            — liberar el lock de un registro
+     apiUpload(path, file, campo, cb)    — POST multipart de un único archivo
 
    Callbacks: function(err, data)
      err  = null si OK; { status, error } si falla
@@ -70,6 +71,29 @@
   };
   global.apiUnlock = function (tabla, id, cb) {
     xhr('DELETE', '/api/locks/' + encodeURIComponent(tabla) + '/' + encodeURIComponent(id), null, cb);
+  };
+
+  // Sube un único archivo como multipart/form-data (POST). 'campo' es el
+  // nombre de campo que espera el backend (ej. 'pdf').
+  global.apiUpload = function (path, file, campo, cb) {
+    var fd = new FormData();
+    fd.append(campo, file);
+    var req = new XMLHttpRequest();
+    req.open('POST', path, true);
+    var token = getToken();
+    if (token) req.setRequestHeader('Authorization', 'Bearer ' + token);
+    req.onreadystatechange = function () {
+      if (req.readyState !== 4) return;
+      var json = null;
+      try { json = JSON.parse(req.responseText); } catch (e) {}
+      if (req.status >= 200 && req.status < 300) {
+        if (cb) cb(null, json);
+      } else {
+        var msg = (json && json.error) ? json.error : ('Error ' + req.status);
+        if (cb) cb({ status: req.status, error: msg }, null);
+      }
+    };
+    req.send(fd);
   };
 
 })(window);
