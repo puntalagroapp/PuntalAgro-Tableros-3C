@@ -140,6 +140,9 @@ CREATE TABLE clientes (
     factura_centralizada  BOOLEAN NOT NULL DEFAULT true
 );
 CREATE UNIQUE INDEX uq_clientes_nombre ON clientes (trim(lower(nombre)));
+-- CUIT es opcional pero, si se carga, tiene que ser único (índice parcial:
+-- no evalúa filas con cuit NULL o vacío).
+CREATE UNIQUE INDEX uq_clientes_cuit ON clientes (cuit) WHERE cuit IS NOT NULL AND cuit <> '';
 
 CREATE TABLE empresas (
     id           TEXT PRIMARY KEY,
@@ -151,6 +154,7 @@ CREATE TABLE empresas (
     activo       BOOLEAN NOT NULL DEFAULT true
 );
 CREATE UNIQUE INDEX uq_empresas_rs_cliente ON empresas (cliente_id, trim(lower(razon_social)));
+CREATE UNIQUE INDEX uq_empresas_cuit ON empresas (cuit) WHERE cuit IS NOT NULL AND cuit <> '';
 
 CREATE TABLE campos (
     id         TEXT PRIMARY KEY,

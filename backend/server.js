@@ -109,7 +109,9 @@ function borrarPdfHerramientaSiPropio(urlAnterior) {
 
 const UNIQUE_ERROR_MESSAGES = {
   'uq_clientes_nombre':                'Ya existe un cliente con ese nombre',
+  'uq_clientes_cuit':                  'Ya existe un cliente con ese CUIT',
   'uq_empresas_rs_cliente':            'Ya existe una empresa con esa razón social para este cliente',
+  'uq_empresas_cuit':                  'Ya existe una empresa con ese CUIT',
   'uq_campos_nombre_empresa':          'Ya existe un campo con ese nombre en esta empresa',
   'uq_labores_nombre':                 'Ya existe una labor con ese nombre',
   'uq_especies_nombre':                'Ya existe una especie con ese nombre',
@@ -1207,6 +1209,32 @@ async function _deleteGlobal(tabla, id) {
 // CRUD: /api/clientes  /api/empresas  /api/campos
 // ─────────────────────────────────────────────────────────────────────────────
 
+function cuitSoloDigitos(s) { return String(s == null ? '' : s).replace(/\D/g, ''); }
+
+// CUIT argentino: 11 dígitos + dígito verificador módulo 11.
+function cuitValido(digitos) {
+  if (!/^\d{11}$/.test(digitos)) return false;
+  const mult = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  let suma = 0;
+  for (let i = 0; i < 10; i++) suma += parseInt(digitos.charAt(i), 10) * mult[i];
+  let dv = 11 - (suma % 11);
+  if (dv === 11) dv = 0; else if (dv === 10) dv = 9;
+  return dv === parseInt(digitos.charAt(10), 10);
+}
+
+// Valida el CUIT nuevo solo si vino y cambió respecto al guardado — así no se
+// bloquea la edición de un registro con un CUIT de seed/legacy inválido.
+function errorCuitSiCambio(cuitNuevo, cuitOriginal) {
+  if (!cuitNuevo) return null;
+  const nuevo = cuitSoloDigitos(cuitNuevo);
+  if (cuitOriginal && cuitSoloDigitos(cuitOriginal) === nuevo) return null;
+  if (nuevo.length !== 11) return 'El CUIT debe tener 11 dígitos';
+  if (!cuitValido(nuevo)) return 'El dígito verificador del CUIT no es válido';
+  return null;
+}
+
+function emailValido(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email); }
+
 // Devuelve el cliente_id de una empresa (para validar pertenencia).
 async function clienteDeEmpresa(empresaId) {
   const r = await pool.query('SELECT cliente_id FROM empresas WHERE id = $1', [empresaId]);
@@ -1293,6 +1321,9 @@ app.post('/api/clientes', async (req, res) => {
   if (sesion.rol !== 'admin_general') return res.status(403).json({ error: 'Sin permiso' });
   const c = req.body;
   if (!c.id || !c.nombre) return res.status(400).json({ error: 'Faltan id o nombre' });
+  const errCuit = errorCuitSiCambio(c.cuit, null);
+  if (errCuit) return res.status(400).json({ error: errCuit });
+  if (c.email && !emailValido(c.email)) return res.status(400).json({ error: 'El email no tiene un formato válido' });
   try {
     await pool.query(
       `INSERT INTO clientes (id, nombre, email, telefono, nombre_contacto, razon_social, cuit,
@@ -1324,7 +1355,11 @@ app.put('/api/clientes/:id', async (req, res) => {
   const bloqueoC = await verificarLockPropio('clientes', req.params.id, sesion);
   if (bloqueoC) return res.status(409).json({ error: 'Lo está editando ' + bloqueoC.usuarioNombre });
   const c = { ...req.body, id: req.params.id };
+  if (c.email && !emailValido(c.email)) return res.status(400).json({ error: 'El email no tiene un formato válido' });
   try {
+    const actual = await pool.query('SELECT cuit FROM clientes WHERE id = $1', [req.params.id]);
+    const errCuit = errorCuitSiCambio(c.cuit, actual.rows[0] ? actual.rows[0].cuit : null);
+    if (errCuit) return res.status(400).json({ error: errCuit });
     await pool.query(
       `UPDATE clientes SET nombre=$2, email=$3, telefono=$4, nombre_contacto=$5,
           razon_social=$6, cuit=$7, direccion=$8, factura_centralizada=$9, activo=$10
@@ -1388,6 +1423,8 @@ app.post('/api/empresas', async (req, res) => {
   if (!e.id || !e.razonSocial || !e.clienteId) return res.status(400).json({ error: 'Faltan campos obligatorios' });
   if (sesion.rol === 'admin_cliente' && sesion.cliente_id !== e.clienteId)
     return res.status(403).json({ error: 'Sin permiso sobre ese cliente' });
+  const errCuit = errorCuitSiCambio(e.cuit, null);
+  if (errCuit) return res.status(400).json({ error: errCuit });
   try {
     await pool.query(
       `INSERT INTO empresas (id, cliente_id, razon_social, cuit, condicion_iva, direccion, activo)
@@ -1417,6 +1454,9 @@ app.put('/api/empresas/:id', async (req, res) => {
     }
     const bloqueo = await verificarLockPropio('empresas', req.params.id, sesion);
     if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
+    const actual = await pool.query('SELECT cuit FROM empresas WHERE id = $1', [req.params.id]);
+    const errCuit = errorCuitSiCambio(e.cuit, actual.rows[0] ? actual.rows[0].cuit : null);
+    if (errCuit) return res.status(400).json({ error: errCuit });
     await pool.query(
       `UPDATE empresas SET razon_social=$2, cuit=$3, condicion_iva=$4, direccion=$5, activo=$6
        WHERE id=$1`,

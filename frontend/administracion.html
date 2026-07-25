@@ -70,6 +70,7 @@ main{padding:16px 24px 28px;display:grid;grid-template-columns:340px 1fr;gap:16p
   <div class="h-actions">
     <a class="lnk" href="index.html">← Menú</a>
     <a class="lnk" href="usuarios.html">Usuarios</a>
+    <button class="lnk" onclick="salir()">Salir</button>
   </div>
 </header>
 
@@ -108,6 +109,32 @@ function findById(arr,id){ for(var i=0;i<arr.length;i++){ if(arr[i].id===id)retu
 function val(id){ var el=document.getElementById(id); return el?el.value.trim():''; }
 function setMsg(t){ var m=document.getElementById('msg'); if(m) m.textContent=t||''; }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function esAdminPuntal(){ return !!(CTX && CTX.usuario && CTX.usuario.rol==='admin_general'); }
+
+/* ==========================================================================
+   VALIDADORES — mismo criterio que maestros.html/usuarios.html. El backend
+   repite lo mismo server-side; esto es solo para dar feedback inmediato.
+   ========================================================================== */
+function vCuitDigitos(s){ return String(s==null?'':s).replace(/\D/g,''); }
+function vCuitValido(d){
+  if(!/^\d{11}$/.test(d)) return false;
+  var mult=[5,4,3,2,7,6,5,4,3,2], suma=0;
+  for(var i=0;i<10;i++){ suma += parseInt(d.charAt(i),10)*mult[i]; }
+  var dv=11-(suma%11);
+  if(dv===11) dv=0; else if(dv===10) dv=9;
+  return dv===parseInt(d.charAt(10),10);
+}
+function vEmailValido(s){ return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s); }
+// Valida el CUIT solo si vino y cambió respecto al original (no bloquea
+// editar un registro con un CUIT de seed/legacy inválido).
+function errorCuit(cuitNuevo, cuitOriginal){
+  if(!cuitNuevo) return '';
+  var nuevo=vCuitDigitos(cuitNuevo);
+  if(cuitOriginal && vCuitDigitos(cuitOriginal)===nuevo) return '';
+  if(nuevo.length!==11) return 'El CUIT debe tener 11 dígitos.';
+  if(!vCuitValido(nuevo)) return 'El dígito verificador del CUIT no es válido.';
+  return '';
+}
 
 // ── Recarga de datos ──────────────────────────────────────────────────────────
 function recargarTodo(cb){
@@ -242,7 +269,7 @@ function formCliente(){
     '</div>'+
     '<div class="actions">'+
       '<button class="btn" id="btn-guardar" onclick="guardarCliente()">Guardar</button>'+
-      (nuevo?'':'<button class="btn-out" onclick="borrarCliente()">Eliminar cliente</button>')+
+      (nuevo||!esAdminPuntal()?'':'<button class="btn-out" onclick="borrarCliente()">Eliminar cliente</button>')+
       (nuevo?'':'<button class="btn-link" onclick="irAUsuarios()">Asignar usuario admin →</button>')+
       '<span class="msg" id="msg"></span>'+
     '</div>';
@@ -298,6 +325,9 @@ function nuevoCampo(empresaId){ liberarBloqueoActual(); sel={kind:'campo',id:nul
 function guardarCliente(){
   if(!val('c-nombre')){ setMsg('Falta el nombre.'); return; }
   var existente=sel.id?findById(_clientes,sel.id):null;
+  var eCuit=errorCuit(val('c-cuit'), existente?existente.cuit:null);
+  if(eCuit){ setMsg(eCuit); return; }
+  if(val('c-email') && !vEmailValido(val('c-email'))){ setMsg('El email no tiene un formato válido.'); return; }
   var c={
     id: sel.id||uid(), nombre:val('c-nombre'), nombreContacto:val('c-contacto'),
     email:val('c-email'), telefono:val('c-tel'),
@@ -331,6 +361,8 @@ function borrarCliente(){
 function guardarEmpresa(clienteId){
   if(!val('e-rs')){ setMsg('Falta la razón social.'); return; }
   var existente=(sel.id&&!sel._nuevoEnCliente)?findById(_empresas,sel.id):null;
+  var eCuit=errorCuit(val('e-cuit'), existente?existente.cuit:null);
+  if(eCuit){ setMsg(eCuit); return; }
   var e={
     id: (sel._nuevoEnCliente?null:sel.id)||uid(), clienteId:clienteId,
     razonSocial:val('e-rs'), cuit:val('e-cuit'), condicionIVA:val('e-iva'), direccion:val('e-dir'),
@@ -388,7 +420,23 @@ function borrarCampo(){
   });
 }
 
+// Deja abiertos todos los clientes (ya vienen acotados por el backend según
+// el rol) y todas sus empresas.
+function expandirTodo(){
+  for(var i=0;i<_clientes.length;i++){
+    expand[_clientes[i].id]=true;
+    var emps=_empresas.filter(function(e){ return e.clienteId===_clientes[i].id; });
+    for(var j=0;j<emps.length;j++){ expand[emps[j].id]=true; }
+  }
+}
+
 function irAUsuarios(){ location.href='usuarios.html'; }
+function salir(){
+  apiPost('/api/auth/logout', null, function(){
+    localStorage.removeItem('pa_sesion_activa');
+    location.href='login.html';
+  });
+}
 
 // ── Inicialización ────────────────────────────────────────────────────────────
 (function(){
@@ -405,12 +453,7 @@ function irAUsuarios(){ location.href='usuarios.html'; }
       document.getElementById('btn-nuevo-cliente').style.display='none';
     }
     recargarTodo(function(){
-      // Expandir el primer cliente visible por defecto
-      if(ctx.usuario.rol==='admin_cliente'){
-        if(ctx.usuario.clienteId) expand[ctx.usuario.clienteId]=true;
-      } else if(_clientes.length){
-        expand[_clientes[0].id]=true;
-      }
+      expandirTodo();
       renderTree();
     });
   });

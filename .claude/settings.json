@@ -50,7 +50,18 @@
       "Bash(curl -s -X POST http://localhost:8080/api/usuarios -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-test-rosario\" -d '{\"id\":\"u_hack2\",\"nombre\":\"Hack2\",\"email\":\"hack2@x.com\",\"rol\":\"admin_general\",\"password\":\"x\"}')",
       "Bash(curl -s -X PUT http://localhost:8080/api/usuarios/u_admin -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-test-rosario\" -d '{\"nombre\":\"Hackeado\"}')",
       "Bash(curl -s -X DELETE http://localhost:8080/api/usuarios/u_rosario -H \"Authorization: Bearer token-test-rosario\")",
-      "Bash(curl -s -w '\\\\nHTTP_STATUS:%{http_code}\\\\n' -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' -H 'Authorization: Bearer PA_e5f208d00ad24d859032f68d253f06ac8ca3408eb6ebf4310eb5d3a94b5dbed0' -d '{\"email\":\"rosario@albor.com\",\"password\":\"demo1234\"}')"
+      "Bash(curl -s -w '\\\\nHTTP_STATUS:%{http_code}\\\\n' -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' -H 'Authorization: Bearer PA_e5f208d00ad24d859032f68d253f06ac8ca3408eb6ebf4310eb5d3a94b5dbed0' -d '{\"email\":\"rosario@albor.com\",\"password\":\"demo1234\"}')",
+      "Bash(node --check /tmp/admin_check.js)",
+      "Bash(curl -s -X POST http://localhost:8080/api/clientes -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-demo\" -d '{\"id\":\"cli_test1\",\"nombre\":\"Cliente Test 1\",\"cuit\":\"123\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/clientes -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-demo\" -d '{\"id\":\"cli_test2\",\"nombre\":\"Cliente Test 2\",\"cuit\":\"30-12345678-9\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/clientes -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-demo\" -d '{\"id\":\"cli_test3\",\"nombre\":\"Cliente Test 3\",\"cuit\":\"20-12345678-2\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/clientes -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-demo\" -d '{\"id\":\"cli_test4\",\"nombre\":\"Cliente Test 4\",\"email\":\"no-es-un-email\"}')",
+      "Bash(node -e ' *)",
+      "Bash(curl -s -X POST http://localhost:8080/api/clientes -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-demo\" -d '{\"id\":\"cli_test3\",\"nombre\":\"Cliente Test 3\",\"cuit\":\"20123456786\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/clientes -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-demo\" -d '{\"id\":\"cli_test5\",\"nombre\":\"Cliente Test 5\",\"cuit\":\"20123456786\"}')",
+      "Bash(curl -s -X PUT http://localhost:8080/api/clientes/cli_demo -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-demo\" -d '{\"nombre\":\"Cliente Demo Editado\",\"cuit\":\"30-00000001-0\",\"email\":\"demo@puntalagro.com\",\"facturaCentralizada\":true,\"activo\":true}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/empresas -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-demo\" -d '{\"id\":\"emp_test1\",\"clienteId\":\"cli_demo\",\"razonSocial\":\"Empresa Test\",\"cuit\":\"123\"}')",
+      "Bash(curl -s -X PUT http://localhost:8080/api/empresas/e_1 -H \"Content-Type: application/json\" -H \"Authorization: Bearer token-demo\" -d '{\"razonSocial\":\"Estancia Don Eduardo\",\"cuit\":\"30-00000001-1\",\"activo\":true}')"
     ],
     "additionalDirectories": [
       "/tmp"
