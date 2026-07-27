@@ -92,14 +92,26 @@ CREATE TABLE categorias_insumo (
 );
 CREATE UNIQUE INDEX uq_categorias_insumo_codigo ON categorias_insumo (trim(lower(codigo)));
 
--- Usos (cultivo / unidad de negocio — global)
+-- Usos (cultivo / unidad de negocio — global). color: usado por tablero_uso_suelo
+-- para pintar los KPIs/composición por uso sin depender de una clase CSS fija.
 CREATE TABLE usos_actividad (
     id     TEXT PRIMARY KEY,
     codigo TEXT NOT NULL,
     label  TEXT NOT NULL,
+    color  TEXT,
     activo BOOLEAN NOT NULL DEFAULT true
 );
 CREATE UNIQUE INDEX uq_usos_actividad_codigo ON usos_actividad (trim(lower(codigo)));
+
+-- Tenencia de la tierra (global). Régimen de tenencia por actividad
+-- (Propio/Tomado en alquiler/Cedido en alquiler/Convenio), usado por
+-- tablero_uso_suelo para clasificar composición y reportes.
+CREATE TABLE tenencias (
+    id     TEXT PRIMARY KEY,
+    nombre TEXT NOT NULL,
+    activo BOOLEAN NOT NULL DEFAULT true
+);
+CREATE UNIQUE INDEX uq_tenencias_nombre ON tenencias (trim(lower(nombre)));
 
 -- Formulaciones (orden de mezclado en tanque — global)
 CREATE TABLE formulaciones (
@@ -526,10 +538,16 @@ INSERT INTO categorias_insumo (id, codigo, label, base, fito, subcat, activo) VA
     ('cat_otro', 'OTRO', 'Otros Insumos',               true, false, false, true);
 
 -- Usos (cultivo / unidad de negocio — global)
-INSERT INTO usos_actividad (id, codigo, label, activo) VALUES
-    ('uso_agr', 'AGR', 'Agricultura',      true),
-    ('uso_gan', 'GAN', 'Ganadería',        true),
-    ('uso_dob', 'DOB', 'Doble propósito',  true);
+INSERT INTO usos_actividad (id, codigo, label, color, activo) VALUES
+    ('uso_agr', 'AGR', 'Agricultura',      '#4A6533', true),
+    ('uso_gan', 'GAN', 'Ganadería',        '#C8642D', true),
+    ('uso_dob', 'DOB', 'Doble propósito',  '#A86A1F', true);
+
+INSERT INTO tenencias (id, nombre, activo) VALUES
+    ('ten_prop', 'Propio',                true),
+    ('ten_alqt', 'Tomado en alquiler',    true),
+    ('ten_alqc', 'Cedido en alquiler',    true),
+    ('ten_conv', 'Convenio',              true);
 
 -- Formulaciones (orden de mezclado en tanque — global)
 INSERT INTO formulaciones (id, codigo, descripcion, orden, activo) VALUES

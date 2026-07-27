@@ -61,6 +61,7 @@
   var K_ACTIVIDADES = 'pa_actividades';
   var K_CATEGORIAS = 'pa_categorias_insumo';
   var K_USOS       = 'pa_usos_actividad';
+  var K_TENENCIAS  = 'pa_tenencias';
   var K_FORMUL     = 'pa_formulaciones';
   var K_PRINACT    = 'pa_principios_activos';
   var K_SOCIOS     = 'pa_socios';
@@ -199,7 +200,7 @@
   }
 
   // ── 6. SEED DEMO (solo modo local) ───────────────────────────────────────
-  var SEED_VERSION = '6';
+  var SEED_VERSION = '7';
 
   function sembrarDatos() {
     if (lsGet(LS_SEEDVER, null) === SEED_VERSION) return;
@@ -301,9 +302,15 @@
       { id:'cat_otro', codigo:'OTRO', label:'Otros Insumos',               base:true, fito:false, subcat:false, activo:true }
     ]);
     lsSet(K_USOS, [
-      { id:'uso_agr', codigo:'AGR', label:'Agricultura',     activo:true },
-      { id:'uso_gan', codigo:'GAN', label:'Ganadería',       activo:true },
-      { id:'uso_dob', codigo:'DOB', label:'Doble propósito', activo:true }
+      { id:'uso_agr', codigo:'AGR', label:'Agricultura',     color:'#4A6533', activo:true },
+      { id:'uso_gan', codigo:'GAN', label:'Ganadería',       color:'#C8642D', activo:true },
+      { id:'uso_dob', codigo:'DOB', label:'Doble propósito', color:'#A86A1F', activo:true }
+    ]);
+    lsSet(K_TENENCIAS, [
+      { id:'ten_prop', nombre:'Propio',             activo:true },
+      { id:'ten_alqt', nombre:'Tomado en alquiler', activo:true },
+      { id:'ten_alqc', nombre:'Cedido en alquiler', activo:true },
+      { id:'ten_conv', nombre:'Convenio',           activo:true }
     ]);
     lsSet(K_FORMUL, [
       { id:'f_agua', codigo:'',   descripcion:'Agua (media carga, corrección dureza/pH)',    orden:1,  activo:true },
@@ -516,6 +523,7 @@
         if (data.campanias)      _cache[K_CAMPANIAS] = data.campanias;
         if (data.categoriasInsumo) _cache[K_CATEGORIAS] = data.categoriasInsumo;
         if (data.usos)             _cache[K_USOS]       = data.usos;
+        if (data.tenencias)        _cache[K_TENENCIAS]  = data.tenencias;
         if (data.formulaciones)    _cache[K_FORMUL]     = data.formulaciones;
         if (data.principiosActivos) _cache[K_PRINACT]   = data.principiosActivos;
         if (data.empresas)       _cache[K_EMPRESAS]  = data.empresas;
@@ -840,6 +848,10 @@
     listarUsos: function () { return cacheGet(K_USOS, []); },
     guardarUso: function (u) { return cacheGuardar(K_USOS, 'usos', u, 'uso'); },
     borrarUso:  function (id) { cacheBorrar(K_USOS, 'usos', id); },
+
+    listarTenencias: function () { return cacheGet(K_TENENCIAS, []); },
+    guardarTenencia: function (t) { return cacheGuardar(K_TENENCIAS, 'tenencias', t, 'ten'); },
+    borrarTenencia:  function (id) { cacheBorrar(K_TENENCIAS, 'tenencias', id); },
 
     // ── FORMULACIONES (orden de mezclado en tanque — lista global) ──────────
     listarFormulaciones: function () { return cacheGet(K_FORMUL, []); },

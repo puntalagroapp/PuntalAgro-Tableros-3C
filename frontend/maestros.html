@@ -161,6 +161,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
     <div class="nav-item" data-cat="labores" onclick="seleccionarCat('labores')">Labores</div>
     <div class="nav-item" data-cat="cultivos" onclick="seleccionarCat('cultivos')">Cultivos/UN</div>
     <div class="nav-item" data-cat="usos" onclick="seleccionarCat('usos')">Usos</div>
+    <div class="nav-item" data-cat="tenencias" onclick="seleccionarCat('tenencias')">Tenencia</div>
     <div class="nav-item" data-cat="especies" onclick="seleccionarCat('especies')">Especies / Granos</div>
     <div class="nav-item" data-cat="unidades" onclick="seleccionarCat('unidades')">Unidades</div>
   </div>
@@ -265,6 +266,20 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
         <tbody></tbody>
       </table>
       <div class="empty" id="empty-uso" style="display:none">No hay usos cargados. Agregá uno con "+ Nuevo".</div>
+    </div>
+
+    <!-- VISTA TENENCIA -->
+    <div id="vista-tenencias" style="display:none" data-scope="global">
+      <div class="panel-head">
+        <h2>Tenencia</h2>
+        <button class="btn" onclick="abrirModalTenencia()">+ Nueva</button>
+      </div>
+      <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;line-height:1.5">Régimen de tenencia de la tierra (propio, alquilado, cedido, convenio), para clasificar actividades en el Plan de Uso del Suelo.</p>
+      <table id="tbl-tenencia">
+        <thead><tr><th>Nombre</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty" id="empty-tenencia" style="display:none">No hay tenencias cargadas. Agregá una con "+ Nueva".</div>
     </div>
 
     <!-- VISTA ESPECIES / GRANOS -->
@@ -630,12 +645,29 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
     <div class="grid2">
       <div class="fld"><label>Código</label><input id="uso-codigo" maxlength="12" placeholder="Ej: AGR"></div>
       <div class="fld"><label>Nombre</label><input id="uso-label" maxlength="60"></div>
+      <div class="fld"><label>Color <span class="opt">(KPIs y reportes)</span></label><input id="uso-color" type="color" value="#7A8899" style="height:38px;padding:2px 4px"></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="guardarUso()">Guardar</button>
       <button class="btn-out" onclick="cerrarModalUso()">Cancelar</button>
       <button class="btn-out del" id="btn-del-uso" style="display:none" onclick="eliminarUso()">Eliminar</button>
       <span class="msg" id="msg-uso"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Modal TENENCIA -->
+<div class="overlay" id="overlay-tenencia">
+  <div class="modal">
+    <h3 id="modal-tenencia-title">Nueva tenencia</h3>
+    <div class="grid2">
+      <div class="fld full"><label>Nombre</label><input id="tenencia-nombre" maxlength="60"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="guardarTenencia()">Guardar</button>
+      <button class="btn-out" onclick="cerrarModalTenencia()">Cancelar</button>
+      <button class="btn-out del" id="btn-del-tenencia" style="display:none" onclick="eliminarTenencia()">Eliminar</button>
+      <span class="msg" id="msg-tenencia"></span>
     </div>
   </div>
 </div>
@@ -768,11 +800,13 @@ var _terceros = [], _choferes = [], _depositos = [], _labores = [];
 var _cultivos = [], _especies = [], _unidades = [], _insumos = [];
 var _modosAcc = [], _campos = [], _tiposProveedor = [];
 var _usos = [], _categorias = [], _formulaciones = [], _principiosActivos = [], _socios = [];
+var _tenencias = [];
 
 // IDs en edición
 var editId = null, editChofer = null, editDep = null, editLab = null;
 var editCul = null, editEsp = null, editUni = null, editIns = null, editMoa = null;
 var editUso = null, editCateg = null, editFormul = null, editPA = null, editSocio = null;
+var editTenencia = null;
 var bandaSel = '';
 var filasPA = []; // estado del bloque de principios activos dentro del modal de insumo
 
@@ -847,7 +881,7 @@ function vNum(raw,opts){
 function vErr(msgId,texto){ var el=document.getElementById(msgId); if(el) el.textContent=texto; }
 
 // Navegación
-var VISTAS = ['terceros','choferes','socios','depositos','labores','cultivos','usos','especies','unidades','insumos','categorias','formul','ppioactivo','modosacc'];
+var VISTAS = ['terceros','choferes','socios','depositos','labores','cultivos','usos','tenencias','especies','unidades','insumos','categorias','formul','ppioactivo','modosacc'];
 
 function seleccionarCat(c){
   catActual=c;
@@ -865,6 +899,7 @@ function seleccionarCat(c){
   else if(c==='labores')   cargarLabores(renderLabores);
   else if(c==='cultivos')  cargarCultivos(renderCultivos);
   else if(c==='usos')      renderUsos();
+  else if(c==='tenencias') renderTenencias();
   else if(c==='especies')  renderEspecies();
   else if(c==='unidades')  renderUnidades();
   else if(c==='insumos')   cargarInsumos(renderInsumos);
@@ -1436,7 +1471,8 @@ function renderUsos(){
   var tb=document.querySelector('#tbl-uso tbody'); tb.innerHTML='';
   for(var i=0;i<_usos.length;i++){(function(u){
     var tr=document.createElement('tr');
-    tr.innerHTML='<td><span class="rol-bdg rb-tipo">'+esc(u.codigo||'—')+'</span></td><td><strong>'+esc(u.label)+'</strong></td>'+
+    var sw='<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:'+esc(u.color||'#7A8899')+';margin-right:6px;vertical-align:middle"></span>';
+    tr.innerHTML='<td><span class="rol-bdg rb-tipo">'+esc(u.codigo||'—')+'</span></td><td>'+sw+'<strong>'+esc(u.label)+'</strong></td>'+
       '<td class="row-actions"><button class="btn-act-edit" title="Editar" onclick="editarUso(\''+esc(u.id)+'\')">✎</button><button class="btn-act-del" title="Eliminar" onclick="eliminarUso(\''+esc(u.id)+'\')">×</button></td>';
     tb.appendChild(tr);
   })(_usos[i]);}
@@ -1445,7 +1481,7 @@ function renderUsos(){
 }
 function abrirModalUso(){
   editUso=null; document.getElementById('modal-uso-title').textContent='Nuevo uso';
-  document.getElementById('uso-codigo').value=''; document.getElementById('uso-label').value='';
+  document.getElementById('uso-codigo').value=''; document.getElementById('uso-label').value=''; document.getElementById('uso-color').value='#7A8899';
   document.getElementById('uso-codigo').disabled=false;
   document.getElementById('btn-del-uso').style.display='none'; msgSet('msg-uso','');
   document.getElementById('overlay-uso').className='overlay open';
@@ -1454,6 +1490,7 @@ function editarUso(id){
   var x=findById(_usos,id); if(!x)return;
   editUso=id; document.getElementById('modal-uso-title').textContent='Editar uso';
   document.getElementById('uso-codigo').value=x.codigo||''; document.getElementById('uso-label').value=x.label||'';
+  document.getElementById('uso-color').value=x.color||'#7A8899';
   document.getElementById('uso-codigo').disabled=true;
   document.getElementById('btn-del-uso').style.display=''; msgSet('msg-uso','');
   document.getElementById('overlay-uso').className='overlay open';
@@ -1468,7 +1505,7 @@ function guardarUso(){
   e=vReq(lab,'el nombre'); if(e){ vErr('msg-uso',e); return; }
   e=vMax(lab,60,'Nombre'); if(e){ vErr('msg-uso',e); return; }
   if(!editUso && vDuplicado(_usos,cod,function(it){return it.codigo;},null)){ vErr('msg-uso','Ya existe un uso con ese código.'); return; }
-  var obj={id:editUso||uid(),codigo:cod,label:lab,activo:true};
+  var obj={id:editUso||uid(),codigo:cod,label:lab,color:document.getElementById('uso-color').value,activo:true};
   var isNew=!editUso;
   var cb=function(err){if(err){vErr('msg-uso',err.error||'Error al guardar.');return;} cerrarModalUso();cargarUsos(renderUsos);};
   if(isNew) apiPost('/api/maestros/usos',obj,cb);
@@ -1481,6 +1518,56 @@ function eliminarUso(id){
     if(err){ alert(err.error||'Error al eliminar.'); return; }
     if(!id) cerrarModalUso();
     cargarUsos(renderUsos);
+  });
+}
+
+/* ---- TENENCIA (global) ---- */
+function cargarTenencias(cb){
+  apiGet('/api/maestros/tenencias',function(err,lista){ _tenencias=lista||[]; if(cb)cb(); });
+}
+function renderTenencias(){
+  var tb=document.querySelector('#tbl-tenencia tbody'); tb.innerHTML='';
+  for(var i=0;i<_tenencias.length;i++){(function(t){
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td><strong>'+esc(t.nombre)+'</strong></td>'+
+      '<td class="row-actions"><button class="btn-act-edit" title="Editar" onclick="editarTenencia(\''+esc(t.id)+'\')">✎</button><button class="btn-act-del" title="Eliminar" onclick="eliminarTenencia(\''+esc(t.id)+'\')">×</button></td>';
+    tb.appendChild(tr);
+  })(_tenencias[i]);}
+  document.getElementById('empty-tenencia').style.display=_tenencias.length?'none':'block';
+  document.getElementById('tbl-tenencia').style.display=_tenencias.length?'':'none';
+}
+function abrirModalTenencia(){
+  editTenencia=null; document.getElementById('modal-tenencia-title').textContent='Nueva tenencia';
+  document.getElementById('tenencia-nombre').value='';
+  document.getElementById('btn-del-tenencia').style.display='none'; msgSet('msg-tenencia','');
+  document.getElementById('overlay-tenencia').className='overlay open';
+}
+function editarTenencia(id){
+  var x=findById(_tenencias,id); if(!x)return;
+  editTenencia=id; document.getElementById('modal-tenencia-title').textContent='Editar tenencia';
+  document.getElementById('tenencia-nombre').value=x.nombre||'';
+  document.getElementById('btn-del-tenencia').style.display=''; msgSet('msg-tenencia','');
+  document.getElementById('overlay-tenencia').className='overlay open';
+}
+function cerrarModalTenencia(){ document.getElementById('overlay-tenencia').className='overlay'; }
+function guardarTenencia(){
+  var nom=vOracion(document.getElementById('tenencia-nombre').value);
+  var e=vReq(nom,'el nombre'); if(e){ vErr('msg-tenencia',e); return; }
+  e=vMax(nom,60,'Nombre'); if(e){ vErr('msg-tenencia',e); return; }
+  if(vDuplicado(_tenencias,nom,function(it){return it.nombre;},editTenencia)){ vErr('msg-tenencia','Ya existe una tenencia con ese nombre.'); return; }
+  var obj={id:editTenencia||uid(),nombre:nom,activo:true};
+  var isNew=!editTenencia;
+  var cb=function(err){if(err){vErr('msg-tenencia',err.error||'Error al guardar.');return;} cerrarModalTenencia();cargarTenencias(renderTenencias);};
+  if(isNew) apiPost('/api/maestros/tenencias',obj,cb);
+  else apiPut('/api/maestros/tenencias/'+encodeURIComponent(editTenencia),obj,cb);
+}
+function eliminarTenencia(id){
+  var t=id||editTenencia; if(!t) return;
+  if(!confirm('¿Eliminar esta tenencia?')) return;
+  apiDelete('/api/maestros/tenencias/'+encodeURIComponent(t),function(err){
+    if(err){ alert(err.error||'Error al eliminar.'); return; }
+    if(!id) cerrarModalTenencia();
+    cargarTenencias(renderTenencias);
   });
 }
 
@@ -2285,7 +2372,7 @@ function eliminarMoa(id){
   }catch(e){location.href='login.html';return;}
 
   // Cargar globales en paralelo, luego context
-  var pendientes=8;
+  var pendientes=9;
   function unoPendiente(){ pendientes--; if(pendientes===0) cargarCtx(); }
 
   apiGet('/api/maestros/especies',      function(err,l){ _especies=l||[];       unoPendiente(); });
@@ -2293,6 +2380,7 @@ function eliminarMoa(id){
   apiGet('/api/maestros/modos-accion',  function(err,l){ _modosAcc=l||[];       unoPendiente(); });
   apiGet('/api/maestros/tipos-proveedor',function(err,l){_tiposProveedor=l||[]; unoPendiente(); });
   apiGet('/api/maestros/usos',          function(err,l){ _usos=l||[];           unoPendiente(); });
+  apiGet('/api/maestros/tenencias',     function(err,l){ _tenencias=l||[];      unoPendiente(); });
   apiGet('/api/maestros/categorias-insumo',function(err,l){ _categorias=l||[];  unoPendiente(); });
   apiGet('/api/maestros/formulaciones', function(err,l){ _formulaciones=l||[]; unoPendiente(); });
   apiGet('/api/maestros/principios-activos',function(err,l){ _principiosActivos=l||[]; unoPendiente(); });
