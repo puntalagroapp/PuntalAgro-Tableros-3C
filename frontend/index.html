@@ -283,8 +283,13 @@ function cargarExternos() {
 
 function puedeVer(herramientaId, permiso) {
   if (!permiso) return true;
+  // nivel='administrar' siempre ve todas las herramientas de esta empresa
+  // (admin_general/admin_cliente, o un 'usuario' con nivel='administrar' acá) —
+  // ahí herramientas=[] significa "todas". Para 'ver'/'cargar', herramientas=[]
+  // significa CERO habilitadas: es la lista explícita que tildó quien asignó el
+  // permiso, no "sin restricción" — antes se confundía con el caso de arriba.
+  if (permiso.nivel === 'administrar') return true;
   var hts = permiso.herramientas || [];
-  if (!hts.length) return true;
   for (var i = 0; i < hts.length; i++) { if (hts[i] === herramientaId) return true; }
   return false;
 }
