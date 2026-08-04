@@ -989,7 +989,7 @@ app.post('/api/usuarios', async (req, res) => {
       `INSERT INTO usuarios (id, nombre, email, rol, cliente_id, activo, password_hash)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (id) DO UPDATE SET nombre=$2, email=$3, rol=$4, cliente_id=$5, activo=$6,
-         password_hash = CASE WHEN $7 IS NULL THEN usuarios.password_hash ELSE $7 END`,
+         password_hash = CASE WHEN $7::text IS NULL THEN usuarios.password_hash ELSE $7::text END`,
       [id, nombre, email, rol, clienteId, activo !== false, hash]
     );
     res.status(201).json({ ...req.body, rol, clienteId, email });
@@ -1023,7 +1023,7 @@ app.put('/api/usuarios/:id', async (req, res) => {
     const hash = password ? await hashearPassword(password) : null;
     await pool.query(
       `UPDATE usuarios SET nombre=$2, email=$3, rol=$4, cliente_id=$5, activo=$6,
-         password_hash = CASE WHEN $7 IS NULL THEN password_hash ELSE $7 END
+         password_hash = CASE WHEN $7::text IS NULL THEN password_hash ELSE $7::text END
        WHERE id=$1`,
       [req.params.id, nombre, email, rol, clienteId, activo !== false, hash]
     );
@@ -1031,6 +1031,7 @@ app.put('/api/usuarios/:id', async (req, res) => {
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
+    console.error('/api/usuarios PUT error:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });

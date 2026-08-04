@@ -67,18 +67,22 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
   <div class="note">El permiso es <strong>por empresa</strong>: un usuario puede tener distinto conjunto de herramientas y nivel en cada empresa. El permiso llega hasta nivel campo (acá, en demo, se asignan todas).</div>
 
   <div class="panel">
-    <h2>Nuevo usuario</h2>
+    <h2 id="panel-usuario-titulo">Nuevo usuario</h2>
     <div class="row">
       <div class="fld"><label>Nombre</label><input id="u-nombre" placeholder="Nombre y apellido" autocomplete="off"></div>
       <div class="fld"><label>Email (login)</label><input id="u-email" type="email" placeholder="usuario@empresa.com" autocomplete="off"></div>
-      <div class="fld"><label>Contraseña</label><input id="u-pass" type="password" placeholder="Contraseña inicial" autocomplete="new-password"></div>
+      <div class="fld"><label id="lbl-pass">Contraseña</label><input id="u-pass" type="password" placeholder="Contraseña inicial" autocomplete="new-password"></div>
       <div class="fld"><label>Rol</label>
         <select id="u-rol" onchange="actualizarCampoCliente()"></select>
       </div>
       <div class="fld" id="fld-cliente" style="display:none"><label>Cliente</label>
         <select id="u-cliente"></select>
       </div>
-      <button class="btn" onclick="crearUsuario()">Crear usuario</button>
+      <div class="fld" id="fld-activo" style="display:none"><label>Estado</label>
+        <select id="u-activo"><option value="1">Activo</option><option value="0">Inactivo</option></select>
+      </div>
+      <button class="btn" id="btn-guardar-usuario" onclick="guardarUsuario()">Crear usuario</button>
+      <button class="btn-sm" id="btn-cancelar-edicion" style="display:none" onclick="cancelarEdicionUsuario()">Cancelar</button>
     </div>
     <p class="sub" id="hint-admin-cliente" style="display:none;margin-top:10px">Un <strong>admin_cliente</strong> administra automáticamente todas las empresas del cliente asociado — no hace falta asignarle permisos por empresa más abajo.</p>
   </div>
@@ -120,6 +124,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
 <script>
 var CTX = null;
 var _usuarios = [], _permisos = [], _empresas = [], _campos = [], _clientes = [], _herramientas = [];
+var editandoUsuarioId = null; // id del usuario en edición (bloqueado vía apiLock), o null en modo alta
 
 function uid(){ return 'x_' + Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -213,10 +218,12 @@ function renderUsuarios(){
       if(!permisosTxt) permisosTxt='<span style="color:var(--muted)">sin permisos</span>';
     }
     var esUnoMismo=!!(CTX && CTX.usuario && CTX.usuario.id===u.id);
+    var accEditar='<button class="btn-sm" onclick="editarUsuario(\''+esc(u.id)+'\')">Editar</button>';
     var accBorrar=esUnoMismo?'':'<button class="btn-sm" onclick="borrarUsuario(\''+esc(u.id)+'\')">Borrar</button>';
+    var estadoTxt=(u.activo===false)?' <span class="bdg" style="color:var(--terra)">inactivo</span>':'';
     var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+esc(u.nombre)+'</td><td>'+esc(u.email)+'</td><td><span class="bdg">'+esc(u.rol)+'</span></td><td>'+permisosTxt+'</td>'+
-      '<td>'+accBorrar+'</td>';
+    tr.innerHTML='<td>'+esc(u.nombre)+estadoTxt+'</td><td>'+esc(u.email)+'</td><td><span class="bdg">'+esc(u.rol)+'</span></td><td>'+permisosTxt+'</td>'+
+      '<td>'+accEditar+' '+accBorrar+'</td>';
     tb.appendChild(tr);
   }
 
@@ -370,29 +377,101 @@ function precargar(){
   });
 }
 
-function crearUsuario(){
+// Lee Nombre/Email/Rol/Cliente del formulario, comunes a alta y edición.
+// Devuelve null (y ya mostró el alert correspondiente) si falta algo obligatorio.
+function leerDatosComunesForm(){
   var nombre=document.getElementById('u-nombre').value.trim();
   var email=document.getElementById('u-email').value.trim();
-  var pass=document.getElementById('u-pass').value;
   var rol=document.getElementById('u-rol').value;
-  if(!nombre||!email||!pass){ alert('Completá nombre, email y contraseña.'); return; }
+  if(!nombre||!email){ alert('Completá nombre y email.'); return null; }
   var clienteId=null;
   if(rol!=='admin_general'){
     if(CTX && CTX.usuario.rol==='admin_cliente'){
       clienteId=CTX.usuario.clienteId;
     } else {
       clienteId=document.getElementById('u-cliente').value||null;
-      if(!clienteId){ alert('Elegí a qué cliente pertenece este usuario.'); return; }
+      if(!clienteId){ alert('Elegí a qué cliente pertenece este usuario.'); return null; }
     }
   }
-  var u={id:uid(),nombre:nombre,email:email,password:pass,rol:rol,clienteId:clienteId,activo:true};
+  return {nombre:nombre,email:email,rol:rol,clienteId:clienteId};
+}
+
+function guardarUsuario(){
+  if(editandoUsuarioId) actualizarUsuario();
+  else crearUsuario();
+}
+
+function crearUsuario(){
+  var datos=leerDatosComunesForm();
+  if(!datos) return;
+  var pass=document.getElementById('u-pass').value;
+  if(!pass){ alert('Completá una contraseña inicial.'); return; }
+  var u={id:uid(),nombre:datos.nombre,email:datos.email,password:pass,rol:datos.rol,clienteId:datos.clienteId,activo:true};
   apiPost('/api/usuarios',u,function(err){
     if(err){ alert(err.error||'Error al crear usuario.'); return; }
-    document.getElementById('u-nombre').value='';
-    document.getElementById('u-email').value='';
-    document.getElementById('u-pass').value='';
+    limpiarFormUsuario();
     recargarTodo(function(){ renderUsuarios(); renderRoles(); precargar(); });
   });
+}
+
+// Toma el lock del registro y precarga el formulario en modo edición.
+function editarUsuario(id){
+  var u=null;
+  for(var i=0;i<_usuarios.length;i++){ if(_usuarios[i].id===id){ u=_usuarios[i]; break; } }
+  if(!u) return;
+  apiLock('usuarios', id, null, function(errLock){
+    if(errLock){ alert(errLock.error||'No se pudo tomar este usuario para editar.'); return; }
+    editandoUsuarioId=id;
+    document.getElementById('panel-usuario-titulo').textContent='Editar usuario: '+u.nombre;
+    document.getElementById('u-nombre').value=u.nombre||'';
+    document.getElementById('u-email').value=u.email||'';
+    document.getElementById('u-pass').value='';
+    document.getElementById('lbl-pass').textContent='Nueva contraseña (opcional)';
+    document.getElementById('u-rol').value=u.rol;
+    actualizarCampoCliente();
+    if(document.getElementById('fld-cliente').style.display!=='none'){
+      document.getElementById('u-cliente').value=u.clienteId||'';
+    }
+    document.getElementById('fld-activo').style.display='';
+    document.getElementById('u-activo').value=(u.activo!==false)?'1':'0';
+    document.getElementById('btn-guardar-usuario').textContent='Guardar cambios';
+    document.getElementById('btn-cancelar-edicion').style.display='';
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
+}
+
+function actualizarUsuario(){
+  var datos=leerDatosComunesForm();
+  if(!datos) return;
+  var pass=document.getElementById('u-pass').value;
+  var activo=document.getElementById('u-activo').value==='1';
+  var body={nombre:datos.nombre,email:datos.email,rol:datos.rol,clienteId:datos.clienteId,activo:activo};
+  if(pass) body.password=pass;
+  apiPut('/api/usuarios/'+encodeURIComponent(editandoUsuarioId),body,function(err){
+    if(err){ alert(err.error||'Error al guardar los cambios.'); return; }
+    apiUnlock('usuarios',editandoUsuarioId,function(){});
+    limpiarFormUsuario();
+    recargarTodo(function(){ renderUsuarios(); renderRoles(); precargar(); });
+  });
+}
+
+function cancelarEdicionUsuario(){
+  if(editandoUsuarioId) apiUnlock('usuarios',editandoUsuarioId,function(){});
+  limpiarFormUsuario();
+}
+
+// Vuelve el formulario al modo alta (limpio) y libera el título/botones de edición.
+function limpiarFormUsuario(){
+  editandoUsuarioId=null;
+  document.getElementById('panel-usuario-titulo').textContent='Nuevo usuario';
+  document.getElementById('u-nombre').value='';
+  document.getElementById('u-email').value='';
+  document.getElementById('u-pass').value='';
+  document.getElementById('lbl-pass').textContent='Contraseña';
+  document.getElementById('fld-activo').style.display='none';
+  document.getElementById('btn-guardar-usuario').textContent='Crear usuario';
+  document.getElementById('btn-cancelar-edicion').style.display='none';
+  renderRoles(); // resetea el select de Rol al default y recalcula el campo Cliente
 }
 
 function borrarUsuario(id){
