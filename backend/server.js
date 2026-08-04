@@ -975,6 +975,7 @@ app.post('/api/usuarios', async (req, res) => {
   const rol = (req.body || {}).rol || 'usuario';
   const email = (req.body && req.body.email) ? req.body.email.trim().toLowerCase() : req.body.email;
   if (!id || !nombre || !email) return res.status(400).json({ error: 'Faltan campos obligatorios (id, nombre, email)' });
+  if (!password) return res.status(400).json({ error: 'La contraseña es obligatoria al crear un usuario' });
   if (!puedeAsignarRol(sesion, rol)) return res.status(403).json({ error: 'No podés crear un usuario con ese rol' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return res.status(400).json({ error: 'El email no tiene un formato válido' });
   // admin_cliente solo crea usuarios de su propio cliente: se ignora cualquier
