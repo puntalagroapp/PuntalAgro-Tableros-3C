@@ -10,7 +10,7 @@
 <script src="pa-core.js"></script>
 <script src="js/api.js"></script>
 <style>
-:root{--bg:#F0F2F5;--card:#fff;--border:#E4E8EE;--text:#0F1923;--muted:#7A8899;--radius:12px;--mono:'DM Sans',sans-serif;--sans:'DM Sans',sans-serif;}
+:root{--bg:#F0F2F5;--card:#fff;--border:#E4E8EE;--text:#0F1923;--muted:#7A8899;--radius:12px;--mono:'DM Sans',sans-serif;--sans:'DM Sans',sans-serif;--olive:#4A6533;--olive-dark:#3B5128;--terra:#C8642D;--ochre:#A86A1F;}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15px;min-height:100vh}
 /* Alineación tabular para todos los números (KPIs, tablas, celdas mono) */
@@ -65,6 +65,11 @@ header{background:var(--card);border-bottom:1px solid var(--border);padding:12px
 .filtro-select{font-family:var(--sans);font-size:12px;font-weight:500;color:var(--text);background:var(--card);border:1.5px solid #CBD5E1;border-radius:8px;padding:6px 10px;cursor:pointer}
 .ms-dd-wrap{display:inline-flex;align-items:center;background:var(--card);border:1.5px solid #CBD5E1;border-radius:8px;padding:0 4px 0 10px}
 .ms-dd-wrap .filtro-select{border:none;padding:6px 6px}
+.ms-dd-wrap.sel-single{padding:0 2px 0 2px}
+.ms-dd-wrap.sel-single .filtro-select{padding:6px 6px 6px 8px;font-weight:500}
+.ms-dd-wrap.sel-single.active{border-color:var(--olive)}
+.ms-dd-wrap.sel-single.active .filtro-select{color:var(--olive)}
+.fbar-actions{display:inline-flex;align-items:center;gap:8px;margin-left:auto;flex:none}
 .pills{display:flex;gap:5px;flex-wrap:wrap}
 .pill{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--muted);transition:all .12s;font-family:var(--sans)}
 .pill.on-agr{background:#F0FDF4;color:#3B6D11;border-color:#86EFAC}
@@ -159,7 +164,18 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
 .ms-action{font-size:10px;color:#4A6533;cursor:pointer;background:none;border:none;padding:2px 4px;font-family:var(--sans);font-weight:500}
 .ms-action:hover{text-decoration:underline}
 .ms-section{padding:6px 10px 2px;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;border-top:1px solid var(--border);margin-top:2px}
+.ms-section.ms-section-head{display:flex;align-items:center;justify-content:space-between;padding-right:8px}
+.ms-sec-btn{font-size:10px;text-transform:none;letter-spacing:0}
+.ms-sec-btns{display:flex;gap:4px}
 .ms-section:first-of-type{border-top:none;margin-top:0}
+.ms-foot{position:sticky;bottom:0;background:var(--card);border-top:1px solid var(--border);padding:6px;display:flex;justify-content:flex-end;margin-top:2px}
+.ms-done{padding:5px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--olive);background:var(--olive);color:#fff;font-family:var(--sans)}
+.ms-done:hover{background:var(--olive-dark);border-color:var(--olive-dark)}
+.modo-opts{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.modo-opt{text-align:left;background:var(--card);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer;transition:all .12s;font-family:var(--sans)}
+.modo-opt:hover{border-color:var(--olive);background:#F0F4EC}
+.modo-opt-tit{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px}
+.modo-opt-desc{font-size:11px;color:var(--muted);line-height:1.35}
 .ms-opt{padding:5px 10px;font-size:12px;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;gap:8px;border:none;background:transparent;width:100%;text-align:left}
 .ms-opt:hover{background:#F5F7FA}
 .ms-opt input{cursor:pointer;margin:0;accent-color:#4A6533}
@@ -316,26 +332,29 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
     <div class="fbar-title">Filtros</div>
     <div class="fbar">
       <input type="text" id="searchLote" class="search-box" placeholder="Buscar lote..." oninput="renderAll()">
-      <div class="ms-dd" id="msTipo"></div>
+      <div class="ms-dd-wrap sel-single" id="filtroEstado">
+        <select class="filtro-select" id="selEstado" onchange="setEstadoSel(this.value)">
+          <option value="todos">Todos los estados</option>
+          <option value="activos" selected>Solo activos</option>
+          <option value="inactivos">Solo inactivos</option>
+        </select>
+      </div>
       <div class="ms-dd" id="msAmbiente"></div>
+      <div class="ms-dd" id="msTipo"></div>
       <div class="ms-dd" id="msAntecesor"></div>
       <div class="ms-dd" id="msCult"></div>
-      <div class="ms-dd-wrap" id="filtroSeg"><span class="filtro-lbl-inline">Momento:</span>
+      <div class="ms-dd" id="msNegocio"></div>
+      <div class="ms-dd-wrap sel-single" id="filtroSeg">
         <select class="filtro-select" id="selSeg" onchange="setSegSel(this.value)">
-          <option value="">Todos</option>
-          <option value="1">Tiene 1ª</option>
-          <option value="2">Tiene 2ª</option>
+          <option value="">Todos los momentos</option>
+          <option value="1">Cultivos de 1ª</option>
+          <option value="2">Cultivo de 2ª</option>
         </select>
       </div>
-      <div class="ms-dd-wrap" id="filtroEstado"><span class="filtro-lbl-inline">Estado:</span>
-        <select class="filtro-select" id="selEstado" onchange="setEstadoSel(this.value)">
-          <option value="activos">Solo activos</option>
-          <option value="inactivos">Solo inactivos</option>
-          <option value="todos">Activos e inactivos</option>
-        </select>
+      <div class="fbar-actions">
+        <button class="btn-toggle" id="btnHistGlobal" onclick="toggleHistGlobal()">▸ Historia</button>
+        <button class="nav-reset" id="btnLimpiarFiltros" onclick="clearFiltros()">↺ Limpiar</button>
       </div>
-      <button class="btn-toggle" id="btnHistGlobal" onclick="toggleHistGlobal()" style="margin-left:auto">▸ Mostrar historia</button>
-      <button class="nav-reset" id="btnLimpiarFiltros" onclick="clearFiltros()">↺ Limpiar filtros</button>
     </div>
   </div>
 </div>
@@ -441,6 +460,24 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
           <tbody id="repCultBody"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: elegir cómo mostrar los lotes cuando hay un filtro de actividad activo -->
+<div class="modal-bg" id="modalModoActividad">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-title">¿Cómo querés ver los resultados?</div>
+    <div class="modal-sub">Estás filtrando por actividad. Elegí cómo mostrar los lotes:</div>
+    <div class="modo-opts">
+      <button class="modo-opt" onclick="elegirModoActividad(false)">
+        <div class="modo-opt-tit">Lotes que contengan estas actividades</div>
+        <div class="modo-opt-desc">Muestra el lote completo, con todas sus actividades de la campaña.</div>
+      </button>
+      <button class="modo-opt" onclick="elegirModoActividad(true)">
+        <div class="modo-opt-tit">Solo actividades filtradas</div>
+        <div class="modo-opt-desc">Recorta cada lote a las actividades que coinciden con el filtro.</div>
+      </button>
     </div>
   </div>
 </div>
@@ -900,6 +937,7 @@ var state = {
   fAmb: [],       // ambientes seleccionados (multi)
   fAnt: [],       // antecesores (cultivos) seleccionados
   fCult: [],      // cultivos/usos seleccionados (cualquier actividad de la campaña)
+  fTen: [],       // tenencias seleccionadas (cualquier actividad de la campaña); '__none__' = sin tenencia
   fTipo: [],      // usos (AGR/GAN/…) seleccionados — filtra por actividad de la campaña, no por historia del lote
   fSeg: '',       // '' todos | '1' tiene 1ª | '2' tiene 2ª
   repDim: 'uso',     // dimensión de fila de la tabla de Reportes: 'uso'|'cultivo'|'ambiente'|'campo'
@@ -1054,6 +1092,28 @@ function actsDe(lote, camp){
   var a = lote && lote.p ? lote.p[camp] : null;
   return (a && a.length) ? a : [];
 }
+// ¿Hay algún filtro de ACTIVIDAD activo (cultivo, tipo y/o momento)? Habilita el toggle "ver solo filtrado".
+function hayFiltroActividad(){
+  return (state.fCult && state.fCult.length>0) || (state.fTipo && state.fTipo.length>0) || !!state.fSeg;
+}
+// Actividades visibles de un lote en una campaña. Si el toggle "soloFiltrado" está activo
+// y hay filtros de actividad, recorta a las que matchean fCult y/o fSeg. Si no, devuelve todo.
+// Nota: solo recorta para la CAMPAÑA ACTIVA (los filtros aplican sobre ella); para campañas
+// históricas/antecesor devuelve siempre todo.
+function actsVisibles(lote, camp){
+  var acts = actsDe(lote, camp);
+  if(!state.soloFiltrado || camp!==state.campania || !hayFiltroActividad()) return acts;
+  return acts.filter(function(a){
+    if(state.fCult.length && state.fCult.indexOf(a.c)<0) return false;
+    if(state.fTipo.length){
+      var t = cultTipo(a.c);
+      if(!t || state.fTipo.indexOf(t)<0) return false;
+    }
+    if(state.fSeg==='1' && a.seg) return false;
+    if(state.fSeg==='2' && !a.seg) return false;
+    return true;
+  });
+}
 // Superficie física: suma de actividades que NO son de 2ª (las de 2ª van sobre tierra ya contada)
 function supFisica(acts){
   var s = 0;
@@ -1184,8 +1244,10 @@ function resumenFiltros(){
   x = lista(state.fTipo, function(v){return usoNombre(v);}, 'uso', 'usos'); if(x) p.push(x);
   x = lista(state.fAnt, function(v){return v;}, 'antecesor', 'antecesores'); if(x) p.push(x);
   x = lista(state.fCult, function(v){return v;}, 'cultivo', 'cultivos'); if(x) p.push(x);
+  x = lista(state.fTen, function(v){return v==='__none__'?'sin tenencia':tenenciaNombre(v);}, 'tenencia', 'tenencias'); if(x) p.push(x);
   if(state.fSeg === '1') p.push('solo cultivos de 1ª');
   else if(state.fSeg === '2') p.push('solo cultivos de 2ª');
+  if(state.soloFiltrado) p.push('solo la actividad filtrada');
   return p.join(' · ');
 }
 // Pinta el resumen de filtros en un contenedor (id). Se oculta si no hay filtros.
@@ -1255,6 +1317,19 @@ function lotesFiltrados(){
     res = res.filter(function(l){
       var acts = actsDe(l, state.campania);
       for(var i=0;i<acts.length;i++) if(state.fCult.indexOf(acts[i].c)>=0) return true;
+      return false;
+    });
+  }
+  // Filtro tenencia: alguna actividad de la campaña activa con esa tenencia
+  // ('__none__' matchea actividades sin tenencia)
+  if(state.fTen.length){
+    res = res.filter(function(l){
+      var acts = actsDe(l, state.campania);
+      for(var i=0;i<acts.length;i++){
+        var ng = actTen(acts[i]);
+        if(!ng && state.fTen.indexOf('__none__')>=0) return true;
+        if(ng && state.fTen.indexOf(ng)>=0) return true;
+      }
       return false;
     });
   }
@@ -1371,7 +1446,7 @@ function buildFiltros(){
   var tipoOpts = Object.keys(usosCatFiltro).map(function(cod){
     return { val:cod, label:cod, desc:usoNombre(cod), count:(tipoCount[cod]||0), grupo:cod };
   });
-  buildMultiSelect('msTipo', 'Tipo', tipoOpts, 'fTipo', {grouped:true, showSig:true});
+  buildMultiSelect('msTipo', 'Tipo', tipoOpts, 'fTipo', {grouped:false, showSig:false});
 
   // Ambientes: usar TODOS los del catálogo (ordenados A1 A2 G1-G6 DESP), contar apariciones
   var ambCount = {};
@@ -1379,7 +1454,7 @@ function buildFiltros(){
   var ambOpts = Object.keys(AMBIENTES).map(function(a){
     return { val:a, label:a, desc:ambDesc(a), count:(ambCount[a]||0), grupo: ambTipo(a) };
   });
-  buildMultiSelect('msAmbiente', 'Ambiente', ambOpts, 'fAmb', {grouped:true, showSig:true});
+  buildMultiSelect('msAmbiente', 'Ambiente', ambOpts, 'fAmb', {grouped:false, showSig:true});
   
   // Antecesor: cultivos que aparecen en campaña previa
   var antCount = {};
@@ -1404,6 +1479,23 @@ function buildFiltros(){
   }
   var cultOpts = Object.keys(cultCount).sort().map(function(k){return {val:k,label:k,desc:cultName(k),count:cultCount[k],grupo:cultTipo(k)};});
   buildMultiSelect('msCult', 'Cultivo / Uso', cultOpts, 'fCult', {grouped:true, showSig:true});
+
+  // Tenencia: tenencias presentes en las actividades de la campaña activa (+ "sin tenencia")
+  var negCount = {}; var haySinNeg = false;
+  for(var i=0;i<base.length;i++){
+    var actsN = actsDe(base[i], state.campania);
+    for(var j=0;j<actsN.length;j++){
+      var ng = actTen(actsN[j]);
+      if(ng){ negCount[ng] = (negCount[ng]||0)+1; }
+      else { haySinNeg = true; }
+    }
+  }
+  var negCat = listarTenencias();
+  var negOpts = [];
+  for(var nk in negCat){ if(negCount[nk]) negOpts.push({val:nk, label:negCat[nk].n, desc:'', count:negCount[nk]}); }
+  for(var uk in negCount){ if(!negCat[uk]) negOpts.push({val:uk, label:uk, desc:'', count:negCount[uk]}); }
+  if(haySinNeg) negOpts.push({val:'__none__', label:'— Sin tenencia', desc:'', count:0});
+  buildMultiSelect('msNegocio', 'Tenencia', negOpts, 'fTen', {grouped:false, showSig:false});
 }
 
 function buildMultiSelect(containerId, label, opts, stateKey, cfg){
@@ -1438,14 +1530,15 @@ function renderMsPanel(containerId){
   var panel = document.getElementById(containerId+'_panel');
   if(!cont || !panel) return;
   var opts = JSON.parse(cont.dataset.opts || '[]');
+  var cfg = JSON.parse(cont.dataset.cfg || '{}');
   var stateKey = cont.dataset.statekey;
   var selected = state[stateKey];
-  
+
   if(!opts.length){
     panel.innerHTML = '<div class="ms-empty">Sin opciones disponibles</div>';
     return;
   }
-  
+
   var html = '';
   // Buscador (solo si hay más de 6 opciones)
   if(opts.length > 6){
@@ -1456,37 +1549,49 @@ function renderMsPanel(containerId){
   html += '<button class="ms-action" onclick="msSelectAll(\''+containerId+'\')">Seleccionar todo</button>';
   html += '<button class="ms-action" onclick="msSelectNone(\''+containerId+'\')">Limpiar</button>';
   html += '</div>';
-  
-  // Agrupar
-  var grupos = {};
-  opts.forEach(function(o){
-    var g = o.grupo || 'OTRO';
-    if(!grupos[g]) grupos[g] = [];
-    grupos[g].push(o);
-  });
-  var usosCatGrupo = listarUsos();
-  var ordenGrupos = Object.keys(usosCatGrupo).concat(['OTRO']);
-  var nombreGrupos = {OTRO:'Otros'};
-  for(var gk in usosCatGrupo){ nombreGrupos[gk] = usosCatGrupo[gk].n; }
-  
-  ordenGrupos.forEach(function(g){
-    if(!grupos[g] || !grupos[g].length) return;
-    html += '<div class="ms-section">'+nombreGrupos[g]+'</div>';
-    grupos[g].forEach(function(o){
-      var isOn = selected.indexOf(o.val) >= 0;
-      var col = cultColor(o.val);
-      var sigStyle = (o.grupo==='AGR'||o.grupo==='GAN') 
-        ? 'color:'+col 
-        : 'color:var(--text)';
-      var search = ((o.label||'')+' '+(o.desc||'')).toLowerCase();
-      html += '<label class="ms-opt" data-search="'+search+'">';
-      html += '<input type="checkbox" '+(isOn?'checked':'')+' onchange="toggleFiltro(\''+stateKey+'\',\''+o.val+'\')">';
-      html += '<span class="ms-opt-sig" style="'+sigStyle+'">'+o.label+'</span>';
-      html += '<span class="ms-opt-nom">'+(o.desc||'')+'</span>';
-      html += '</label>';
+
+  function optHtml(o){
+    var isOn = selected.indexOf(o.val) >= 0;
+    var col = cultColor(o.val);
+    var sigStyle = (o.grupo==='AGR'||o.grupo==='GAN') ? 'color:'+col : 'color:var(--text)';
+    var search = ((o.label||'')+' '+(o.desc||'')).toLowerCase();
+    var h = '<label class="ms-opt" data-search="'+search+'">';
+    h += '<input type="checkbox" '+(isOn?'checked':'')+' onchange="toggleFiltro(\''+stateKey+'\',\''+o.val+'\')">';
+    h += '<span class="ms-opt-sig" style="'+sigStyle+'">'+o.label+'</span>';
+    h += '<span class="ms-opt-nom">'+(o.desc||'')+'</span>';
+    h += '</label>';
+    return h;
+  }
+
+  if(cfg.grouped){
+    // Agrupar por uso, en el orden del catálogo dinámico (listarUsos) + "Otros" al final.
+    var grupos = {};
+    opts.forEach(function(o){
+      var g = o.grupo || 'OTRO';
+      if(!grupos[g]) grupos[g] = [];
+      grupos[g].push(o);
     });
-  });
-  
+    var usosCatGrupo = listarUsos();
+    var ordenGrupos = Object.keys(usosCatGrupo).concat(['OTRO']);
+    var nombreGrupos = {OTRO:'Otros'};
+    for(var gk in usosCatGrupo){ nombreGrupos[gk] = usosCatGrupo[gk].n; }
+    ordenGrupos.forEach(function(g){
+      if(!grupos[g] || !grupos[g].length) return;
+      html += '<div class="ms-section ms-section-head"><span>'+nombreGrupos[g]+'</span>'
+            + '<span class="ms-sec-btns">'
+            + '<button class="ms-action ms-sec-btn" onclick="msSelectGrupo(\''+containerId+'\',\''+g+'\')">Todos</button>'
+            + '<button class="ms-action ms-sec-btn" onclick="msDeselectGrupo(\''+containerId+'\',\''+g+'\')">Ninguno</button>'
+            + '</span></div>';
+      grupos[g].forEach(function(o){ html += optHtml(o); });
+    });
+  } else {
+    // Lista plana (sin agrupación) — usada por Ambiente, Tipo y Tenencia.
+    opts.forEach(function(o){ html += optHtml(o); });
+  }
+
+  // Pie con botón "Listo" para cerrar cómodamente.
+  html += '<div class="ms-foot"><button class="ms-done" onclick="msClosePanels()">Listo</button></div>';
+
   panel.innerHTML = html;
 }
 
@@ -1498,6 +1603,7 @@ function toggleMsPanel(containerId, evt){
   // Cerrar todos los demás
   document.querySelectorAll('.ms-panel.on').forEach(function(p){p.classList.remove('on');});
   if(!wasOpen){
+    _snapFiltroAct = _firmaFiltroAct(); // snapshot para detectar cambios de filtro de actividad al cerrar
     renderMsPanel(containerId);
     panel.classList.add('on');
     // listener para cerrar al click afuera
@@ -1507,11 +1613,38 @@ function toggleMsPanel(containerId, evt){
   }
 }
 
-function msOutsideClick(e){
-  if(e.target.closest && e.target.closest('.ms-dd')) return;
+// Cierra todos los paneles de multi-select abiertos (usado por "Listo", Esc y click afuera)
+function msClosePanels(){
   document.querySelectorAll('.ms-panel.on').forEach(function(p){p.classList.remove('on');});
   document.removeEventListener('click', msOutsideClick);
+  // Si al cerrar un dropdown quedó/cambió un filtro de actividad (cultivo/tipo),
+  // preguntar el modo de visualización — una sola vez, con la selección final.
+  if(_snapFiltroAct !== null){
+    var ahora = _firmaFiltroAct();
+    if(hayFiltroActividad() && ahora !== _snapFiltroAct){
+      setTimeout(abrirModalModoActividad, 30);
+    }
+    _snapFiltroAct = null;
+  }
 }
+// Firma de los filtros de actividad (cultivo + tipo + momento) para detectar cambios.
+function _firmaFiltroAct(){
+  return (state.fCult||[]).slice().sort().join(',') + '|'
+       + (state.fTipo||[]).slice().sort().join(',') + '|'
+       + (state.fSeg||'');
+}
+var _snapFiltroAct = null;
+
+function msOutsideClick(e){
+  if(e.target.closest && e.target.closest('.ms-dd')) return;
+  msClosePanels();
+}
+// Cerrar paneles con Esc
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape' || e.keyCode === 27){
+    if(document.querySelector('.ms-panel.on')) msClosePanels();
+  }
+});
 
 function filterMsPanel(containerId, q){
   var panel = document.getElementById(containerId+'_panel');
@@ -1529,6 +1662,7 @@ function msSelectAll(containerId){
   var stateKey = cont.dataset.statekey;
   state[stateKey] = opts.map(function(o){return o.val;});
   renderAll();
+  refreshMsTriggerByKey(stateKey);
   // Reabrir el panel después del re-render
   setTimeout(function(){
     renderMsPanel(containerId);
@@ -1543,10 +1677,51 @@ function msSelectNone(containerId){
   var stateKey = cont.dataset.statekey;
   state[stateKey] = [];
   renderAll();
+  refreshMsTriggerByKey(stateKey);
   setTimeout(function(){
     renderMsPanel(containerId);
     var p = document.getElementById(containerId+'_panel');
     if(p) p.classList.add('on');
+    document.addEventListener('click', msOutsideClick);
+  }, 10);
+}
+
+// Selecciona todas las opciones de un grupo (AGR/GAN/OTRO) sumándolas a lo ya elegido.
+function msSelectGrupo(containerId, grupo){
+  var cont = document.getElementById(containerId);
+  var opts = JSON.parse(cont.dataset.opts || '[]');
+  var stateKey = cont.dataset.statekey;
+  var arr = state[stateKey];
+  opts.forEach(function(o){
+    var g = o.grupo || 'OTRO';
+    if(g===grupo && arr.indexOf(o.val)<0) arr.push(o.val);
+  });
+  var openPanel = document.querySelector('.ms-panel.on');
+  var savedScroll = openPanel ? openPanel.scrollTop : 0;
+  renderAll();
+  setTimeout(function(){
+    renderMsPanel(containerId);
+    var p = document.getElementById(containerId+'_panel');
+    if(p){ p.classList.add('on'); p.scrollTop = savedScroll; }
+    document.addEventListener('click', msOutsideClick);
+  }, 10);
+}
+
+// Quita del filtro todas las opciones de un grupo (AGR/GAN/OTRO), conservando el resto.
+function msDeselectGrupo(containerId, grupo){
+  var cont = document.getElementById(containerId);
+  var opts = JSON.parse(cont.dataset.opts || '[]');
+  var stateKey = cont.dataset.statekey;
+  var delGrupo = {};
+  opts.forEach(function(o){ if((o.grupo||'OTRO')===grupo) delGrupo[o.val] = true; });
+  state[stateKey] = state[stateKey].filter(function(v){ return !delGrupo[v]; });
+  var openPanel = document.querySelector('.ms-panel.on');
+  var savedScroll = openPanel ? openPanel.scrollTop : 0;
+  renderAll();
+  setTimeout(function(){
+    renderMsPanel(containerId);
+    var p = document.getElementById(containerId+'_panel');
+    if(p){ p.classList.add('on'); p.scrollTop = savedScroll; }
     document.addEventListener('click', msOutsideClick);
   }, 10);
 }
@@ -1556,32 +1731,90 @@ function toggleFiltro(key, val){
   var i = arr.indexOf(val);
   if(i>=0) arr.splice(i,1);
   else arr.push(val);
-  // Recordar qué dropdown estaba abierto para reabrirlo
+  // Recordar qué dropdown estaba abierto y su scroll para reabrirlo sin saltar al inicio
   var openPanel = document.querySelector('.ms-panel.on');
   var openContainerId = openPanel ? openPanel.id.replace('_panel','') : null;
+  var savedScroll = openPanel ? openPanel.scrollTop : 0;
   renderAll();
+  // Refrescar el rótulo del trigger del multiselect tocado (ej. "Todos los campos"
+  // → "EC" / "3 campos"). renderAll no reconstruye msCampo, así que lo hacemos acá.
+  refreshMsTriggerByKey(key);
   if(openContainerId){
     setTimeout(function(){
       renderMsPanel(openContainerId);
       var p = document.getElementById(openContainerId+'_panel');
-      if(p) p.classList.add('on');
+      if(p){ p.classList.add('on'); p.scrollTop = savedScroll; }
       document.addEventListener('click', msOutsideClick);
     }, 10);
   }
 }
+// Reconstruye el botón/rótulo de un multiselect desde los datos de su dataset.
+function refreshMsTrigger(containerId){
+  var cont = document.getElementById(containerId);
+  if(!cont || !cont.dataset || !cont.dataset.statekey) return;
+  var opts = JSON.parse(cont.dataset.opts || '[]');
+  var cfg = JSON.parse(cont.dataset.cfg || '{}');
+  buildMultiSelect(containerId, cont.dataset.label, opts, cont.dataset.statekey, cfg);
+}
+// Ubica el multiselect por su statekey (fAmb, fCult…) y refresca su rótulo,
+// aunque no haya panel abierto.
+function refreshMsTriggerByKey(stateKey){
+  var conts = document.querySelectorAll('.ms-dd');
+  for(var i=0;i<conts.length;i++){
+    if(conts[i].dataset && conts[i].dataset.statekey===stateKey){
+      refreshMsTrigger(conts[i].id);
+      return;
+    }
+  }
+}
 
 function clearFiltros(){
-  state.fAmb = []; state.fAnt = []; state.fCult = []; state.fTipo = []; state.fSeg = '';
+  // Limpia SOLO los filtros de la barra. El contexto del header —empresa, campo y
+  // campaña— no se toca: son selectores de contexto, no filtros, y resetearlos
+  // sacaría al usuario del recorte en el que está trabajando.
+  state.fAmb = []; state.fAnt = []; state.fCult = []; state.fTen = []; state.fTipo = []; state.fSeg = '';
+  state.soloFiltrado = false;
   var sg = document.getElementById('selSeg'); if(sg) sg.value = '';
-  // El botón "Limpiar" también resetea búsqueda y estado (si no, quedan filtros
-  // activos que el botón dice haber limpiado).
+  // El botón "Limpiar" se muestra cuando hay búsqueda o estado != default,
+  // así que también deben resetearse para que el clic deje la barra realmente limpia.
   var sb = document.getElementById('searchLote'); if(sb) sb.value = '';
   state.search = '';
   var se = document.getElementById('selEstado'); if(se) se.value = 'activos';
   state.estado = 'activos';
   renderAll();
 }
-function setSegSel(v){ state.fSeg = v || ''; renderAll(); }
+function setSegSel(v){
+  var habiaFiltro = hayFiltroActividad();
+  state.fSeg = v || '';
+  maybeAbrirModoActividad(habiaFiltro);
+  renderAll();
+}
+function setSoloFiltrado(on){ state.soloFiltrado = !!on; renderAll(); }
+
+// Modal de modo de actividad (reemplaza el viejo checkbox "Ver solo actividad filtrada").
+// Se abre cada vez que se activa o cambia un filtro de actividad (cultivo/tipo/momento)
+// y queda al menos un filtro activo. El chip inline también permite reabrirlo.
+function maybeAbrirModoActividad(habiaFiltroAntes){
+  if(state.view!=='plan') return;
+  // Dispara siempre que, tras el cambio, siga habiendo filtro de actividad.
+  if(hayFiltroActividad()){
+    setTimeout(abrirModalModoActividad, 30);
+  }
+}
+function abrirModalModoActividad(){
+  document.getElementById('modalModoActividad').classList.add('on');
+}
+function elegirModoActividad(soloFiltrado){
+  state.soloFiltrado = !!soloFiltrado;
+  document.getElementById('modalModoActividad').classList.remove('on');
+  renderAll();
+}
+
+// Resetea el modo "solo filtrado" cuando ya no hay filtros de actividad activos.
+function syncSoloFiltrado(){
+  var activo = (state.view==='plan') && hayFiltroActividad();
+  if(!activo && state.soloFiltrado) state.soloFiltrado = false;
+}
 
 // ────────────────────────────────────────────────────────────
 // VIEWS
@@ -1595,16 +1828,20 @@ function setView(v, btn){
   // Maestros: ocultar KPIs y filtros, mostrar sub-barra de tablas
   var esMaestros = (v==='maestros');
   var esPadron = (v==='padron');
-  // KPIs: ocultos en Maestros y en Padrón (en Padrón el subtotal va en el subtítulo)
-  document.getElementById('kpisBand').style.display = (esMaestros || esPadron) ? 'none' : '';
+  var esHistorico = (v==='historico');
+  // KPIs: ocultos en Maestros, Padrón (el subtotal va en el subtítulo) e Histórico
+  // (en Histórico los KPIs de superficie de la campaña activa no aportan al análisis de rotación).
+  document.getElementById('kpisBand').style.display = (esMaestros || esPadron || esHistorico) ? 'none' : '';
   var pkb = document.getElementById('padronKpisBand'); if(pkb) pkb.style.display = esPadron ? '' : 'none';
   document.getElementById('fbarMain').style.display = esMaestros ? 'none' : '';
   document.getElementById('subnavMaestros').style.display = esMaestros ? 'flex' : 'none';
   // En Padrón solo aplican filtros de Campo/Lote/Ambiente/Sup (datos fijos);
-  // los filtros por campaña (Tipo, Antecesor, Actividad 1ª/2ª, Mostrar historia) se ocultan.
-  var fp = document.getElementById('msTipo'); if(fp) fp.style.display = esPadron ? 'none' : '';
+  // los filtros por campaña (Tipo, Antecesor, Cultivo, Tenencia, Momento) se ocultan.
+  var fp = document.getElementById('filtroEstado'); if(fp) fp.style.display = '';
   var fa = document.getElementById('msAntecesor'); if(fa) fa.style.display = esPadron ? 'none' : '';
+  var ft = document.getElementById('msTipo'); if(ft) ft.style.display = esPadron ? 'none' : '';
   var f1 = document.getElementById('msCult'); if(f1) f1.style.display = esPadron ? 'none' : '';
+  var fn = document.getElementById('msNegocio'); if(fn) fn.style.display = esPadron ? 'none' : '';
   var f2 = document.getElementById('filtroSeg'); if(f2) f2.style.display = esPadron ? 'none' : '';
   // "Mostrar historia" solo tiene sentido en el Plan de uso
   document.getElementById('btnHistGlobal').style.display = (v==='plan') ? '' : 'none';
@@ -1620,8 +1857,39 @@ function setMaestrosTab(tab, btn){
 }
 
 function setEstadoSel(value){
-  state.estado = value || 'activos';
+  state.estado = value;
   renderAll();
+}
+
+// Refresca el estado visual de la barra de filtros:
+//  - Estado y Momento (selección única) llevan borde verde cuando difieren del default.
+//  - "Limpiar" solo se muestra si hay al menos un filtro activo.
+// Se llama desde renderAll(), así que cubre tanto cambios manuales como clearFiltros().
+function hayFiltroActivoFbar(){
+  if(state.estado && state.estado !== 'activos') return true;
+  if(state.fSeg) return true;
+  if(state.search) return true;
+  // fCampo NO entra: el campo es contexto del header y "Limpiar" no lo resetea.
+  var arrs = [state.fAmb, state.fAnt, state.fCult, state.fTen, state.fTipo];
+  for(var i=0;i<arrs.length;i++){
+    if(arrs[i] && arrs[i].length) return true;
+  }
+  return false;
+}
+
+function refreshFbarEstado(){
+  var fe = document.getElementById('filtroEstado');
+  if(fe){
+    if(state.estado && state.estado !== 'activos') fe.classList.add('active');
+    else fe.classList.remove('active');
+  }
+  var fs = document.getElementById('filtroSeg');
+  if(fs){
+    if(state.fSeg) fs.classList.add('active');
+    else fs.classList.remove('active');
+  }
+  var btn = document.getElementById('btnLimpiarFiltros');
+  if(btn) btn.style.display = hayFiltroActivoFbar() ? '' : 'none';
 }
 
 function toggleHistGlobal(){
@@ -1842,7 +2110,8 @@ function renderKpis(){
     var e = loteExpl(l);
     if(e == null) hayExplParcial = true;
     else totExpl += e;
-    var acts = actsDe(l, state.campania);
+    // Neta por actividad de la campaña.
+    var acts = actsVisibles(l, state.campania);
     var usosDelLote = {};
     for(var a=0; a<acts.length; a++){
       var ha = acts[a].ha || 0;
@@ -3209,8 +3478,12 @@ function renderAll(){
   state.search = (document.getElementById('searchLote').value || '').trim();
   state.campo = document.getElementById('selCampo').value;
   state.campania = document.getElementById('selCampania').value;
+  var selEstado = document.getElementById('selEstado');
+  if(selEstado) state.estado = selEstado.value;
 
   buildFiltros();
+  syncSoloFiltrado();
+  refreshFbarEstado();
   renderKpis();
   
   if(state.view === 'plan'){
