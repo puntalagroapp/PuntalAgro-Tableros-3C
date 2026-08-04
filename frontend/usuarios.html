@@ -67,16 +67,25 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
   <div class="note">El permiso es <strong>por empresa</strong>: un usuario puede tener distinto conjunto de herramientas y nivel en cada empresa. El permiso llega hasta nivel campo (acá, en demo, se asignan todas).</div>
 
   <div class="panel">
-    <h2>Nuevo usuario</h2>
+    <h2 id="panel-usuario-titulo">Nuevo usuario</h2>
     <div class="row">
-      <div class="fld"><label>Nombre</label><input id="u-nombre" placeholder="Nombre y apellido" autocomplete="off"></div>
-      <div class="fld"><label>Email (login)</label><input id="u-email" type="email" placeholder="usuario@empresa.com" autocomplete="off"></div>
-      <div class="fld"><label>Contraseña</label><input id="u-pass" type="password" placeholder="Contraseña inicial" autocomplete="new-password"></div>
-      <div class="fld"><label>Rol</label>
-        <select id="u-rol"></select>
+      <div class="fld" id="fld-nombre"><label>Nombre</label><input id="u-nombre" placeholder="Nombre y apellido" autocomplete="off"></div>
+      <div class="fld" id="fld-email"><label>Email (login)</label><input id="u-email" type="email" placeholder="usuario@empresa.com" autocomplete="off"></div>
+      <div class="fld"><label id="lbl-pass">Contraseña</label><input id="u-pass" type="password" placeholder="Contraseña inicial" autocomplete="new-password"></div>
+      <div class="fld" id="fld-rol"><label>Rol</label>
+        <select id="u-rol" onchange="actualizarCampoCliente()"></select>
       </div>
-      <button class="btn" onclick="crearUsuario()">Crear usuario</button>
+      <div class="fld" id="fld-cliente" style="display:none"><label>Cliente</label>
+        <select id="u-cliente"></select>
+      </div>
+      <div class="fld" id="fld-activo" style="display:none"><label>Estado</label>
+        <select id="u-activo"><option value="1">Activo</option><option value="0">Inactivo</option></select>
+      </div>
+      <button class="btn" id="btn-guardar-usuario" onclick="guardarUsuario()">Crear usuario</button>
+      <button class="btn-sm" id="btn-cancelar-edicion" style="display:none" onclick="cancelarEdicionUsuario()">Cancelar</button>
     </div>
+    <p class="sub" id="hint-admin-cliente" style="display:none;margin-top:10px">Un <strong>admin_cliente</strong> administra automáticamente todas las empresas del cliente asociado — no hace falta asignarle permisos por empresa más abajo.</p>
+    <p class="sub" id="hint-usuario-admin" style="display:none;margin-top:10px">Este usuario queda asociado a tu cliente. Después asignale acceso <strong>Ver</strong> o <strong>Cargar</strong> a alguna de las empresas que administrás, más abajo.</p>
   </div>
 
   <div class="panel">
@@ -90,9 +99,10 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
       <div class="fld"><label>Usuario</label><select id="p-usuario" onchange="cambiarUsuario()"></select></div>
       <div class="fld"><label>Empresa</label><select id="p-empresa" onchange="precargar()"></select></div>
       <div class="fld"><label>Nivel</label>
-        <select id="p-nivel"><option value="ver">ver</option><option value="cargar">cargar</option><option value="administrar">administrar</option></select>
+        <select id="p-nivel" onchange="onNivelChange()"><option value="ver">ver</option><option value="cargar">cargar</option><option value="administrar" id="opt-nivel-administrar">administrar</option></select>
       </div>
     </div>
+    <p class="sub" id="hint-nivel-administrar" style="display:none;margin-top:2px">Nivel <strong>administrar</strong> da acceso a todos los campos y todas las herramientas de la empresa — no se pueden restringir.</p>
     <div class="fld" style="margin-top:14px"><label>Campos habilitados</label>
       <label class="chk" style="margin:2px 0 6px"><input type="checkbox" id="p-todos-campos" checked onchange="toggleTodosCampos()"> Todos los campos de la empresa</label>
       <div class="checklist" id="p-campos"></div>
@@ -116,6 +126,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
 <script>
 var CTX = null;
 var _usuarios = [], _permisos = [], _empresas = [], _campos = [], _clientes = [], _herramientas = [];
+var editandoUsuarioId = null; // id del usuario en edición (bloqueado vía apiLock), o null en modo alta
 
 function uid(){ return 'x_' + Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -142,8 +153,11 @@ function camposOtorgables(empresaId){
 
 function recargarTodo(cb){
   var pend=6;
-  function done(){ if(--pend===0 && cb) cb(); }
-  apiGet('/api/usuarios',    function(e,d){ _usuarios    = d||[]; done(); });
+  var errUsuarios=null;
+  function done(){ if(--pend===0 && cb) cb(errUsuarios); }
+  // El error de /api/usuarios es la señal de autorización real: un 'usuario'
+  // sin ninguna empresa administrada recibe 403 acá (ver docs/Roles y permisos.txt).
+  apiGet('/api/usuarios',    function(e,d){ errUsuarios=e; _usuarios = d||[]; done(); });
   apiGet('/api/permisos',    function(e,d){ _permisos    = d||[]; done(); });
   apiGet('/api/empresas',    function(e,d){ _empresas    = d||[]; done(); });
   apiGet('/api/campos',      function(e,d){ _campos      = d||[]; done(); });
@@ -153,14 +167,54 @@ function recargarTodo(cb){
 
 function renderRoles(){
   var sel=document.getElementById('u-rol'); if(!sel) return;
-  var roles=(CTX && CTX.usuario.rol==='admin_cliente')
-    ?['usuario','admin_cliente']
+  // admin_cliente solo crea 'usuario' (nunca otro admin_cliente ni admin_general
+  // — eso lo da de alta admin_general al crear el cliente, docs/Roles y permisos.txt).
+  var roles=(CTX && (CTX.usuario.rol==='admin_cliente' || CTX.usuario.rol==='usuario'))
+    ?['usuario']
     :['usuario','admin_cliente','admin_general'];
   sel.innerHTML='';
   for(var i=0;i<roles.length;i++){
     var o=document.createElement('option'); o.value=roles[i]; o.textContent=roles[i];
     sel.appendChild(o);
   }
+  actualizarCampoCliente();
+}
+
+// El selector de Cliente solo se muestra cuando hace falta elegir: un
+// admin_general dando de alta un usuario/admin_cliente con alcance limitado a
+// un cliente. Si quien crea es admin_cliente, su propio cliente ya queda
+// forzado en crearUsuario() y no hay nada para elegir.
+function actualizarCampoCliente(){
+  var rol=document.getElementById('u-rol').value;
+  var fld=document.getElementById('fld-cliente');
+  var esAdminCliente=rol==='admin_cliente';
+  var necesitaElegir=(CTX && CTX.usuario.rol==='admin_general' && rol!=='admin_general');
+  if(fld) fld.style.display=necesitaElegir?'':'none';
+  if(necesitaElegir){
+    var sel=document.getElementById('u-cliente'); sel.innerHTML='';
+    for(var i=0;i<_clientes.length;i++){
+      var o=document.createElement('option'); o.value=_clientes[i].id; o.textContent=_clientes[i].nombre||_clientes[i].razonSocial||_clientes[i].id;
+      sel.appendChild(o);
+    }
+  }
+  var hint=document.getElementById('hint-admin-cliente');
+  if(hint) hint.style.display=esAdminCliente?'':'none';
+  var hintUsu=document.getElementById('hint-usuario-admin');
+  if(hintUsu) hintUsu.style.display=(CTX && CTX.usuario.rol==='usuario')?'':'none';
+}
+
+// Empresas donde YO tengo nivel='administrar' (solo aplica si mi propio rol es
+// 'usuario' — admin_general/admin_cliente no pasan por acá, ya tienen acceso
+// pleno). Son las únicas empresas donde puedo delegar permisos ver/cargar.
+function empresasQueAdministro(){
+  var ids={};
+  if(!CTX || CTX.usuario.rol!=='usuario') return ids;
+  for(var i=0;i<_permisos.length;i++){
+    if(_permisos[i].usuarioId===CTX.usuario.id && _permisos[i].nivel==='administrar'){
+      ids[_permisos[i].empresaId]=true;
+    }
+  }
+  return ids;
 }
 
 function renderUsuarios(){
@@ -187,18 +241,30 @@ function renderUsuarios(){
       if(!permisosTxt) permisosTxt='<span style="color:var(--muted)">sin permisos</span>';
     }
     var esUnoMismo=!!(CTX && CTX.usuario && CTX.usuario.id===u.id);
+    // admin_cliente nunca puede gestionarse a sí mismo (puedeSobreUsuario lo
+    // rechaza en el backend; en la práctica ni siquiera se ve a sí mismo en
+    // esta lista). admin_general conserva la autoedición de siempre. El
+    // 'usuario' administrador de empresa puede editar su propia cuenta (nombre/
+    // email/password), pero nunca su rol ni su estado — eso se resuelve
+    // ocultando el campo Estado en editarUsuario() cuando es autoedición.
+    var puedeAutogestionarse=CTX && (CTX.usuario.rol==='admin_general' || CTX.usuario.rol==='usuario');
+    var accEditar=(esUnoMismo && !puedeAutogestionarse)?'':'<button class="btn-sm" onclick="editarUsuario(\''+esc(u.id)+'\')">Editar</button>';
     var accBorrar=esUnoMismo?'':'<button class="btn-sm" onclick="borrarUsuario(\''+esc(u.id)+'\')">Borrar</button>';
+    var estadoTxt=(u.activo===false)?' <span class="bdg" style="color:var(--terra)">inactivo</span>':'';
     var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+esc(u.nombre)+'</td><td>'+esc(u.email)+'</td><td><span class="bdg">'+esc(u.rol)+'</span></td><td>'+permisosTxt+'</td>'+
-      '<td>'+accBorrar+'</td>';
+    tr.innerHTML='<td>'+esc(u.nombre)+estadoTxt+'</td><td>'+esc(u.email)+'</td><td><span class="bdg">'+esc(u.rol)+'</span></td><td>'+permisosTxt+'</td>'+
+      '<td>'+accEditar+' '+accBorrar+'</td>';
     tb.appendChild(tr);
   }
 
   // Solo el rol 'usuario' tiene filas en `permisos` — admin_general y
-  // admin_cliente ya administran todo su alcance por su propio rol.
+  // admin_cliente ya administran todo su alcance por su propio rol. Tampoco se
+  // ofrece el propio usuario logueado: nadie administra su propio permiso
+  // (puedeSobreUsuario lo rechaza en el backend).
   var su=document.getElementById('p-usuario'); su.innerHTML='';
   for(var k=0;k<us.length;k++){
     if(us[k].rol!=='usuario') continue;
+    if(CTX && us[k].id===CTX.usuario.id) continue;
     var o=document.createElement('option'); o.value=us[k].id; o.textContent=us[k].nombre;
     su.appendChild(o);
   }
@@ -263,14 +329,39 @@ function toggleTodosCampos(){
   renderCamposChecklist(empresaId,[],todos);
 }
 
+// Nivel 'administrar' implica acceso a TODOS los campos y herramientas de la
+// empresa (docs/Roles y permisos.txt) — se fuerza y se bloquea la edición de
+// ambos checklists mientras ese nivel esté seleccionado. El backend hace la
+// misma corrección aunque este chequeo se salteara (defensa en profundidad).
+function onNivelChange(){
+  var nivel=document.getElementById('p-nivel').value;
+  var empresaId=document.getElementById('p-empresa').value;
+  var todosCampos=document.getElementById('p-todos-campos');
+  var esAdministrar=nivel==='administrar';
+  document.getElementById('hint-nivel-administrar').style.display=esAdministrar?'':'none';
+  if(esAdministrar){
+    todosCampos.checked=true;
+    todosCampos.disabled=true;
+    renderCamposChecklist(empresaId,[],true);
+    selHerramientas(true);
+  } else {
+    todosCampos.disabled=false;
+  }
+  var cbs=document.querySelectorAll('#p-herramientas input[type=checkbox]');
+  for(var i=0;i<cbs.length;i++) cbs[i].disabled=esAdministrar;
+}
+
 function cambiarUsuario(){
   var usuarioId=document.getElementById('p-usuario').value;
   var usuario=null;
   for(var i=0;i<_usuarios.length;i++){ if(_usuarios[i].id===usuarioId){ usuario=_usuarios[i]; break; } }
 
-  // Base de empresas visible para el admin logueado
+  // Base de empresas visible para el admin logueado. Un 'usuario' administrador
+  // de empresa solo puede delegar en las empresas donde ÉL tiene nivel='administrar'.
   var empsBase=CTX && CTX.usuario.rol==='admin_cliente'
     ? _empresas.filter(function(e){ return e.clienteId===CTX.usuario.clienteId; })
+    : CTX && CTX.usuario.rol==='usuario'
+    ? (function(){ var adm=empresasQueAdministro(); return _empresas.filter(function(e){ return adm[e.id]; }); })()
     : _empresas;
 
   // Si el usuario tiene cliente, mostrar solo empresas de ese cliente
@@ -333,6 +424,7 @@ function precargar(){
       renderCamposChecklist(empresaId,p.campoIds||[],!especificos);
       estado.textContent='Editando permiso existente.';
       btnBorrar.style.display='';
+      onNivelChange();
     } else {
       document.getElementById('p-nivel').value='ver';
       renderChecklist([],empresaId);
@@ -340,30 +432,126 @@ function precargar(){
       renderCamposChecklist(empresaId,[],true);
       estado.textContent='Nuevo permiso (sin acceso todavía).';
       btnBorrar.style.display='none';
+      onNivelChange();
     }
   });
 }
 
-function crearUsuario(){
+// Lee Nombre/Email/Rol/Cliente del formulario, comunes a alta y edición.
+// Devuelve null (y ya mostró el alert correspondiente) si falta algo obligatorio.
+function leerDatosComunesForm(){
   var nombre=document.getElementById('u-nombre').value.trim();
   var email=document.getElementById('u-email').value.trim();
-  var pass=document.getElementById('u-pass').value;
   var rol=document.getElementById('u-rol').value;
-  if(!nombre||!email||!pass){ alert('Completá nombre, email y contraseña.'); return; }
+  if(!nombre||!email){ alert('Completá nombre y email.'); return null; }
   var clienteId=null;
   if(rol!=='admin_general'){
-    clienteId=(CTX && CTX.usuario.rol==='admin_cliente')
-      ?CTX.usuario.clienteId
-      :(_clientes.length?_clientes[0].id:null);
+    if(CTX && (CTX.usuario.rol==='admin_cliente' || CTX.usuario.rol==='usuario')){
+      clienteId=CTX.usuario.clienteId;
+    } else {
+      clienteId=document.getElementById('u-cliente').value||null;
+      if(!clienteId){ alert('Elegí a qué cliente pertenece este usuario.'); return null; }
+    }
   }
-  var u={id:uid(),nombre:nombre,email:email,password:pass,rol:rol,clienteId:clienteId,activo:true};
+  return {nombre:nombre,email:email,rol:rol,clienteId:clienteId};
+}
+
+function guardarUsuario(){
+  if(editandoUsuarioId) actualizarUsuario();
+  else crearUsuario();
+}
+
+function crearUsuario(){
+  var datos=leerDatosComunesForm();
+  if(!datos) return;
+  var pass=document.getElementById('u-pass').value;
+  if(!pass){ alert('Completá una contraseña inicial.'); return; }
+  var u={id:uid(),nombre:datos.nombre,email:datos.email,password:pass,rol:datos.rol,clienteId:datos.clienteId,activo:true};
   apiPost('/api/usuarios',u,function(err){
     if(err){ alert(err.error||'Error al crear usuario.'); return; }
-    document.getElementById('u-nombre').value='';
-    document.getElementById('u-email').value='';
-    document.getElementById('u-pass').value='';
+    limpiarFormUsuario();
     recargarTodo(function(){ renderUsuarios(); renderRoles(); precargar(); });
   });
+}
+
+// Toma el lock del registro y precarga el formulario en modo edición.
+function editarUsuario(id){
+  var u=null;
+  for(var i=0;i<_usuarios.length;i++){ if(_usuarios[i].id===id){ u=_usuarios[i]; break; } }
+  if(!u) return;
+  apiLock('usuarios', id, null, function(errLock){
+    if(errLock){ alert(errLock.error||'No se pudo tomar este usuario para editar.'); return; }
+    editandoUsuarioId=id;
+    document.getElementById('panel-usuario-titulo').textContent='Editar usuario: '+u.nombre;
+    document.getElementById('u-nombre').value=u.nombre||'';
+    document.getElementById('u-email').value=u.email||'';
+    document.getElementById('u-pass').value='';
+    document.getElementById('u-rol').value=u.rol;
+    actualizarCampoCliente();
+    if(document.getElementById('fld-cliente').style.display!=='none'){
+      document.getElementById('u-cliente').value=u.clienteId||'';
+    }
+    document.getElementById('u-activo').value=(u.activo!==false)?'1':'0';
+    // El 'usuario' administrador de empresa puede tocar su propia cuenta desde
+    // acá, pero SOLO para cambiar su contraseña — nombre, email, rol, cliente y
+    // estado quedan ocultos (el backend los ignora igual; esto es para no
+    // ofrecer controles sin efecto).
+    var esAutoedicion=CTX && CTX.usuario.rol==='usuario' && CTX.usuario.id===id;
+    document.getElementById('fld-nombre').style.display=esAutoedicion?'none':'';
+    document.getElementById('fld-email').style.display=esAutoedicion?'none':'';
+    document.getElementById('fld-rol').style.display=esAutoedicion?'none':'';
+    document.getElementById('fld-activo').style.display=esAutoedicion?'none':'';
+    document.getElementById('lbl-pass').textContent=esAutoedicion?'Nueva contraseña':'Nueva contraseña (opcional)';
+    document.getElementById('btn-guardar-usuario').textContent='Guardar cambios';
+    document.getElementById('btn-cancelar-edicion').style.display='';
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
+}
+
+function actualizarUsuario(){
+  var pass=document.getElementById('u-pass').value;
+  var esAutoedicion=CTX && CTX.usuario.rol==='usuario' && CTX.usuario.id===editandoUsuarioId;
+  var body;
+  if(esAutoedicion){
+    // Solo se manda la contraseña — el backend ignora cualquier otro campo
+    // en este caso, pero ni siquiera se ofrecen en el formulario.
+    if(!pass){ alert('Ingresá la nueva contraseña.'); return; }
+    body={password:pass};
+  } else {
+    var datos=leerDatosComunesForm();
+    if(!datos) return;
+    var activo=document.getElementById('u-activo').value==='1';
+    body={nombre:datos.nombre,email:datos.email,rol:datos.rol,clienteId:datos.clienteId,activo:activo};
+    if(pass) body.password=pass;
+  }
+  apiPut('/api/usuarios/'+encodeURIComponent(editandoUsuarioId),body,function(err){
+    if(err){ alert(err.error||'Error al guardar los cambios.'); return; }
+    apiUnlock('usuarios',editandoUsuarioId,function(){});
+    limpiarFormUsuario();
+    recargarTodo(function(){ renderUsuarios(); renderRoles(); precargar(); });
+  });
+}
+
+function cancelarEdicionUsuario(){
+  if(editandoUsuarioId) apiUnlock('usuarios',editandoUsuarioId,function(){});
+  limpiarFormUsuario();
+}
+
+// Vuelve el formulario al modo alta (limpio) y libera el título/botones de edición.
+function limpiarFormUsuario(){
+  editandoUsuarioId=null;
+  document.getElementById('panel-usuario-titulo').textContent='Nuevo usuario';
+  document.getElementById('u-nombre').value='';
+  document.getElementById('u-email').value='';
+  document.getElementById('u-pass').value='';
+  document.getElementById('lbl-pass').textContent='Contraseña';
+  document.getElementById('fld-activo').style.display='none';
+  document.getElementById('fld-nombre').style.display='';
+  document.getElementById('fld-email').style.display='';
+  document.getElementById('fld-rol').style.display='';
+  document.getElementById('btn-guardar-usuario').textContent='Crear usuario';
+  document.getElementById('btn-cancelar-edicion').style.display='none';
+  renderRoles(); // resetea el select de Rol al default y recalcula el campo Cliente
 }
 
 function borrarUsuario(id){
@@ -388,10 +576,14 @@ function asignarPermiso(){
     for(var j=0;j<ccs.length;j++){ if(ccs[j].checked) campoIds.push(ccs[j].value); }
   }
   var p={usuarioId:usuarioId,empresaId:empresaId,campoIds:campoIds,herramientas:herr,nivel:nivel};
-  apiPost('/api/permisos',p,function(err){
+  apiPost('/api/permisos',p,function(err,guardado){
     if(err){ alert(err.error||'Error al guardar permiso.'); return; }
-    var txtCampos=campoIds.length?(campoIds.length+' campos'):'todos los campos';
-    document.getElementById('p-estado').textContent='Permiso guardado ('+herr.length+' herramientas, '+txtCampos+', nivel '+nivel+').';
+    // Usar lo que realmente guardó el backend: con nivel='administrar' puede
+    // haber forzado campoIds/herramientas a "todos" aunque acá se mandara otra cosa.
+    guardado=guardado||p;
+    var gCampos=guardado.campoIds||[], gHerr=guardado.herramientas||[];
+    var txtCampos=gCampos.length?(gCampos.length+' campos'):'todos los campos';
+    document.getElementById('p-estado').textContent='Permiso guardado ('+gHerr.length+' herramientas, '+txtCampos+', nivel '+guardado.nivel+').';
     liberarPermisoBloqueado();
     recargarTodo(function(){ renderUsuarios(); precargar(); });
   });
@@ -424,16 +616,20 @@ function borrarPermisoActual(){
   apiGet('/api/context',function(err,ctx){
     if(err){ location.href='login.html'; return; }
     CTX=ctx;
-    if(ctx.usuario.rol!=='admin_general' && ctx.usuario.rol!=='admin_cliente'){
-      location.href='index.html'; return;
+    // Un 'usuario' sin nivel='administrar' en ninguna empresa no tiene nada que
+    // hacer acá — la única fuente de verdad es si /api/usuarios lo autoriza.
+    if(ctx.usuario.rol==='usuario'){
+      var optAdmin=document.getElementById('opt-nivel-administrar');
+      if(optAdmin) optAdmin.parentNode.removeChild(optAdmin);
     }
-    var alcance=document.getElementById('alcance');
-    if(alcance){
-      alcance.textContent=ctx.usuario.rol==='admin_general'
-        ?'Estás viendo todos los usuarios (administración general de Puntal).'
-        :'Estás viendo solo los usuarios de tu cliente.';
-    }
-    recargarTodo(function(){
+    recargarTodo(function(errUsuarios){
+      if(errUsuarios){ location.href='index.html'; return; }
+      var alcance=document.getElementById('alcance');
+      if(alcance){
+        if(ctx.usuario.rol==='admin_general') alcance.textContent='Estás viendo todos los usuarios (administración general de Puntal).';
+        else if(ctx.usuario.rol==='admin_cliente') alcance.textContent='Estás viendo solo los usuarios de tu cliente.';
+        else alcance.textContent='Estás viendo solo los usuarios de las empresas que administrás.';
+      }
       renderUsuarios();
       renderRoles();
       precargar();
