@@ -1371,13 +1371,21 @@ async function puedeSobreUsuario(sesion, usuarioId) {
   if (sesion.rol === 'admin_general') return true;
   if (sesion.rol === 'admin_cliente') {
     // admin_cliente solo gestiona 'usuario' de su propio cliente — nunca a otro
-    // admin_cliente (ni a admin_general, ya cubierto por no ser 'usuario').
+    // admin_cliente (ni a admin_general, ya cubierto por no ser 'usuario'), y
+    // nunca a sí mismo (evita autoeditarse el rol/permiso; explícito aunque hoy
+    // ya es imposible en la práctica porque su propio rol nunca es 'usuario').
+    if (usuarioId === sesion.id) return false;
     const rolDestino = await rolDeUsuario(usuarioId);
     if (rolDestino !== 'usuario') return false;
     const clienteDestino = await clienteDeUsuario(usuarioId);
     return clienteDestino === sesion.cliente_id;
   }
   if (sesion.rol === 'usuario') {
+    // Un 'usuario' administrador de empresa nunca administra su PROPIA cuenta ni
+    // su propio permiso — si pudiera, se autoasignaría/quitaría acceso a mano
+    // (el mismo criterio que admin_cliente, que estructuralmente nunca se
+    // administra a sí mismo porque su rol nunca es 'usuario').
+    if (usuarioId === sesion.id) return false;
     const rolDestino = await rolDeUsuario(usuarioId);
     if (rolDestino !== 'usuario') return false;
     const clienteDestino = await clienteDeUsuario(usuarioId);

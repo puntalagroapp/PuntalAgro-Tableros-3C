@@ -241,7 +241,11 @@ function renderUsuarios(){
       if(!permisosTxt) permisosTxt='<span style="color:var(--muted)">sin permisos</span>';
     }
     var esUnoMismo=!!(CTX && CTX.usuario && CTX.usuario.id===u.id);
-    var accEditar='<button class="btn-sm" onclick="editarUsuario(\''+esc(u.id)+'\')">Editar</button>';
+    // admin_cliente y el 'usuario' administrador de empresa nunca pueden
+    // gestionarse a sí mismos (puedeSobreUsuario lo rechaza en el backend) —
+    // admin_general sí conserva la autoedición, que ya tenía antes.
+    var puedeAutogestionarse=CTX && CTX.usuario.rol==='admin_general';
+    var accEditar=(esUnoMismo && !puedeAutogestionarse)?'':'<button class="btn-sm" onclick="editarUsuario(\''+esc(u.id)+'\')">Editar</button>';
     var accBorrar=esUnoMismo?'':'<button class="btn-sm" onclick="borrarUsuario(\''+esc(u.id)+'\')">Borrar</button>';
     var estadoTxt=(u.activo===false)?' <span class="bdg" style="color:var(--terra)">inactivo</span>':'';
     var tr=document.createElement('tr');
@@ -251,10 +255,13 @@ function renderUsuarios(){
   }
 
   // Solo el rol 'usuario' tiene filas en `permisos` — admin_general y
-  // admin_cliente ya administran todo su alcance por su propio rol.
+  // admin_cliente ya administran todo su alcance por su propio rol. Tampoco se
+  // ofrece el propio usuario logueado: nadie administra su propio permiso
+  // (puedeSobreUsuario lo rechaza en el backend).
   var su=document.getElementById('p-usuario'); su.innerHTML='';
   for(var k=0;k<us.length;k++){
     if(us[k].rol!=='usuario') continue;
+    if(CTX && us[k].id===CTX.usuario.id) continue;
     var o=document.createElement('option'); o.value=us[k].id; o.textContent=us[k].nombre;
     su.appendChild(o);
   }
