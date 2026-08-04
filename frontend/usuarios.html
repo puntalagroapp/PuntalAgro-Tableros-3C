@@ -73,10 +73,14 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
       <div class="fld"><label>Email (login)</label><input id="u-email" type="email" placeholder="usuario@empresa.com" autocomplete="off"></div>
       <div class="fld"><label>Contraseña</label><input id="u-pass" type="password" placeholder="Contraseña inicial" autocomplete="new-password"></div>
       <div class="fld"><label>Rol</label>
-        <select id="u-rol"></select>
+        <select id="u-rol" onchange="actualizarCampoCliente()"></select>
+      </div>
+      <div class="fld" id="fld-cliente" style="display:none"><label>Cliente</label>
+        <select id="u-cliente"></select>
       </div>
       <button class="btn" onclick="crearUsuario()">Crear usuario</button>
     </div>
+    <p class="sub" id="hint-admin-cliente" style="display:none;margin-top:10px">Un <strong>admin_cliente</strong> administra automáticamente todas las empresas del cliente asociado — no hace falta asignarle permisos por empresa más abajo.</p>
   </div>
 
   <div class="panel">
@@ -161,6 +165,28 @@ function renderRoles(){
     var o=document.createElement('option'); o.value=roles[i]; o.textContent=roles[i];
     sel.appendChild(o);
   }
+  actualizarCampoCliente();
+}
+
+// El selector de Cliente solo se muestra cuando hace falta elegir: un
+// admin_general dando de alta un usuario/admin_cliente con alcance limitado a
+// un cliente. Si quien crea es admin_cliente, su propio cliente ya queda
+// forzado en crearUsuario() y no hay nada para elegir.
+function actualizarCampoCliente(){
+  var rol=document.getElementById('u-rol').value;
+  var fld=document.getElementById('fld-cliente');
+  var esAdminCliente=rol==='admin_cliente';
+  var necesitaElegir=(CTX && CTX.usuario.rol==='admin_general' && rol!=='admin_general');
+  if(fld) fld.style.display=necesitaElegir?'':'none';
+  if(necesitaElegir){
+    var sel=document.getElementById('u-cliente'); sel.innerHTML='';
+    for(var i=0;i<_clientes.length;i++){
+      var o=document.createElement('option'); o.value=_clientes[i].id; o.textContent=_clientes[i].nombre||_clientes[i].razonSocial||_clientes[i].id;
+      sel.appendChild(o);
+    }
+  }
+  var hint=document.getElementById('hint-admin-cliente');
+  if(hint) hint.style.display=esAdminCliente?'':'none';
 }
 
 function renderUsuarios(){
@@ -352,9 +378,12 @@ function crearUsuario(){
   if(!nombre||!email||!pass){ alert('Completá nombre, email y contraseña.'); return; }
   var clienteId=null;
   if(rol!=='admin_general'){
-    clienteId=(CTX && CTX.usuario.rol==='admin_cliente')
-      ?CTX.usuario.clienteId
-      :(_clientes.length?_clientes[0].id:null);
+    if(CTX && CTX.usuario.rol==='admin_cliente'){
+      clienteId=CTX.usuario.clienteId;
+    } else {
+      clienteId=document.getElementById('u-cliente').value||null;
+      if(!clienteId){ alert('Elegí a qué cliente pertenece este usuario.'); return; }
+    }
   }
   var u={id:uid(),nombre:nombre,email:email,password:pass,rol:rol,clienteId:clienteId,activo:true};
   apiPost('/api/usuarios',u,function(err){

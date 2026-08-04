@@ -980,6 +980,9 @@ app.post('/api/usuarios', async (req, res) => {
   // admin_cliente solo crea usuarios de su propio cliente: se ignora cualquier
   // clienteId que venga en el body y se fuerza el propio.
   const clienteId = sesion.rol === 'admin_cliente' ? sesion.cliente_id : ((req.body || {}).clienteId || null);
+  if (rol !== 'admin_general' && !clienteId) {
+    return res.status(400).json({ error: 'Los usuarios con rol usuario o admin_cliente necesitan un cliente asociado' });
+  }
   try {
     const hash = password ? await hashearPassword(password) : null;
     await pool.query(
@@ -1013,6 +1016,9 @@ app.put('/api/usuarios/:id', async (req, res) => {
   const { nombre, password, activo } = req.body || {};
   // admin_cliente no puede reasignar el usuario a otro cliente.
   const clienteId = sesion.rol === 'admin_cliente' ? sesion.cliente_id : ((req.body || {}).clienteId || null);
+  if (rol !== 'admin_general' && !clienteId) {
+    return res.status(400).json({ error: 'Los usuarios con rol usuario o admin_cliente necesitan un cliente asociado' });
+  }
   try {
     const hash = password ? await hashearPassword(password) : null;
     await pool.query(
