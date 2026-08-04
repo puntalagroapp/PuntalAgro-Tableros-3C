@@ -167,9 +167,9 @@ function recargarTodo(cb){
 
 function renderRoles(){
   var sel=document.getElementById('u-rol'); if(!sel) return;
-  var roles=(CTX && CTX.usuario.rol==='admin_cliente')
-    ?['usuario','admin_cliente']
-    :(CTX && CTX.usuario.rol==='usuario')
+  // admin_cliente solo crea 'usuario' (nunca otro admin_cliente ni admin_general
+  // — eso lo da de alta admin_general al crear el cliente, docs/Roles y permisos.txt).
+  var roles=(CTX && (CTX.usuario.rol==='admin_cliente' || CTX.usuario.rol==='usuario'))
     ?['usuario']
     :['usuario','admin_cliente','admin_general'];
   sel.innerHTML='';

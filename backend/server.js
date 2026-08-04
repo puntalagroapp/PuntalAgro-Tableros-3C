@@ -962,8 +962,10 @@ app.get('/api/usuarios', async (req, res) => {
       )).rows);
     }
     if (sesion.rol === 'admin_cliente') {
+      // Solo 'usuario' de su cliente: ya no gestiona otros admin_cliente (docs/Roles y permisos.txt).
       return res.json((await pool.query(
-        'SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo FROM usuarios WHERE cliente_id = $1 ORDER BY nombre',
+        `SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo
+           FROM usuarios WHERE cliente_id = $1 AND rol = 'usuario' ORDER BY nombre`,
         [sesion.cliente_id]
       )).rows);
     }
@@ -1354,7 +1356,9 @@ async function puedeAdministrarEmpresa(sesion, empresaId) {
 // admin_cliente/admin_general — no delega su propio nivel de administración).
 function puedeAsignarRol(sesion, rolDestino) {
   if (sesion.rol === 'admin_general') return true;
-  if (sesion.rol === 'admin_cliente') return rolDestino === 'usuario' || rolDestino === 'admin_cliente';
+  // admin_cliente solo crea/reasigna 'usuario' — nunca admin_cliente ni admin_general.
+  // El único que da de alta un admin_cliente es admin_general (docs/Roles y permisos.txt).
+  if (sesion.rol === 'admin_cliente') return rolDestino === 'usuario';
   if (sesion.rol === 'usuario') return rolDestino === 'usuario';
   return false;
 }
@@ -1366,8 +1370,10 @@ function puedeAsignarRol(sesion, rolDestino) {
 async function puedeSobreUsuario(sesion, usuarioId) {
   if (sesion.rol === 'admin_general') return true;
   if (sesion.rol === 'admin_cliente') {
+    // admin_cliente solo gestiona 'usuario' de su propio cliente — nunca a otro
+    // admin_cliente (ni a admin_general, ya cubierto por no ser 'usuario').
     const rolDestino = await rolDeUsuario(usuarioId);
-    if (rolDestino === 'admin_general') return false;
+    if (rolDestino !== 'usuario') return false;
     const clienteDestino = await clienteDeUsuario(usuarioId);
     return clienteDestino === sesion.cliente_id;
   }
