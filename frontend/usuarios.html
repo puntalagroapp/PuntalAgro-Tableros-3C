@@ -69,10 +69,10 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
   <div class="panel">
     <h2 id="panel-usuario-titulo">Nuevo usuario</h2>
     <div class="row">
-      <div class="fld"><label>Nombre</label><input id="u-nombre" placeholder="Nombre y apellido" autocomplete="off"></div>
-      <div class="fld"><label>Email (login)</label><input id="u-email" type="email" placeholder="usuario@empresa.com" autocomplete="off"></div>
+      <div class="fld" id="fld-nombre"><label>Nombre</label><input id="u-nombre" placeholder="Nombre y apellido" autocomplete="off"></div>
+      <div class="fld" id="fld-email"><label>Email (login)</label><input id="u-email" type="email" placeholder="usuario@empresa.com" autocomplete="off"></div>
       <div class="fld"><label id="lbl-pass">Contraseña</label><input id="u-pass" type="password" placeholder="Contraseña inicial" autocomplete="new-password"></div>
-      <div class="fld"><label>Rol</label>
+      <div class="fld" id="fld-rol"><label>Rol</label>
         <select id="u-rol" onchange="actualizarCampoCliente()"></select>
       </div>
       <div class="fld" id="fld-cliente" style="display:none"><label>Cliente</label>
@@ -241,10 +241,13 @@ function renderUsuarios(){
       if(!permisosTxt) permisosTxt='<span style="color:var(--muted)">sin permisos</span>';
     }
     var esUnoMismo=!!(CTX && CTX.usuario && CTX.usuario.id===u.id);
-    // admin_cliente y el 'usuario' administrador de empresa nunca pueden
-    // gestionarse a sí mismos (puedeSobreUsuario lo rechaza en el backend) —
-    // admin_general sí conserva la autoedición, que ya tenía antes.
-    var puedeAutogestionarse=CTX && CTX.usuario.rol==='admin_general';
+    // admin_cliente nunca puede gestionarse a sí mismo (puedeSobreUsuario lo
+    // rechaza en el backend; en la práctica ni siquiera se ve a sí mismo en
+    // esta lista). admin_general conserva la autoedición de siempre. El
+    // 'usuario' administrador de empresa puede editar su propia cuenta (nombre/
+    // email/password), pero nunca su rol ni su estado — eso se resuelve
+    // ocultando el campo Estado en editarUsuario() cuando es autoedición.
+    var puedeAutogestionarse=CTX && (CTX.usuario.rol==='admin_general' || CTX.usuario.rol==='usuario');
     var accEditar=(esUnoMismo && !puedeAutogestionarse)?'':'<button class="btn-sm" onclick="editarUsuario(\''+esc(u.id)+'\')">Editar</button>';
     var accBorrar=esUnoMismo?'':'<button class="btn-sm" onclick="borrarUsuario(\''+esc(u.id)+'\')">Borrar</button>';
     var estadoTxt=(u.activo===false)?' <span class="bdg" style="color:var(--terra)">inactivo</span>':'';
@@ -483,14 +486,22 @@ function editarUsuario(id){
     document.getElementById('u-nombre').value=u.nombre||'';
     document.getElementById('u-email').value=u.email||'';
     document.getElementById('u-pass').value='';
-    document.getElementById('lbl-pass').textContent='Nueva contraseña (opcional)';
     document.getElementById('u-rol').value=u.rol;
     actualizarCampoCliente();
     if(document.getElementById('fld-cliente').style.display!=='none'){
       document.getElementById('u-cliente').value=u.clienteId||'';
     }
-    document.getElementById('fld-activo').style.display='';
     document.getElementById('u-activo').value=(u.activo!==false)?'1':'0';
+    // El 'usuario' administrador de empresa puede tocar su propia cuenta desde
+    // acá, pero SOLO para cambiar su contraseña — nombre, email, rol, cliente y
+    // estado quedan ocultos (el backend los ignora igual; esto es para no
+    // ofrecer controles sin efecto).
+    var esAutoedicion=CTX && CTX.usuario.rol==='usuario' && CTX.usuario.id===id;
+    document.getElementById('fld-nombre').style.display=esAutoedicion?'none':'';
+    document.getElementById('fld-email').style.display=esAutoedicion?'none':'';
+    document.getElementById('fld-rol').style.display=esAutoedicion?'none':'';
+    document.getElementById('fld-activo').style.display=esAutoedicion?'none':'';
+    document.getElementById('lbl-pass').textContent=esAutoedicion?'Nueva contraseña':'Nueva contraseña (opcional)';
     document.getElementById('btn-guardar-usuario').textContent='Guardar cambios';
     document.getElementById('btn-cancelar-edicion').style.display='';
     window.scrollTo({top:0,behavior:'smooth'});
@@ -498,12 +509,21 @@ function editarUsuario(id){
 }
 
 function actualizarUsuario(){
-  var datos=leerDatosComunesForm();
-  if(!datos) return;
   var pass=document.getElementById('u-pass').value;
-  var activo=document.getElementById('u-activo').value==='1';
-  var body={nombre:datos.nombre,email:datos.email,rol:datos.rol,clienteId:datos.clienteId,activo:activo};
-  if(pass) body.password=pass;
+  var esAutoedicion=CTX && CTX.usuario.rol==='usuario' && CTX.usuario.id===editandoUsuarioId;
+  var body;
+  if(esAutoedicion){
+    // Solo se manda la contraseña — el backend ignora cualquier otro campo
+    // en este caso, pero ni siquiera se ofrecen en el formulario.
+    if(!pass){ alert('Ingresá la nueva contraseña.'); return; }
+    body={password:pass};
+  } else {
+    var datos=leerDatosComunesForm();
+    if(!datos) return;
+    var activo=document.getElementById('u-activo').value==='1';
+    body={nombre:datos.nombre,email:datos.email,rol:datos.rol,clienteId:datos.clienteId,activo:activo};
+    if(pass) body.password=pass;
+  }
   apiPut('/api/usuarios/'+encodeURIComponent(editandoUsuarioId),body,function(err){
     if(err){ alert(err.error||'Error al guardar los cambios.'); return; }
     apiUnlock('usuarios',editandoUsuarioId,function(){});
@@ -526,6 +546,9 @@ function limpiarFormUsuario(){
   document.getElementById('u-pass').value='';
   document.getElementById('lbl-pass').textContent='Contraseña';
   document.getElementById('fld-activo').style.display='none';
+  document.getElementById('fld-nombre').style.display='';
+  document.getElementById('fld-email').style.display='';
+  document.getElementById('fld-rol').style.display='';
   document.getElementById('btn-guardar-usuario').textContent='Crear usuario';
   document.getElementById('btn-cancelar-edicion').style.display='none';
   renderRoles(); // resetea el select de Rol al default y recalcula el campo Cliente

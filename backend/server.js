@@ -1026,9 +1026,31 @@ app.post('/api/usuarios', async (req, res) => {
 app.put('/api/usuarios/:id', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
-  if (!(await puedeSobreUsuario(sesion, req.params.id))) {
+  // Un 'usuario' administrador de empresa SÍ puede tocar su propia cuenta desde
+  // este endpoint, pero SOLO para cambiar su contraseña — nombre, email, rol,
+  // activo y clienteId quedan forzados a como ya estaban, sin importar el body
+  // (ver más abajo). admin_cliente/admin_general no llegan a esta excepción
+  // (puedeSobreUsuario sigue rechazando admin_cliente sobre sí mismo;
+  // admin_general no la necesita, ya tiene acceso total).
+  const esAutoedicionDeUsuario = req.params.id === sesion.id && sesion.rol === 'usuario';
+  if (!esAutoedicionDeUsuario && !(await puedeSobreUsuario(sesion, req.params.id))) {
     return res.status(403).json({ error: 'No podés modificar este usuario' });
   }
+
+  if (esAutoedicionDeUsuario) {
+    const { password } = req.body || {};
+    if (!password) return res.status(400).json({ error: 'Ingresá la nueva contraseña' });
+    const bloqueo = await verificarLockPropio('usuarios', req.params.id, sesion);
+    if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
+    try {
+      const hash = await hashearPassword(password);
+      await pool.query('UPDATE usuarios SET password_hash = $2 WHERE id = $1', [req.params.id, hash]);
+      return res.json({ id: req.params.id, status: 'ok' });
+    } catch (err) {
+      return res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  }
+
   const rol = (req.body || {}).rol || 'usuario';
   if (!puedeAsignarRol(sesion, rol)) return res.status(403).json({ error: 'No podés asignar ese rol' });
   const email = (req.body && req.body.email) ? req.body.email.trim().toLowerCase() : req.body.email;
