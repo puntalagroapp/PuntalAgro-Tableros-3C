@@ -4248,6 +4248,9 @@ function renderHistorico(){
     if(!G[k]){ G[k] = {}; ordenG.push(k); for(var z=0;z<CAMPANIAS.length;z++) G[k][CAMPANIAS[z]] = {sembrada:0, neta:0, gram:0}; }
     return G[k][camp];
   }
+  // "Total empresa" (sin indicDim) siempre tiene que existir, aunque no haya
+  // ninguna actividad cargada todavía — si no, bodyHtml() revienta al leer G['__all__'].
+  if(!indicDim) ensureG('__all__', CAMPANIAS[0]);
   for(var gi=0; gi<lts.length; gi++){
     var lo = lts[gi];
     if(esLoteDesperdicio(lo)) continue;
