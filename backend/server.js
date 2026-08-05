@@ -481,7 +481,11 @@ app.get('/api/context', async (req, res) => {
     const empresas = await empresaQuery;
     const lista    = empresas.rows;
 
-    const empresaId = req.query.empresaId || (lista.length ? lista[0].id : null);
+    // Sin empresaId explícito en el query: proponer la última empresa activa
+    // de la sesión (la que se dejó seleccionada en index.html), si sigue
+    // siendo una empresa a la que el usuario tiene acceso; si no, la primera.
+    const activaValida = sesion.empresa_id_activa && lista.some(function (e) { return e.id === sesion.empresa_id_activa; });
+    const empresaId = req.query.empresaId || (activaValida ? sesion.empresa_id_activa : null) || (lista.length ? lista[0].id : null);
 
     let permiso = { campoIds: [], herramientas: [], nivel: 'administrar' };
     if (sesion.rol === 'usuario' && empresaId) {

@@ -594,7 +594,14 @@
         return;
       }
 
-      var qs = empId ? '?empresaId=' + encodeURIComponent(empId) : '';
+      // OJO: acá se manda SOLO el empresaId explícito (el que pasó el caller),
+      // no el "empId" adivinado del caché local. Si el caller no pidió una
+      // empresa puntual (empresaId null, caso típico del boot() de un tablero),
+      // dejamos que el servidor decida con la última empresa activa de la
+      // sesión (ver /api/context) — así, si el usuario venía de elegir una
+      // empresa en index.html, esa selección se respeta en vez de perderse
+      // contra un valor viejo que haya quedado cacheado en este navegador.
+      var qs = empresaId ? '?empresaId=' + encodeURIComponent(empresaId) : '';
 
       // Llamada 1: contexto y permisos
       apiXHR('GET', '/api/context' + qs, null, function (err, ctxData) {
