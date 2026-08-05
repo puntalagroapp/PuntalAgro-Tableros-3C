@@ -304,6 +304,17 @@ CREATE TABLE tipos_actividad (
 CREATE INDEX idx_tipos_actividad_empresa ON tipos_actividad(empresa_id);
 CREATE UNIQUE INDEX uq_tipos_actividad_nombre_empresa ON tipos_actividad (empresa_id, trim(lower(datos->>'nombre')));
 
+-- Ambientes (clasificación de lotes por potencial productivo, por empresa;
+-- código, descripción, tipo sugerido AGR/GAN/OTRO y color de UI)
+CREATE TABLE ambientes (
+    id         TEXT NOT NULL,
+    empresa_id TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    datos      JSONB NOT NULL DEFAULT '{}',
+    PRIMARY KEY (id, empresa_id)
+);
+CREATE INDEX idx_ambientes_empresa ON ambientes(empresa_id);
+CREATE UNIQUE INDEX uq_ambientes_codigo_empresa ON ambientes (empresa_id, trim(upper(datos->>'codigo')));
+
 -- Socios (por empresa) — entidad simple agregada por el cliente 2026-07-21
 CREATE TABLE socios (
     id         TEXT NOT NULL,

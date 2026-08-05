@@ -265,6 +265,7 @@ const COLECCIONES = {
   'formulaciones':     { tabla: 'formulaciones',     porEmpresa: false },
   'principios-activos':{ tabla: 'principios_activos',porEmpresa: false },
   'lotes':             { tabla: 'lotes',             porEmpresa: true  },
+  'ambientes':         { tabla: 'ambientes',         porEmpresa: true  },
   'actividades':     { tabla: 'actividades',     porEmpresa: true  },
   'campanias':       { tabla: 'campanias',       porEmpresa: false },
 };
@@ -378,7 +379,7 @@ app.get('/api/globales', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/maestros-empresa/:empresaId
 // Maestros propios de una empresa: campos, terceros, choferes, depósitos,
-// insumos y tipos de actividad. Se llama desde loadContext() después de
+// insumos, tipos de actividad y ambientes. Se llama desde loadContext() después de
 // que el usuario seleccionó (o tiene) una empresa activa.
 // Solo devuelve datos de la empresa solicitada → volumen acotado.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -392,7 +393,7 @@ app.get('/api/maestros-empresa/:empresaId', async (req, res) => {
     const campoIds = permiso.campoIds || [];
     const filtraCampos = campoIds.length > 0;
 
-    const [campos, terceros, choferes, depositos, insumos, tiposActividad, lotes, actividades] = await Promise.all([
+    const [campos, terceros, choferes, depositos, insumos, tiposActividad, ambientes, lotes, actividades] = await Promise.all([
       pool.query(
         filtraCampos
           ? 'SELECT id, empresa_id AS "empresaId", nombre, localidad, partido, provincia, ha_totales AS "haTotales" FROM campos WHERE empresa_id = $1 AND id = ANY($2::text[]) ORDER BY nombre'
@@ -404,6 +405,7 @@ app.get('/api/maestros-empresa/:empresaId', async (req, res) => {
       pool.query('SELECT datos FROM depositos       WHERE empresa_id = $1', [empresaId]),
       pool.query('SELECT datos FROM insumos         WHERE empresa_id = $1', [empresaId]),
       pool.query('SELECT datos FROM tipos_actividad WHERE empresa_id = $1', [empresaId]),
+      pool.query('SELECT datos FROM ambientes       WHERE empresa_id = $1', [empresaId]),
       pool.query(
         filtraCampos
           ? `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha) AS datos
@@ -433,6 +435,7 @@ app.get('/api/maestros-empresa/:empresaId', async (req, res) => {
       depositos:      depositos.rows.map(r => r.datos),
       insumos:        insumos.rows.map(r => r.datos),
       tiposActividad: tiposActividad.rows.map(r => r.datos),
+      ambientes:      ambientes.rows.map(r => r.datos),
       lotes:          lotes.rows.map(r => r.datos),
       actividades:    actividades.rows.map(r => r.datos),
     });

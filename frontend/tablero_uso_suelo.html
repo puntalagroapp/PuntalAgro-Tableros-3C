@@ -849,14 +849,13 @@ tbody tr.lote-start:first-child td{border-top:none}
       <span class="ct">Ambientes</span>
       <div class="ct-actions">
         <span style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-right:6px" id="ambSubt">—</span>
-        <button class="btn-sm" id="btnAddAmbiente" onclick="addAmbiente()">+ Agregar ambiente</button>
       </div>
     </div>
-    <div class="help-row">Los ambientes clasifican los lotes en el Padrón. Un mismo ambiente puede usarse para agricultura o ganadería según la situación; el tipo se define por lote en el Plan.</div>
+    <div class="help-row">Catálogo de ambientes del padrón de Maestros (solo lectura). Clasifican los lotes en el Padrón. Para crear, editar o dar de baja ambientes, usá el módulo Maestros.</div>
     <div class="scroll-y">
       <table>
         <thead><tr>
-          <th>Código</th><th>Descripción</th><th>Lotes</th><th></th>
+          <th>Código</th><th>Descripción</th><th>Lotes</th>
         </tr></thead>
         <tbody id="ambBody"></tbody>
       </table>
@@ -1005,28 +1004,8 @@ tbody tr.lote-start:first-child td{border-top:none}
   </div>
 </div>
 
-<!-- MODAL: Editar / Agregar AMBIENTE -->
-<div class="modal-bg" id="modalAmb">
-  <div class="modal">
-    <div class="modal-title" id="modalAmbTitle">Editar ambiente</div>
-    <div class="modal-sub">Un mismo ambiente puede usarse para agricultura o ganadería según la situación.</div>
-    <div class="modal-row">
-      <span class="modal-lbl">Código:</span>
-      <input type="text" class="modal-input" id="maCodigo" placeholder="Ej: A3, G7">
-    </div>
-    <div class="modal-row">
-      <span class="modal-lbl">Descripción:</span>
-      <input type="text" class="modal-input" id="maDesc" placeholder="Ej: Agricultura rotación larga">
-    </div>
-    <div class="modal-warn" id="modalAmbWarn"></div>
-    <div class="modal-actions">
-      <button class="modal-cancel" onclick="closeAmbModal()">Cancelar</button>
-      <button class="modal-ok" onclick="confirmAmbModal()">Guardar</button>
-    </div>
-  </div>
-</div>
-
-<!-- (El modal de edición de cultivo se removió: el catálogo de actividades se gestiona en Maestros) -->
+<!-- (Los modales de alta/edición de Ambientes y de cultivo se removieron: ambos catálogos
+     se gestionan en Maestros — acá se consumen en solo lectura, ver cargarAmbientes()/cargarCultivos()) -->
 
 <footer>
   <span>Puntal Agro · Plan de Uso del Suelo</span>
@@ -1174,7 +1153,10 @@ function listarTenencias(){
 function tenenciaNombre(id){ if(!id) return '—'; var t = listarTenencias()[id]; return t ? t.n : id; }
 function actTen(a){ return (a && a.ten) || ''; }
 
-var AMBIENTES = {
+// Catálogo embebido (fallback demo): solo se usa si la empresa activa todavía
+// no tiene ambientes cargados en Maestros (ver cargarAmbientes()). Ambientes
+// es de solo lectura acá — el ABM real vive en maestros.html.
+var AMBIENTES_FALLBACK = {
   'A1':  {d:'Agricultura 1 - Rotación larga c/PP', t:'AGR', c:'#3B6D11'},
   'A2':  {d:'Agricultura 2 - Rotación corta c/PP', t:'AGR', c:'#3B6D11'},
   'G1':  {d:'Ganadería sin limitantes',            t:'GAN', c:'#C8642D'},
@@ -1185,6 +1167,25 @@ var AMBIENTES = {
   'G6':  {d:'Gan. CL Inundable',                   t:'GAN', c:'#C8642D'},
   'DESP':{d:'Desperdicios',                        t:'OTRO',c:'#7A8899'}
 };
+var AMBIENTES = {};
+// Puebla AMBIENTES desde el padrón de Maestros (PA.demo.listarAmbientes),
+// indexado por código, con la misma forma {codigo:{d,t,c}} que usa el resto
+// del tablero. Si la empresa no tiene ambientes cargados todavía, cae al
+// catálogo embebido (misma lógica que cargarCultivos()).
+function cargarAmbientes(){
+  AMBIENTES = {};
+  var usados = (typeof PA !== 'undefined' && PA.demo && CTX) ? PA.demo.listarAmbientes(CTX.empresaActivaId) : null;
+  if(usados && usados.length){
+    for(var i=0;i<usados.length;i++){
+      var a = usados[i];
+      if(a.activo === false) continue;
+      AMBIENTES[a.codigo] = { d: a.descripcion, t: a.tipo, c: a.color || '#7A8899' };
+    }
+    return true; // origen: padrón
+  }
+  for(var k in AMBIENTES_FALLBACK){ AMBIENTES[k] = AMBIENTES_FALLBACK[k]; }
+  return false; // origen: fallback
+}
 // Helpers de ambiente (compatibilidad + nuevos campos)
 function ambDesc(k){ return AMBIENTES[k] ? AMBIENTES[k].d : ''; }
 function ambTipo(k){ return AMBIENTES[k] ? AMBIENTES[k].t : 'OTRO'; }
@@ -4612,7 +4613,6 @@ function countLotesCult(sigla){
   return n;
 }
 function tipoLabel(t){ return t==='AGR'?'Agrícola':(t==='GAN'?'Ganadero':'Otro'); }
-function tipoColor(t){ return t==='AGR'?'#3B6D11':(t==='GAN'?'#C8642D':'#7A8899'); }
 
 function renderMaestros(){
   // Mostrar/ocultar card según pestaña activa
@@ -4620,36 +4620,22 @@ function renderMaestros(){
   document.getElementById('cardAmbientes').style.display = (tab==='ambientes') ? '' : 'none';
   document.getElementById('cardActividades').style.display = (tab==='actividades') ? '' : 'none';
 
-  var btnAddAmb = document.getElementById('btnAddAmbiente');
-  if(btnAddAmb) btnAddAmb.style.display = puedeEscribir() ? '' : 'none';
-
-  // Ambientes (código + descripción + lotes; el tipo es por lote, no por ambiente)
+  // Ambientes (código + descripción + lotes) — SOLO LECTURA desde el padrón,
+  // igual que Cultivos. El ABM real vive en maestros.html.
   var ambKeys = Object.keys(AMBIENTES);
   document.getElementById('ambSubt').textContent = ambKeys.length+' ambientes';
   var h='';
-  // Fila de alta inline (si está activa)
-  if(nuevoAmbInline && puedeEscribir()){
-    h += '<tr class="row-nueva">';
-    h += '<td><input type="text" class="inline-input" id="inAmbCod" placeholder="Cód." style="width:70px" onkeydown="if(event.key===\'Enter\')commitNuevoAmb();if(event.key===\'Escape\')cancelNuevoAmb();"></td>';
-    h += '<td><input type="text" class="inline-input" id="inAmbDesc" placeholder="Descripción del ambiente" onkeydown="if(event.key===\'Enter\')commitNuevoAmb();if(event.key===\'Escape\')cancelNuevoAmb();"></td>';
-    h += '<td><span class="lote-meta">0</span></td>';
-    h += '<td class="row-actions"><button class="btn-icon" title="Guardar" onclick="commitNuevoAmb()">✓</button><button class="btn-icon btn-icon-del" title="Cancelar" onclick="cancelNuevoAmb()">×</button></td>';
-    h += '</tr>';
-  }
   for(var i=0;i<ambKeys.length;i++){
     var k = ambKeys[i];
     var a = AMBIENTES[k];
-    var en = k.replace(/'/g,"\\'");
     var nUso = countLotesAmb(k);
     h += '<tr>';
     h += '<td class="tdname" style="font-family:var(--mono)">'+k+'</td>';
     h += '<td>'+a.d+'</td>';
     h += '<td><span class="lote-meta">'+nUso+'</span></td>';
-    h += '<td class="row-actions">'+(puedeEscribir() ? '<button class="btn-icon" title="Editar" onclick="openAmbModal(\''+en+'\')">✎</button><button class="btn-icon btn-icon-del" title="Eliminar" onclick="deleteAmbiente(\''+en+'\')">×</button>' : '')+'</td>';
     h += '</tr>';
   }
   document.getElementById('ambBody').innerHTML = h;
-  if(nuevoAmbInline) setTimeout(function(){ var e=document.getElementById('inAmbCod'); if(e)e.focus(); },40);
 
   // Cultivos (sigla + nombre + tipo + lotes) — SOLO LECTURA desde el padrón
   var cultKeys = Object.keys(CULTIVOS);
@@ -4669,59 +4655,9 @@ function renderMaestros(){
   document.getElementById('cultBody').innerHTML = h2;
 }
 
-// ---- Alta inline de Ambiente ----
-var nuevoAmbInline = false;
-function addAmbiente(){ if(!puedeEscribir()) return; nuevoAmbInline = true; renderMaestros(); }
-function cancelNuevoAmb(){ nuevoAmbInline = false; renderMaestros(); }
-function commitNuevoAmb(){
-  if(!puedeEscribir()) return;
-  var cod = (document.getElementById('inAmbCod').value||'').trim();
-  var desc = (document.getElementById('inAmbDesc').value||'').trim();
-  if(!cod){ alert('Poné un código de ambiente.'); return; }
-  if(AMBIENTES[cod]){ alert('Ya existe un ambiente con ese código.'); return; }
-  var t = cod.charAt(0).toUpperCase()==='A' ? 'AGR' : (cod.charAt(0).toUpperCase()==='G' ? 'GAN' : 'OTRO');
-  AMBIENTES[cod] = {d:desc, t:t, c:tipoColor(t)};
-  nuevoAmbInline = false;
-  renderAll();
-}
-
-// ---- Modal de Ambiente (editar) ----
-var ambEditando = null;
-function openAmbModal(code){
-  if(!puedeEscribir()) return;
-  ambEditando = code;
-  var a = AMBIENTES[code]; if(!a) return;
-  document.getElementById('modalAmbTitle').textContent = 'Editar ambiente · '+code;
-  document.getElementById('maCodigo').value = code;
-  document.getElementById('maCodigo').disabled = true; // el código no se cambia al editar
-  document.getElementById('maDesc').value = a.d || '';
-  document.getElementById('modalAmbWarn').style.display = 'none';
-  document.getElementById('modalAmb').classList.add('on');
-  setTimeout(function(){ document.getElementById('maDesc').focus(); }, 60);
-}
-function closeAmbModal(){ document.getElementById('modalAmb').classList.remove('on'); document.getElementById('maCodigo').disabled=false; ambEditando=null; }
-function confirmAmbModal(){
-  if(!puedeEscribir()){ closeAmbModal(); return; }
-  if(!ambEditando) return;
-  var desc = (document.getElementById('maDesc').value||'').trim();
-  if(AMBIENTES[ambEditando]){ AMBIENTES[ambEditando].d = desc; }
-  closeAmbModal();
-  renderAll();
-}
-function deleteAmbiente(code){
-  if(!puedeEscribir()) return;
-  var nUso = countLotesAmb(code);
-  var msg = '¿Eliminar el ambiente "'+code+'"?';
-  if(nUso>0) msg += '\n\nATENCIÓN: hay '+nUso+' lote(s) usando este ambiente. Quedarán sin ambiente asignado.';
-  if(!confirm(msg)) return;
-  if(nUso>0){ for(var i=0;i<LOTES.length;i++){ if(LOTES[i].a===code) LOTES[i].a=''; } }
-  delete AMBIENTES[code];
-  renderAll();
-}
-
-// NOTA: el ABM de actividades/cultivos se removió del tablero. El catálogo de
-// actividades es del padrón de Maestros; acá se consume en solo lectura
-// (ver cargarCultivos / renderMaestros). Para editarlo, usar el módulo Maestros.
+// NOTA: el ABM de ambientes y de actividades/cultivos se removió del tablero. Ambos
+// catálogos son del padrón de Maestros; acá se consumen en solo lectura
+// (ver cargarAmbientes / cargarCultivos / renderMaestros). Para editarlos, usar el módulo Maestros.
 
 // ────────────────────────────────────────────────────────────
 // MAIN
@@ -4840,7 +4776,7 @@ function onCambioEmpresa(){
   if(typeof PA !== 'undefined' && CTX && sel && sel.value){
     PA.loadContext(sel.value, function(err, ctx){
       if(!err && ctx){ CTX = ctx; }
-      cargarCultivos();
+      cargarCultivos(); cargarAmbientes();
       poblarCampos(true);
       if (_esModoApi()) {
         LOTES = [];
@@ -4878,7 +4814,7 @@ function boot(){
         PA.loadContext(null, function(err, ctx){
           if(err && err.status === 401){ location.href = 'login.html'; return; }
           if(!err && ctx){ CTX = ctx; }
-          cargarCultivos();
+          cargarCultivos(); cargarAmbientes();
           poblarClienteEmpresa();
           poblarCampos();
           poblarCampanias();
@@ -4904,7 +4840,7 @@ function boot(){
     });
   } else {
     // Fallback total: sin pa-core.js
-    cargarCultivos();
+    cargarCultivos(); cargarAmbientes();
     poblarClienteEmpresa();
     poblarCampos();
     poblarCampanias();

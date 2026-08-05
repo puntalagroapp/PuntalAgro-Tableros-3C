@@ -51,6 +51,7 @@
   var K_INSUMOS    = 'pa_insumos';
   var K_LABORES    = 'pa_labores';
   var K_TIPOACT    = 'pa_tipo_act';
+  var K_AMBIENTES  = 'pa_ambientes';
   var K_MODOSACC   = 'pa_modos_accion';
   var K_TIPOPROV   = 'pa_tipo_prov';
   var K_UNIDADES   = 'pa_unidades';
@@ -633,6 +634,7 @@
               if (mData.depositos)      _cache[K_DEPOSITOS]   = mData.depositos;
               if (mData.insumos)        _cache[K_INSUMOS]     = mData.insumos;
               if (mData.tiposActividad) _cache[K_TIPOACT]     = mData.tiposActividad;
+              if (mData.ambientes)      _cache[K_AMBIENTES]   = mData.ambientes;
               if (mData.lotes)          _cache[K_LOTES]       = mData.lotes;
               if (mData.actividades)    _cache[K_ACTIVIDADES] = mData.actividades;
             }
@@ -791,6 +793,13 @@
     },
     guardarTipoActividad: function (ta) { return cacheGuardar(K_TIPOACT, 'tipos-actividad', ta, 'ta'); },
     borrarTipoActividad:  function (id) { cacheBorrar(K_TIPOACT, 'tipos-actividad', id); },
+
+    // ── AMBIENTES (clasificación de lotes, por empresa) ───────────────────────
+    listarAmbientes: function (empresaId) {
+      var lista = cacheGet(K_AMBIENTES, []), out = [];
+      for (var i = 0; i < lista.length; i++) { if (lista[i].empresaId === empresaId) out.push(lista[i]); }
+      return out;
+    },
 
     // ── ESPECIES (lista global) ───────────────────────────────────────────────
     listarEspecies: function ()    { return cacheGet(K_ESPECIES, []); },
@@ -1128,7 +1137,7 @@
         K_CLIENTES, K_EMPRESAS, K_CAMPOS, K_PERMISOS, K_USUARIOS,
         LS_SESION, LS_SEEDVER, LS_EMPACTIVA,
         K_TERCEROS, K_CHOFERES, K_TIPOPROV,
-        K_DEPOSITOS, K_LABORES, K_TIPOACT, K_MODOSACC,
+        K_DEPOSITOS, K_LABORES, K_TIPOACT, K_AMBIENTES, K_MODOSACC,
         K_INSUMOS, K_UNIDADES, K_ESPECIES,
         'agroTablerosRoot'
       ];

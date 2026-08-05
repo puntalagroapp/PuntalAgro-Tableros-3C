@@ -160,6 +160,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
     <div class="nav-item" data-cat="depositos" onclick="seleccionarCat('depositos')">Depósitos / Acopios</div>
     <div class="nav-item" data-cat="labores" onclick="seleccionarCat('labores')">Labores</div>
     <div class="nav-item" data-cat="cultivos" onclick="seleccionarCat('cultivos')">Cultivos/UN</div>
+    <div class="nav-item" data-cat="ambientes" onclick="seleccionarCat('ambientes')">Ambientes</div>
     <div class="nav-item" data-cat="usos" onclick="seleccionarCat('usos')">Usos</div>
     <div class="nav-item" data-cat="tenencias" onclick="seleccionarCat('tenencias')">Tenencia</div>
     <div class="nav-item" data-cat="especies" onclick="seleccionarCat('especies')">Especies / Granos</div>
@@ -253,6 +254,19 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
         <tbody></tbody>
       </table>
       <div class="empty" id="empty-cul" style="display:none">No hay cultivos/usos cargados. Agregá uno con "+ Nuevo".</div>
+    </div>
+
+    <!-- VISTA AMBIENTES -->
+    <div id="vista-ambientes" style="display:none" data-scope="empresa">
+      <div class="panel-head">
+        <h2>Ambientes</h2>
+        <button class="btn" onclick="abrirModalAmb()">+ Nuevo</button>
+      </div>
+      <table id="tbl-amb">
+        <thead><tr><th>Código</th><th>Descripción</th><th>Tipo sugerido</th><th></th><th class="row-actions"></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty" id="empty-amb" style="display:none">No hay ambientes cargados. Agregá uno con "+ Nuevo".</div>
     </div>
 
     <!-- VISTA USOS -->
@@ -656,6 +670,31 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
   </div>
 </div>
 
+<!-- Modal AMBIENTE -->
+<div class="overlay" id="overlay-amb">
+  <div class="modal">
+    <h3 id="modal-amb-title">Nuevo ambiente</h3>
+    <div class="grid2">
+      <div class="fld"><label>Código</label><input id="amb-codigo" maxlength="12" placeholder="Ej: G1"></div>
+      <div class="fld full"><label>Descripción</label><input id="amb-desc" maxlength="120"></div>
+      <div class="fld"><label>Tipo sugerido <span class="opt">(para clasificar el lote)</span></label>
+        <select id="amb-tipo" style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-family:var(--sans);font-size:13px">
+          <option value="AGR">Agrícola</option>
+          <option value="GAN">Ganadero</option>
+          <option value="OTRO">Otro</option>
+        </select>
+      </div>
+      <div class="fld"><label>Color <span class="opt">(tablero de uso de suelo)</span></label><input id="amb-color" type="color" value="#7A8899" style="height:38px;padding:2px 4px"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="guardarAmb()">Guardar</button>
+      <button class="btn-out" onclick="cerrarModalAmb()">Cancelar</button>
+      <button class="btn-out del" id="btn-del-amb" style="display:none" onclick="eliminarAmb()">Eliminar</button>
+      <span class="msg" id="msg-amb"></span>
+    </div>
+  </div>
+</div>
+
 <!-- Modal TENENCIA -->
 <div class="overlay" id="overlay-tenencia">
   <div class="modal">
@@ -797,7 +836,7 @@ var puedeEscribirDepositoGeneral = false;
 
 // Datos en memoria (solo para renderizar la pantalla actual)
 var _terceros = [], _choferes = [], _depositos = [], _labores = [];
-var _cultivos = [], _especies = [], _unidades = [], _insumos = [];
+var _cultivos = [], _especies = [], _unidades = [], _insumos = [], _ambientes = [];
 var _modosAcc = [], _campos = [], _tiposProveedor = [];
 var _usos = [], _categorias = [], _formulaciones = [], _principiosActivos = [], _socios = [];
 var _tenencias = [];
@@ -805,7 +844,7 @@ var _tenencias = [];
 // IDs en edición
 var editId = null, editChofer = null, editDep = null, editLab = null;
 var editCul = null, editEsp = null, editUni = null, editIns = null, editMoa = null;
-var editUso = null, editCateg = null, editFormul = null, editPA = null, editSocio = null;
+var editUso = null, editCateg = null, editFormul = null, editPA = null, editSocio = null, editAmb = null;
 var editTenencia = null;
 var bandaSel = '';
 var filasPA = []; // estado del bloque de principios activos dentro del modal de insumo
@@ -881,7 +920,7 @@ function vNum(raw,opts){
 function vErr(msgId,texto){ var el=document.getElementById(msgId); if(el) el.textContent=texto; }
 
 // Navegación
-var VISTAS = ['terceros','choferes','socios','depositos','labores','cultivos','usos','tenencias','especies','unidades','insumos','categorias','formul','ppioactivo','modosacc'];
+var VISTAS = ['terceros','choferes','socios','depositos','labores','cultivos','ambientes','usos','tenencias','especies','unidades','insumos','categorias','formul','ppioactivo','modosacc'];
 
 function seleccionarCat(c){
   catActual=c;
@@ -898,6 +937,7 @@ function seleccionarCat(c){
   else if(c==='depositos') cargarDepositos(renderDepositos);
   else if(c==='labores')   cargarLabores(renderLabores);
   else if(c==='cultivos')  cargarCultivos(renderCultivos);
+  else if(c==='ambientes') cargarAmbientes(renderAmbientes);
   else if(c==='usos')      renderUsos();
   else if(c==='tenencias') renderTenencias();
   else if(c==='especies')  renderEspecies();
@@ -1460,6 +1500,73 @@ function eliminarCul(id){
     if(err){ alert(err.error||'Error al eliminar.'); return; }
     if(!id) cerrarModalCul();
     cargarCultivos(renderCultivos);
+  });
+}
+
+/* ---- AMBIENTES (clasificación de lotes, por empresa) ---- */
+function cargarAmbientes(cb){
+  apiGet('/api/maestros/ambientes?empresaId='+encodeURIComponent(empresaId),function(err,lista){
+    if(err){msgSet('msg-amb',err.error||'Error al cargar ambientes');return;}
+    _ambientes=lista||[]; if(cb)cb();
+  });
+}
+var TIPO_AMB_LABEL={AGR:'Agrícola',GAN:'Ganadero',OTRO:'Otro'};
+function renderAmbientes(){
+  var tb=document.querySelector('#tbl-amb tbody'); tb.innerHTML='';
+  for(var i=0;i<_ambientes.length;i++){(function(a){
+    var sw='<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:'+esc(a.color||'#7A8899')+';vertical-align:middle"></span>';
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td><span class="rol-bdg rb-tipo">'+esc(a.codigo||'—')+'</span></td><td>'+esc(a.descripcion||'')+'</td><td>'+esc(TIPO_AMB_LABEL[a.tipo]||a.tipo||'—')+'</td><td>'+sw+'</td>'+
+      '<td class="row-actions"><button class="btn-act-edit" title="Editar" onclick="editarAmb(\''+esc(a.id)+'\')">✎</button><button class="btn-act-del" title="Eliminar" onclick="eliminarAmb(\''+esc(a.id)+'\')">×</button></td>';
+    tb.appendChild(tr);
+  })(_ambientes[i]);}
+  document.getElementById('empty-amb').style.display=_ambientes.length?'none':'block';
+  document.getElementById('tbl-amb').style.display=_ambientes.length?'':'none';
+}
+function abrirModalAmb(){
+  editAmb=null; document.getElementById('modal-amb-title').textContent='Nuevo ambiente';
+  document.getElementById('amb-codigo').value=''; document.getElementById('amb-desc').value='';
+  document.getElementById('amb-tipo').value='AGR'; document.getElementById('amb-color').value='#7A8899';
+  document.getElementById('amb-codigo').disabled=false;
+  document.getElementById('btn-del-amb').style.display='none'; msgSet('msg-amb','');
+  document.getElementById('overlay-amb').className='overlay open';
+}
+function editarAmb(id){
+  var x=findById(_ambientes,id); if(!x)return;
+  apiLock('ambientes',id,empresaId,function(errLock){
+    if(errLock){ alert(errLock.error||'No se pudo tomar el registro.'); return; }
+    editAmb=id; document.getElementById('modal-amb-title').textContent='Editar ambiente';
+    document.getElementById('amb-codigo').value=x.codigo||''; document.getElementById('amb-desc').value=x.descripcion||'';
+    document.getElementById('amb-tipo').value=x.tipo||'AGR'; document.getElementById('amb-color').value=x.color||'#7A8899';
+    document.getElementById('amb-codigo').disabled=true;
+    document.getElementById('btn-del-amb').style.display=''; msgSet('msg-amb','');
+    document.getElementById('overlay-amb').className='overlay open';
+  });
+}
+function cerrarModalAmb(){ if(editAmb) apiUnlock('ambientes',editAmb,function(){}); document.getElementById('overlay-amb').className='overlay'; }
+function guardarAmb(){
+  var codRaw=document.getElementById('amb-codigo').value;
+  var cod=vCodAlnum(codRaw,12);
+  if(cod!==vTrim(codRaw).toUpperCase()){ document.getElementById('amb-codigo').value=cod; }
+  var desc=vOracion(document.getElementById('amb-desc').value);
+  var e=vReq(cod,'el código'); if(e){ vErr('msg-amb',e); return; }
+  e=vReq(desc,'la descripción'); if(e){ vErr('msg-amb',e); return; }
+  e=vMax(desc,120,'Descripción'); if(e){ vErr('msg-amb',e); return; }
+  if(!editAmb && vDuplicado(_ambientes,cod,function(it){return it.codigo;},null)){ vErr('msg-amb','Ya existe un ambiente con ese código en esta empresa.'); return; }
+  var obj={id:editAmb||uid(),empresaId:empresaId,codigo:cod,descripcion:desc,
+    tipo:document.getElementById('amb-tipo').value,color:document.getElementById('amb-color').value,activo:true};
+  var isNew=!editAmb;
+  var cb=function(err){if(err){vErr('msg-amb',err.error||'Error al guardar.');return;} cerrarModalAmb();cargarAmbientes(renderAmbientes);};
+  if(isNew) apiPost('/api/maestros/ambientes',obj,cb);
+  else apiPut('/api/maestros/ambientes/'+encodeURIComponent(editAmb),obj,cb);
+}
+function eliminarAmb(id){
+  var t=id||editAmb; if(!t) return;
+  if(!confirm('¿Eliminar este ambiente?')) return;
+  apiDelete('/api/maestros/ambientes/'+encodeURIComponent(t)+'?empresaId='+encodeURIComponent(empresaId),function(err){
+    if(err){ alert(err.error||'Error al eliminar.'); return; }
+    if(!id) cerrarModalAmb();
+    cargarAmbientes(renderAmbientes);
   });
 }
 
