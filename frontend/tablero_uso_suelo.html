@@ -4827,8 +4827,14 @@ function salir(){
 
 function boot(){
   // Si PA está disponible, inicializa contexto; si no, arranca en fallback demo.
+  // Se fuerza modo:'backend': este tablero ya está migrado a 3 capas (locks,
+  // permisos y guardado real vía API en todos los flujos) y depende de la DB
+  // real para todo. Sin este flag, pa-core.js trata cualquier acceso por
+  // "localhost" (que es como se accede normalmente al setup con Docker) como
+  // demo del desarrollador del cliente, y cae al LOTES hardcodeado (Estancia
+  // Don Eduardo, campo EC) ignorando el backend y los permisos reales.
   if(typeof PA !== 'undefined'){
-    PA.init({}, function(){
+    PA.init({modo:'backend'}, function(){
       var arrancar = function(){
         PA.loadContext(null, function(err, ctx){
           if(err && err.status === 401){ location.href = 'login.html'; return; }
