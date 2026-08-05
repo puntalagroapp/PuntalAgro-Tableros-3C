@@ -1750,6 +1750,7 @@ app.put('/api/tablero/:clave', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEscribirMaestroEmpresa(sesion, permiso)) return res.status(403).json({ error: 'Sin permiso' });
 
     await pool.query(
       `INSERT INTO tableros (nombre_clave, data_json, updated_at)

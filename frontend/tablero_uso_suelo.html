@@ -525,11 +525,11 @@ tbody tr.lote-start:first-child td{border-top:none}
     <div class="chd">
       <span class="ct">Padrón de lotes · Maestro</span>
       <div class="ct-actions">
-        <button class="btn-sm" onclick="addLote()">+ Agregar lote</button>
+        <button class="btn-sm" id="btnAddLote" onclick="addLote()">+ Agregar lote</button>
         <button class="btn-sm" onclick="exportPadronXLSX()">↓ Excel</button>
       </div>
     </div>
-    <div class="help-row">El padrón es el maestro de lotes (estable, no cambia entre campañas). Tocá el lápiz ✎ para editar un lote o "+ Agregar lote" para crear uno nuevo. Tocá un encabezado para ordenar.</div>
+    <div class="help-row" id="padronHelpRow">El padrón es el maestro de lotes (estable, no cambia entre campañas). Tocá el lápiz ✎ para editar un lote o "+ Agregar lote" para crear uno nuevo. Tocá un encabezado para ordenar.</div>
     <div class="filtro-resumen" id="ctFiltrosPadron" style="display:none"></div>
     <div class="scroll-y">
       <table>
@@ -849,7 +849,7 @@ tbody tr.lote-start:first-child td{border-top:none}
       <span class="ct">Ambientes</span>
       <div class="ct-actions">
         <span style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-right:6px" id="ambSubt">—</span>
-        <button class="btn-sm" onclick="addAmbiente()">+ Agregar ambiente</button>
+        <button class="btn-sm" id="btnAddAmbiente" onclick="addAmbiente()">+ Agregar ambiente</button>
       </div>
     </div>
     <div class="help-row">Los ambientes clasifican los lotes en el Padrón. Un mismo ambiente puede usarse para agricultura o ganadería según la situación; el tipo se define por lote en el Plan.</div>
@@ -2565,7 +2565,7 @@ function renderCierreBanner(){
       // Faltan ha para cerrar el campo → ofrecer generar lote de desperdicios
       html += '<div class="cierre-banner cierre-falta">'
             + '<span>⚠ Campo <strong>'+d.campo+'</strong>: los lotes suman <strong>'+fInt(d.suma)+' ha</strong> de <strong>'+fInt(d.total)+' ha</strong> del campo. Faltan <strong>'+fInt(d.dif)+' ha</strong>.</span>'
-            + '<button class="cierre-btn" onclick="generarLoteDesperdicios(\''+d.campo+'\','+d.dif+')">Generar «'+d.campo+' Desperdicios y estructura»</button>'
+            + (puedeEscribir() ? '<button class="cierre-btn" onclick="generarLoteDesperdicios(\''+d.campo+'\','+d.dif+')">Generar «'+d.campo+' Desperdicios y estructura»</button>' : '')
             + '</div>';
     } else {
       // Exceso: los lotes superan el total del campo (error de datos)
@@ -2600,6 +2600,7 @@ function controlCierreCampos(lts){
 
 // Genera (o ajusta) el lote "<campo> Desperdicios y estructura" con el faltante del campo.
 function generarLoteDesperdicios(campo, faltante){
+  if(!puedeEscribir()) return;
   var nombre = campo + ' Desperdicios y estructura';
   var existente = LOTES.find(function(x){return x.l===nombre;});
   if(existente){
@@ -2679,7 +2680,7 @@ function renderRows(lts, cls){
       + '<td class="td-lote tdcampo"'+rs+'>'+(l.c||'—')+'</td>'
       + '<td class="td-lote tdname"'+rs+'>'+l.l+'</td>'
       + '<td class="td-lote"'+rs+'>'+f(sup,1)+'</td>'
-      + '<td class="td-lote"'+rs+'>'+(explPend?'<span style="color:#C8642D;cursor:pointer" title="Editar el lote para cargar la sup explotable" onclick="openLoteModal(\''+escName+'\')">— cargar</span>':f(expl,1))+'</td>'
+      + '<td class="td-lote"'+rs+'>'+(explPend?(puedeEscribir()?'<span style="color:#C8642D;cursor:pointer" title="Editar el lote para cargar la sup explotable" onclick="openLoteModal(\''+escName+'\')">— cargar</span>':'<span style="color:var(--muted)">— sin cargar</span>'):f(expl,1))+'</td>'
       + '<td class="td-lote"'+rs+'>'+ambHtml+'</td>';
     for(var h=0; h<histCells.length; h++){ loteCells += histCells[h].replace('<td class="td-hist-global">','<td class="td-hist-global td-lote"'+rs+'>'); }
     loteCells += '<td class="td-lote"'+rs+'>'+antHtml+'</td>';
@@ -2692,6 +2693,15 @@ function renderRows(lts, cls){
       }
       if(!a){
         // Lote sin actividad en la campaña: bloque vacío con "+ actividad"
+        // (solo si el usuario tiene permiso de carga; nivel 'ver' es de solo lectura)
+        if(!puedeEscribir()){
+          return '<td class="td-act act-start"><span style="color:var(--muted)">—</span></td>'
+               + '<td class="td-act"><span style="color:var(--muted)">—</span></td>'
+               + '<td class="td-act"><span style="color:var(--muted)">—</span></td>'
+               + '<td class="td-act"><span style="color:var(--muted)">—</span></td>'
+               + '<td class="td-act"><span style="color:var(--muted)">—</span></td>'
+               + '<td class="td-act td-act-acc"></td>';
+        }
         var emptyClick = loteActivo(l) ? 'abrirEditorActividad(\''+escName+'\',-1)' : 'avisoLoteInactivo(\''+escName+'\')';
         var emptyCls = loteActivo(l) ? 'cult-empty' : 'cult-empty cult-empty-off';
         return '<td class="td-act act-start"><span class="'+emptyCls+'" onclick="'+emptyClick+'">+ actividad</span></td>'
@@ -2715,14 +2725,17 @@ function renderRows(lts, cls){
       // En lotes inactivos: lápiz y "+" apagados (el lápiz igual dispara el cartel de aviso);
       // el tacho queda activo para poder limpiar actividades viejas.
       var offCls = loteActivo(l) ? '' : ' btn-off';
-      var addBtn = esUltima
-        ? '<button class="btn-act-add'+offCls+'" title="'+(loteActivo(l)?'Agregar cultivo a este lote':'Lote inactivo · reactivalo en el Padrón')+'" onclick="'+(loteActivo(l)?'abrirEditorActividad(\''+escName+'\',-1)':'avisoLoteInactivo(\''+escName+'\')')+'">+</button>'
-        : '';
-      var acc = '<span class="act-acc">'
-              + '<button class="btn-act-edit'+offCls+'" title="Editar actividad" onclick="editarActividad(\''+escName+'\','+aIdx+')">✎</button>'
-              + '<button class="btn-act-del" title="Quitar actividad" onclick="borrarActividad(\''+escName+'\','+aIdx+')">×</button>'
-              + addBtn
-              + '</span>';
+      var acc = '';
+      if(puedeEscribir()){
+        var addBtn = esUltima
+          ? '<button class="btn-act-add'+offCls+'" title="'+(loteActivo(l)?'Agregar cultivo a este lote':'Lote inactivo · reactivalo en el Padrón')+'" onclick="'+(loteActivo(l)?'abrirEditorActividad(\''+escName+'\',-1)':'avisoLoteInactivo(\''+escName+'\')')+'">+</button>'
+          : '';
+        acc = '<span class="act-acc">'
+            + '<button class="btn-act-edit'+offCls+'" title="Editar actividad" onclick="editarActividad(\''+escName+'\','+aIdx+')">✎</button>'
+            + '<button class="btn-act-del" title="Quitar actividad" onclick="borrarActividad(\''+escName+'\','+aIdx+')">×</button>'
+            + addBtn
+            + '</span>';
+      }
       return '<td class="td-act act-start">'+cultHtml+'</td>'
            + '<td class="td-act">'+usoHtml+'</td>'
            + '<td class="td-act">'+negHtml+'</td>'
@@ -2790,6 +2803,7 @@ function editarActividad(loteName, idx){
 }
 
 function abrirEditorActividad(loteName, idx){
+  if(!puedeEscribir()){ alert('No tenés permiso de carga en esta empresa. Solo podés ver el plan.'); return; }
   var l = LOTES.find(function(x){return x.l===loteName;});
   if(!l) return;
   // Un lote inactivo no se puede planificar. Hay que reactivarlo en el Padrón primero.
@@ -2932,6 +2946,7 @@ function maParseHa(val){
 
 // Guardar la actividad única (alta o edición)
 function guardarActividadUnica(){
+  if(!puedeEscribir()){ alert('No tenés permiso de carga en esta empresa.'); closeActsModal(); return; }
   var l = LOTES.find(function(x){return x.l===maEstado.loteName;});
   if(!l){ closeActsModal(); return; }
   var warn = document.getElementById('modalActsWarn');
@@ -2967,6 +2982,7 @@ function guardarActividadUnica(){
 
 // Borrar una actividad puntual desde la tabla (× del bloque actividad)
 function borrarActividad(loteName, idx){
+  if(!puedeEscribir()){ alert('No tenés permiso de carga en esta empresa. Solo podés ver el plan.'); return; }
   var l = LOTES.find(function(x){return x.l===loteName;});
   if(!l) return;
   var actual = actsOrdenadas(actsDe(l, state.campania)).map(function(a){
@@ -3000,6 +3016,8 @@ function abrirConciliar(){ alert('La conciliación de superficies todavía no es
 // ────────────────────────────────────────────────────────────
 function renderPadron(){
   pintarResumenFiltros('ctFiltrosPadron');
+  var btnAdd = document.getElementById('btnAddLote');
+  if(btnAdd) btnAdd.style.display = puedeEscribir() ? '' : 'none';
   var lts = sortLotes(lotesFiltrados());
   // KPIs del Padrón, siempre sobre lo visible. Modelo de superficies (dos ecuaciones):
   //   Sup. total Campo = Sup. total Lotes + Estructura/Desperdicios
@@ -3065,7 +3083,7 @@ function renderPadron(){
     html += '<td>'+ambTxt+'</td>';
     html += '<td>'+f(l.s,1)+'</td>';
     html += '<td><span class="lote-meta">'+nCamps+'/6</span></td>';
-    html += '<td class="row-actions"><button class="btn-icon" title="Editar" onclick="openLoteModal(\''+en+'\')">✎</button><button class="btn-icon btn-icon-del" title="Eliminar" onclick="deleteLote(\''+en+'\')">×</button></td>';
+    html += '<td class="row-actions">'+(puedeEscribir() ? '<button class="btn-icon" title="Editar" onclick="openLoteModal(\''+en+'\')">✎</button><button class="btn-icon btn-icon-del" title="Eliminar" onclick="deleteLote(\''+en+'\')">×</button>' : '')+'</td>';
     html += '</tr>';
   }
   document.getElementById('padronBody').innerHTML = html;
@@ -3109,6 +3127,7 @@ function aplicarBloqueoExpl(bloquear){
 }
 
 function openLoteModal(loteName){
+  if(!puedeEscribir()){ alert('No tenés permiso de carga en esta empresa. Solo podés ver el padrón.'); return; }
   var lExistente = loteName ? LOTES.find(function(x){return x.l===loteName;}) : null;
   if (loteName && !lExistente) return;
   var abrirModalLote = function(){
@@ -3174,6 +3193,7 @@ function closeLoteModal(){
   document.getElementById('modalLote').classList.remove('on'); loteEditando = null; loteEditandoId = null;
 }
 function confirmLoteModal(){
+  if(!puedeEscribir()){ closeLoteModal(); return; }
   var warn = document.getElementById('modalLoteWarn');
   var nombre = document.getElementById('mlNombre').value.trim();
   var campo = document.getElementById('mlCampo').value;
@@ -3225,6 +3245,7 @@ function confirmLoteModal(){
   renderAll();
 }
 function deleteLote(loteName){
+  if(!puedeEscribir()){ alert('No tenés permiso de carga en esta empresa.'); return; }
   if(!confirm('¿Eliminar el lote "'+loteName+'"? Se borra de TODAS las campañas.')) return;
   var idx = LOTES.findIndex(function(x){return x.l===loteName;});
   if(idx>=0){
@@ -3243,6 +3264,17 @@ function addLote(){ openLoteModal(null); }
 // ¿El usuario actual es admin_general? (ve todas las empresas/campos)
 function esAdminGeneral(){
   return !!(CTX && CTX.usuario && CTX.usuario.rol === 'admin_general');
+}
+
+// ¿El usuario puede crear/editar/borrar en este tablero? Mismo criterio que el
+// backend (puedeEscribirMaestroEmpresa): admin_general/admin_cliente siempre
+// pueden; un usuario común necesita nivel 'cargar' o 'administrar' — nivel
+// 'ver' es de solo lectura. CTX.permiso ya viene resuelto así desde
+// /api/context (admin_general/admin_cliente reciben nivel:'administrar' fijo).
+// En modo demo (sin backend) no se restringe nada.
+function puedeEscribir(){
+  if(!_esModoApi()) return true;
+  return !!(CTX && CTX.permiso && (CTX.permiso.nivel === 'cargar' || CTX.permiso.nivel === 'administrar'));
 }
 
 // Lista de campos de la empresa (para las columnas de la matriz).
@@ -4588,12 +4620,15 @@ function renderMaestros(){
   document.getElementById('cardAmbientes').style.display = (tab==='ambientes') ? '' : 'none';
   document.getElementById('cardActividades').style.display = (tab==='actividades') ? '' : 'none';
 
+  var btnAddAmb = document.getElementById('btnAddAmbiente');
+  if(btnAddAmb) btnAddAmb.style.display = puedeEscribir() ? '' : 'none';
+
   // Ambientes (código + descripción + lotes; el tipo es por lote, no por ambiente)
   var ambKeys = Object.keys(AMBIENTES);
   document.getElementById('ambSubt').textContent = ambKeys.length+' ambientes';
   var h='';
   // Fila de alta inline (si está activa)
-  if(nuevoAmbInline){
+  if(nuevoAmbInline && puedeEscribir()){
     h += '<tr class="row-nueva">';
     h += '<td><input type="text" class="inline-input" id="inAmbCod" placeholder="Cód." style="width:70px" onkeydown="if(event.key===\'Enter\')commitNuevoAmb();if(event.key===\'Escape\')cancelNuevoAmb();"></td>';
     h += '<td><input type="text" class="inline-input" id="inAmbDesc" placeholder="Descripción del ambiente" onkeydown="if(event.key===\'Enter\')commitNuevoAmb();if(event.key===\'Escape\')cancelNuevoAmb();"></td>';
@@ -4610,7 +4645,7 @@ function renderMaestros(){
     h += '<td class="tdname" style="font-family:var(--mono)">'+k+'</td>';
     h += '<td>'+a.d+'</td>';
     h += '<td><span class="lote-meta">'+nUso+'</span></td>';
-    h += '<td class="row-actions"><button class="btn-icon" title="Editar" onclick="openAmbModal(\''+en+'\')">✎</button><button class="btn-icon btn-icon-del" title="Eliminar" onclick="deleteAmbiente(\''+en+'\')">×</button></td>';
+    h += '<td class="row-actions">'+(puedeEscribir() ? '<button class="btn-icon" title="Editar" onclick="openAmbModal(\''+en+'\')">✎</button><button class="btn-icon btn-icon-del" title="Eliminar" onclick="deleteAmbiente(\''+en+'\')">×</button>' : '')+'</td>';
     h += '</tr>';
   }
   document.getElementById('ambBody').innerHTML = h;
@@ -4636,9 +4671,10 @@ function renderMaestros(){
 
 // ---- Alta inline de Ambiente ----
 var nuevoAmbInline = false;
-function addAmbiente(){ nuevoAmbInline = true; renderMaestros(); }
+function addAmbiente(){ if(!puedeEscribir()) return; nuevoAmbInline = true; renderMaestros(); }
 function cancelNuevoAmb(){ nuevoAmbInline = false; renderMaestros(); }
 function commitNuevoAmb(){
+  if(!puedeEscribir()) return;
   var cod = (document.getElementById('inAmbCod').value||'').trim();
   var desc = (document.getElementById('inAmbDesc').value||'').trim();
   if(!cod){ alert('Poné un código de ambiente.'); return; }
@@ -4652,6 +4688,7 @@ function commitNuevoAmb(){
 // ---- Modal de Ambiente (editar) ----
 var ambEditando = null;
 function openAmbModal(code){
+  if(!puedeEscribir()) return;
   ambEditando = code;
   var a = AMBIENTES[code]; if(!a) return;
   document.getElementById('modalAmbTitle').textContent = 'Editar ambiente · '+code;
@@ -4664,6 +4701,7 @@ function openAmbModal(code){
 }
 function closeAmbModal(){ document.getElementById('modalAmb').classList.remove('on'); document.getElementById('maCodigo').disabled=false; ambEditando=null; }
 function confirmAmbModal(){
+  if(!puedeEscribir()){ closeAmbModal(); return; }
   if(!ambEditando) return;
   var desc = (document.getElementById('maDesc').value||'').trim();
   if(AMBIENTES[ambEditando]){ AMBIENTES[ambEditando].d = desc; }
@@ -4671,6 +4709,7 @@ function confirmAmbModal(){
   renderAll();
 }
 function deleteAmbiente(code){
+  if(!puedeEscribir()) return;
   var nUso = countLotesAmb(code);
   var msg = '¿Eliminar el ambiente "'+code+'"?';
   if(nUso>0) msg += '\n\nATENCIÓN: hay '+nUso+' lote(s) usando este ambiente. Quedarán sin ambiente asignado.';
