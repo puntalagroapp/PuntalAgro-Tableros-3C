@@ -1051,58 +1051,23 @@ function colorCult(sigla){ return COLORES_CULT[sigla] || COLOR_CULT_DEFAULT; }
 // El catálogo es de Maestros; el tablero lo consume en SOLO LECTURA.
 var CULTIVOS = {};
 
-// Fallback: catálogo embebido para uso sin servidor (archivo suelto, PA ausente).
-var CULTIVOS_FALLBACK = {
-  // sigla: {nombre, tipo (AGR/GAN), color}
-  'Tr':   {n:'Trigo',                     t:'AGR', c:'#2E5A0C'},
-  'Cb':   {n:'Cebada',                    t:'AGR', c:'#7BA33A'},
-  'Av':   {n:'Avena',                     t:'AGR', c:'#A6C34E'},
-  'G':    {n:'Girasol',                   t:'AGR', c:'#C9A227'},
-  'Mz':   {n:'Maíz',                      t:'AGR', c:'#4F7F1E'},
-  'MzT':  {n:'Maíz tardío',               t:'AGR', c:'#6B9E2A'},
-  'Mz2ª': {n:'Maíz 2ª',                   t:'AGR', c:'#8FB94A'},
-  'MzSPE':{n:'Maíz Silo PE',              t:'AGR', c:'#3D6B14'},
-  'Sj1ª': {n:'Soja 1ª',                   t:'AGR', c:'#1E7A5A'},
-  'Sj2ª': {n:'Soja 2ª',                   t:'AGR', c:'#4FA588'},
-  'Sg':   {n:'Sorgo',                     t:'AGR', c:'#B0C24A'},
-  'CS-VG':{n:'Cv. Servicio Vicia-Gram.',  t:'AGR', c:'#5E8C3A'},
-  'CS-G': {n:'Cv. Servicio Gramínea',     t:'AGR', c:'#88AD5E'},
-  'VI':   {n:'Verdeo invierno',           t:'GAN', c:'#E08A2E'},
-  'MzP':  {n:'Maíz pastoreo',             t:'GAN', c:'#C8642D'},
-  'SgF':  {n:'Sorgo forrajero',           t:'GAN', c:'#D97B4A'},
-  'MzD':  {n:'Maíz pastoreo diferido',    t:'GAN', c:'#A84D1F'},
-  'SgD':  {n:'Sorgo pastoreo diferido',   t:'GAN', c:'#8A3412'},
-  'PRG':  {n:'Promoción Rye Grass',       t:'GAN', c:'#EBA85C'},
-  'PI':   {n:'Pradera implantada',        t:'GAN', c:'#B5602A'},
-  'PPFe': {n:'Pradera Festuca',           t:'GAN', c:'#D4A017'},
-  'PPAlf':{n:'Pradera Alfalfa',           t:'GAN', c:'#7A3B0A'},
-  'PPAg': {n:'Pradera Agropiro',          t:'GAN', c:'#C08A3E'},
-  'PD':   {n:'Pradera degradada',         t:'GAN', c:'#9A7B4F'},
-  'CN':   {n:'Campo natural',             t:'GAN', c:'#7A5C38'},
-  'CND':  {n:'Campo natural degradado',   t:'GAN', c:'#5A4028'},
-  'ARRTO':{n:'Arrendamiento',             t:'AGR', c:'#7A8899'}
-};
-
 // Puebla CULTIVOS desde el padrón de Maestros (PA.demo.listarTiposActividad),
-// indexado por sigla, con la misma forma {sigla:{n,t,c}} que usa el resto del tablero.
+// indexado por sigla, con la misma forma {sigla:{n,t,c}} que usa el resto del
+// tablero. Sin catálogo embebido de respaldo: si la empresa no cargó cultivos
+// en Maestros, CULTIVOS queda vacío (los cultivos de e_1/Estancia Don Eduardo
+// ya están insertados como filas reales en tipos_actividad, no como fallback).
 // - n: nombre del padrón
 // - t: actividad del padrón (AGR/GAN)
 // - c: color local del tablero (COLORES_CULT), NO del padrón
-// Si PA no está disponible (archivo suelto), cae al catálogo embebido (fallback demo).
 function cargarCultivos(){
   CULTIVOS = {};
   var usados = (typeof PA !== 'undefined' && PA.demo && CTX) ? PA.demo.listarTiposActividad(CTX.empresaActivaId) : null;
-  if(usados && usados.length){
-    for(var i=0;i<usados.length;i++){
-      var ta = usados[i];
-      if(ta.activo === false) continue;
-      CULTIVOS[ta.sigla] = { n: ta.nombre, t: ta.actividad, c: colorCult(ta.sigla) };
-    }
-    return true; // origen: padrón
+  if(!usados) return;
+  for(var i=0;i<usados.length;i++){
+    var ta = usados[i];
+    if(ta.activo === false) continue;
+    CULTIVOS[ta.sigla] = { n: ta.nombre, t: ta.actividad, c: colorCult(ta.sigla), g: !!ta.graminea, d2: !!ta.default2da };
   }
-  // Fallback demo: catálogo embebido
-  for(var k in CULTIVOS_FALLBACK){ CULTIVOS[k] = CULTIVOS_FALLBACK[k]; }
-  return false; // origen: fallback
 }
 
 // ── CATÁLOGO USOS (global de Puntal, editable en Maestros). Clasifica cultivos
@@ -1129,7 +1094,7 @@ function usoNombre(cod){ var u = listarUsos()[cod]; return u ? u.n : (cod||'—'
 function usoColor(cod){ var u = listarUsos()[cod]; return u ? u.c : '#7A8899'; }
 // Uso de un cultivo (código AGR/GAN/DOB…). Default 'AGR' si no está clasificado
 // (mismo criterio que lotTipoSugerido: ante la duda, agrícola).
-function usoDeCultivo(sig){ var c = CULTIVOS[sig] || CULTIVOS_FALLBACK[sig]; return (c && c.t) ? c.t : 'AGR'; }
+function usoDeCultivo(sig){ var c = CULTIVOS[sig]; return (c && c.t) ? c.t : 'AGR'; }
 
 // ── CATÁLOGO TENENCIA (global de Puntal, editable en Maestros). Régimen de
 // tenencia de la tierra por actividad. Opcional (a.ten).
@@ -1318,11 +1283,10 @@ function fInt(n){
 function cultName(s){return CULTIVOS[s]?CULTIVOS[s].n:s;}
 function cultTipo(s){return CULTIVOS[s]?CULTIVOS[s].t:null;}
 function cultColor(s){return CULTIVOS[s]?CULTIVOS[s].c:'#7A8899';}
-// g/d2 son metadatos de CULTIVOS_FALLBACK (no existen en el padrón real todavía,
-// tipos_actividad no tiene esas columnas) — con datos reales devuelven false, sin
-// romper nada: no hay gramínea marcada ni default de 2ª automático.
-function cultEsGraminea(sig){ var c = CULTIVOS[sig] || CULTIVOS_FALLBACK[sig]; return !!(c && c.g); }
-function cultDefault2da(sig){ var c = CULTIVOS[sig] || CULTIVOS_FALLBACK[sig]; return !!(c && c.d2); }
+// g/d2 vienen del padrón real (tipos_actividad.datos.graminea/default2da,
+// cargados por cargarCultivos()). Sin clasificar (null) devuelve false.
+function cultEsGraminea(sig){ var c = CULTIVOS[sig]; return !!(c && c.g); }
+function cultDefault2da(sig){ var c = CULTIVOS[sig]; return !!(c && c.d2); }
 
 // Renderiza un cultivo como dato plano (editable: click handler)
 function cultHtml(sigla, onclickStr, opts){

@@ -786,6 +786,37 @@ INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha) VALUES
     ('l_2', 'c_1', 'e_1', 'Lote 2',  95),
     ('l_3', 'c_2', 'e_1', 'Lote A', 150);
 
+-- Cultivos/usos del suelo de Estancia Don Eduardo (e_1), tal como los cargaría
+-- el cliente en Maestros — ver tablero_uso_suelo.html (Plan de uso de suelo).
+INSERT INTO tipos_actividad (id, empresa_id, datos) VALUES
+    ('ta_e1_tr',    'e_1', '{"id":"ta_e1_tr","empresaId":"e_1","nombre":"Trigo","sigla":"Tr","esCultivo":true,"actividad":"AGR","especieId":"esp_2","graminea":null,"default2da":false,"activo":true}'),
+    ('ta_e1_cb',    'e_1', '{"id":"ta_e1_cb","empresaId":"e_1","nombre":"Cebada","sigla":"Cb","esCultivo":true,"actividad":"AGR","especieId":"esp_5","graminea":null,"default2da":false,"activo":true}'),
+    ('ta_e1_av',    'e_1', '{"id":"ta_e1_av","empresaId":"e_1","nombre":"Avena","sigla":"Av","esCultivo":true,"actividad":"AGR","especieId":"esp_6","graminea":null,"default2da":false,"activo":true}'),
+    ('ta_e1_g',     'e_1', '{"id":"ta_e1_g","empresaId":"e_1","nombre":"Girasol","sigla":"G","esCultivo":true,"actividad":"AGR","especieId":"esp_4","graminea":null,"default2da":false,"activo":true}'),
+    ('ta_e1_mz',    'e_1', '{"id":"ta_e1_mz","empresaId":"e_1","nombre":"Maíz","sigla":"Mz","esCultivo":true,"actividad":"AGR","especieId":"esp_1","graminea":null,"default2da":false,"activo":true}'),
+    ('ta_e1_mzt',   'e_1', '{"id":"ta_e1_mzt","empresaId":"e_1","nombre":"Maíz tardío","sigla":"MzT","esCultivo":true,"actividad":"AGR","especieId":"esp_1","graminea":null,"default2da":false,"activo":true}'),
+    ('ta_e1_mz2',   'e_1', '{"id":"ta_e1_mz2","empresaId":"e_1","nombre":"Maíz 2ª","sigla":"Mz2ª","esCultivo":true,"actividad":"AGR","especieId":"esp_1","graminea":null,"default2da":true,"activo":true}'),
+    ('ta_e1_mzspe', 'e_1', '{"id":"ta_e1_mzspe","empresaId":"e_1","nombre":"Maíz Silo PE","sigla":"MzSPE","esCultivo":true,"actividad":"AGR","especieId":"esp_7","graminea":null,"default2da":false,"activo":true}'),
+    ('ta_e1_sj1',   'e_1', '{"id":"ta_e1_sj1","empresaId":"e_1","nombre":"Soja 1ª","sigla":"Sj1ª","esCultivo":true,"actividad":"AGR","especieId":"esp_0","graminea":false,"default2da":false,"activo":true}'),
+    ('ta_e1_sj2',   'e_1', '{"id":"ta_e1_sj2","empresaId":"e_1","nombre":"Soja 2ª","sigla":"Sj2ª","esCultivo":true,"actividad":"AGR","especieId":"esp_0","graminea":false,"default2da":true,"activo":true}'),
+    ('ta_e1_sg',    'e_1', '{"id":"ta_e1_sg","empresaId":"e_1","nombre":"Sorgo","sigla":"Sg","esCultivo":true,"actividad":"AGR","especieId":"esp_3","graminea":true,"default2da":false,"activo":true}'),
+    ('ta_e1_csvg',  'e_1', '{"id":"ta_e1_csvg","empresaId":"e_1","nombre":"Cv. Servicio Vicia-Gram.","sigla":"CS-VG","esCultivo":true,"actividad":"AGR","especieId":null,"graminea":null,"default2da":false,"activo":true}'),
+    ('ta_e1_csg',   'e_1', '{"id":"ta_e1_csg","empresaId":"e_1","nombre":"Cv. Servicio Gramínea","sigla":"CS-G","esCultivo":true,"actividad":"AGR","especieId":null,"graminea":true,"default2da":false,"activo":true}'),
+    ('ta_e1_vi',    'e_1', '{"id":"ta_e1_vi","empresaId":"e_1","nombre":"Verdeo invierno","sigla":"VI","esCultivo":true,"actividad":"GAN","especieId":null,"graminea":true,"default2da":true,"activo":true}'),
+    ('ta_e1_mzp',   'e_1', '{"id":"ta_e1_mzp","empresaId":"e_1","nombre":"Maíz pastoreo","sigla":"MzP","esCultivo":true,"actividad":"GAN","especieId":null,"graminea":true,"default2da":false,"activo":true}'),
+    ('ta_e1_sgf',   'e_1', '{"id":"ta_e1_sgf","empresaId":"e_1","nombre":"Sorgo forrajero","sigla":"SgF","esCultivo":true,"actividad":"GAN","especieId":null,"graminea":true,"default2da":false,"activo":true}'),
+    ('ta_e1_mzd',   'e_1', '{"id":"ta_e1_mzd","empresaId":"e_1","nombre":"Maíz pastoreo diferido","sigla":"MzD","esCultivo":true,"actividad":"GAN","especieId":null,"graminea":true,"default2da":false,"activo":true}'),
+    ('ta_e1_sgd',   'e_1', '{"id":"ta_e1_sgd","empresaId":"e_1","nombre":"Sorgo pastoreo diferido","sigla":"SgD","esCultivo":true,"actividad":"GAN","especieId":null,"graminea":true,"default2da":false,"activo":true}'),
+    ('ta_e1_prg',   'e_1', '{"id":"ta_e1_prg","empresaId":"e_1","nombre":"Promoción Rye Grass","sigla":"PRG","esCultivo":true,"actividad":"GAN","especieId":null,"graminea":true,"default2da":false,"activo":true}'),
+    ('ta_e1_pi',    'e_1', '{"id":"ta_e1_pi","empresaId":"e_1","nombre":"Pradera implantada","sigla":"PI","esCultivo":true,"actividad":"GAN","especieId":null,"graminea":true,"default2da":true,"activo":true}'),
+    ('ta_e1_ppfe',  'e_1', '{"id":"ta_e1_ppfe","empresaId":"e_1","nombre":"Pradera Festuca","sigla":"PPFe","esCultivo":true,"actividad":"GAN","especieId":null,"graminea":true,"default2da":false,"activo":true}'),
+    ('ta_e1_ppalf', 'e_1', '{"id":"ta_e1_ppalf","empresaId":"e_1","nombre":"Pradera Alfalfa","sigla":"PPAlf","esCultivo":true,"actividad":"GAN","especieId":null,"graminea":false,"default2da":false,"activo":true}'),
+    ('ta_e1_ppag',  'e_1', '{"id":"ta_e1_ppag","empresaId":"e_1","nombre":"Pradera Agropiro","sigla":"PPAg","esCultivo":true,"actividad":"GAN","especieId":null,"graminea":true,"default2da":false,"activo":true}'),
+    ('ta_e1_pd',    'e_1', '{"id":"ta_e1_pd","empresaId":"e_1","nombre":"Pradera degradada","sigla":"PD","esCultivo":true,"actividad":"GAN","especieId":null,"graminea":null,"default2da":false,"activo":true}'),
+    ('ta_e1_cn',    'e_1', '{"id":"ta_e1_cn","empresaId":"e_1","nombre":"Campo natural","sigla":"CN","esCultivo":true,"actividad":"GAN","especieId":null,"graminea":null,"default2da":false,"activo":true}'),
+    ('ta_e1_cnd',   'e_1', '{"id":"ta_e1_cnd","empresaId":"e_1","nombre":"Campo natural degradado","sigla":"CND","esCultivo":true,"actividad":"GAN","especieId":null,"graminea":null,"default2da":false,"activo":true}'),
+    ('ta_e1_arrto', 'e_1', '{"id":"ta_e1_arrto","empresaId":"e_1","nombre":"Arrendamiento","sigla":"ARRTO","esCultivo":false,"actividad":null,"especieId":null,"graminea":null,"default2da":false,"activo":true}');
+
 -- Usuarios seed — contraseña por defecto: demo1234
 -- (hash generado con crypto.scrypt, salt:key)
 INSERT INTO usuarios (id, nombre, email, rol, cliente_id, activo, password_hash) VALUES
