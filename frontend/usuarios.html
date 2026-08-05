@@ -96,7 +96,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
       <div class="fld"><label>Usuario</label><input id="f-usuario" placeholder="Nombre o email…" autocomplete="off" oninput="renderUsuarios()"></div>
       <button class="btn-sm" onclick="limpiarFiltrosUsuarios()">Limpiar filtros</button>
     </div>
-    <table id="tbl-usuarios"><thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Permisos</th><th></th></tr></thead><tbody></tbody></table>
+    <table id="tbl-usuarios"><thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Cliente</th><th>Permisos</th><th></th></tr></thead><tbody></tbody></table>
   </div>
 
   <div class="panel">
@@ -299,6 +299,8 @@ function limpiarFiltrosUsuarios(){
 function renderUsuarios(){
   var nombreEmp={};
   for(var e=0;e<_empresas.length;e++) nombreEmp[_empresas[e].id]=_empresas[e].razonSocial;
+  var nombreCliente={};
+  for(var c=0;c<_clientes.length;c++) nombreCliente[_clientes[c].id]=_clientes[c].nombre;
 
   var us=CTX && CTX.usuario.rol==='admin_cliente'
     ? _usuarios.filter(function(u){ return u.clienteId===CTX.usuario.clienteId; })
@@ -343,8 +345,9 @@ function renderUsuarios(){
     var accEditar=(esUnoMismo && !puedeAutogestionarse)?'':'<button class="btn-sm" onclick="editarUsuario(\''+esc(u.id)+'\')">Editar</button>';
     var accBorrar=esUnoMismo?'':'<button class="btn-sm" onclick="borrarUsuario(\''+esc(u.id)+'\')">Borrar</button>';
     var estadoTxt=(u.activo===false)?' <span class="bdg" style="color:var(--terra)">inactivo</span>':'';
+    var clienteTxt=(u.rol==='admin_general')?'<span style="color:var(--muted)">—</span>':esc(nombreCliente[u.clienteId]||u.clienteId||'—');
     var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+esc(u.nombre)+estadoTxt+'</td><td>'+esc(u.email)+'</td><td><span class="bdg">'+esc(u.rol)+'</span></td><td>'+permisosTxt+'</td>'+
+    tr.innerHTML='<td>'+esc(u.nombre)+estadoTxt+'</td><td>'+esc(u.email)+'</td><td><span class="bdg">'+esc(u.rol)+'</span></td><td>'+clienteTxt+'</td><td>'+permisosTxt+'</td>'+
       '<td>'+accEditar+' '+accBorrar+'</td>';
     tb.appendChild(tr);
   }
