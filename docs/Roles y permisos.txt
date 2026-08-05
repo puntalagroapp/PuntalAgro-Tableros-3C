@@ -1,0 +1,13 @@
+El ABM de roles/permisos de la aplicación debe respetar la siguiente jerarquía dada por: 
+Puntal Agro tiene Clientes, los Clientes tienen Empresas y las Empresas tienen Campos. Sobre los campos se pueden aplicar/utilizar herramientas.
+
+En cada nivel existen usuarios con roles y permisos con las siguientes restricciones: Puntal Agro tiene un único usuario Administrador cuyo rol es admin_general. 
+El admin_general crea Clientes y usuarios para esos Clientes. 
+Estos usuarios al ser creados tienen se les asigna el rol de admin_cliente (más tarde podría modificarse el rol otorgado). 
+Un admin_cliente puede crear usuarios para una o varias Empresas de dicho Cliente. Y según la empresa, el usuario creado por admin_cliente puede tener diferente tipo 
+de permisos (Ver, cargar, administrar). Además el usuario creado tiene Campos disponibles (habilitados para este usuario por el admin_cliente) 
+y herramientas disponibles que solo se podrán utilizar sobre los Campos disponibles.
+Además el usuario administrador de una Empresa puede crear usuarios para dicha Empresa que solo tendrar permisos de Ver y Cargar (rol usuario). 
+El usuario administrador de una Empresa tiene acceso a todos los campos y herramientas disponibles para dicha Empresa.
+
+Finalmente el admin_general  puede hacer todo en cualquier nivel de la jerarquía.

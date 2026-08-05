@@ -969,38 +969,64 @@ app.delete('/api/locks/:tabla/:id', async (req, res) => {
 app.get('/api/usuarios', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
-  if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
   try {
-    const q = sesion.rol === 'admin_general'
-      ? pool.query('SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo FROM usuarios ORDER BY nombre')
-      : pool.query(
-          'SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo FROM usuarios WHERE cliente_id = $1 ORDER BY nombre',
-          [sesion.cliente_id]
-        );
-    res.json((await q).rows);
+    if (sesion.rol === 'admin_general') {
+      return res.json((await pool.query(
+        'SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo FROM usuarios ORDER BY nombre'
+      )).rows);
+    }
+    if (sesion.rol === 'admin_cliente') {
+      // Solo 'usuario' de su cliente: ya no gestiona otros admin_cliente (docs/Roles y permisos.txt).
+      return res.json((await pool.query(
+        `SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo
+           FROM usuarios WHERE cliente_id = $1 AND rol = 'usuario' ORDER BY nombre`,
+        [sesion.cliente_id]
+      )).rows);
+    }
+    // 'usuario' administrador de empresa: solo ve usuarios con permiso en las
+    // empresas que administra. Sin ninguna empresa administrada, sin acceso.
+    const empresas = await empresasQueAdministraUsuario(sesion.id);
+    if (!empresas.length) return res.status(403).json({ error: 'Sin permiso' });
+    const r = await pool.query(
+      `SELECT DISTINCT u.id, u.nombre, u.email, u.rol, u.cliente_id AS "clienteId", u.activo
+         FROM usuarios u JOIN permisos p ON p.usuario_id = u.id
+        WHERE p.empresa_id = ANY($1) AND u.rol = 'usuario' ORDER BY u.nombre`,
+      [empresas]
+    );
+    res.json(r.rows);
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 app.post('/api/usuarios', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
-  if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
+  if (sesion.rol === 'usuario' && !(await empresasQueAdministraUsuario(sesion.id)).length) {
+    return res.status(403).json({ error: 'Sin permiso' });
+  }
   const { id, nombre, password, activo } = req.body || {};
-  const rol = (req.body || {}).rol || 'usuario';
+  // Un 'usuario' administrador de empresa solo puede crear más 'usuario'
+  // (nunca admin_cliente/admin_general — no delega su propio nivel).
+  const rol = sesion.rol === 'usuario' ? 'usuario' : ((req.body || {}).rol || 'usuario');
   const email = (req.body && req.body.email) ? req.body.email.trim().toLowerCase() : req.body.email;
   if (!id || !nombre || !email) return res.status(400).json({ error: 'Faltan campos obligatorios (id, nombre, email)' });
+  if (!password) return res.status(400).json({ error: 'La contraseña es obligatoria al crear un usuario' });
   if (!puedeAsignarRol(sesion, rol)) return res.status(403).json({ error: 'No podés crear un usuario con ese rol' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return res.status(400).json({ error: 'El email no tiene un formato válido' });
-  // admin_cliente solo crea usuarios de su propio cliente: se ignora cualquier
-  // clienteId que venga en el body y se fuerza el propio.
-  const clienteId = sesion.rol === 'admin_cliente' ? sesion.cliente_id : ((req.body || {}).clienteId || null);
+  // admin_cliente y 'usuario' administrador solo crean usuarios de su propio
+  // cliente: se ignora cualquier clienteId que venga en el body y se fuerza el propio.
+  const clienteId = (sesion.rol === 'admin_cliente' || sesion.rol === 'usuario')
+    ? sesion.cliente_id
+    : ((req.body || {}).clienteId || null);
+  if (rol !== 'admin_general' && !clienteId) {
+    return res.status(400).json({ error: 'Los usuarios con rol usuario o admin_cliente necesitan un cliente asociado' });
+  }
   try {
     const hash = password ? await hashearPassword(password) : null;
     await pool.query(
       `INSERT INTO usuarios (id, nombre, email, rol, cliente_id, activo, password_hash)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (id) DO UPDATE SET nombre=$2, email=$3, rol=$4, cliente_id=$5, activo=$6,
-         password_hash = CASE WHEN $7 IS NULL THEN usuarios.password_hash ELSE $7 END`,
+         password_hash = CASE WHEN $7::text IS NULL THEN usuarios.password_hash ELSE $7::text END`,
       [id, nombre, email, rol, clienteId, activo !== false, hash]
     );
     res.status(201).json({ ...req.body, rol, clienteId, email });
@@ -1014,10 +1040,31 @@ app.post('/api/usuarios', async (req, res) => {
 app.put('/api/usuarios/:id', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
-  if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
-  if (!(await puedeSobreUsuario(sesion, req.params.id))) {
+  // Un 'usuario' administrador de empresa SÍ puede tocar su propia cuenta desde
+  // este endpoint, pero SOLO para cambiar su contraseña — nombre, email, rol,
+  // activo y clienteId quedan forzados a como ya estaban, sin importar el body
+  // (ver más abajo). admin_cliente/admin_general no llegan a esta excepción
+  // (puedeSobreUsuario sigue rechazando admin_cliente sobre sí mismo;
+  // admin_general no la necesita, ya tiene acceso total).
+  const esAutoedicionDeUsuario = req.params.id === sesion.id && sesion.rol === 'usuario';
+  if (!esAutoedicionDeUsuario && !(await puedeSobreUsuario(sesion, req.params.id))) {
     return res.status(403).json({ error: 'No podés modificar este usuario' });
   }
+
+  if (esAutoedicionDeUsuario) {
+    const { password } = req.body || {};
+    if (!password) return res.status(400).json({ error: 'Ingresá la nueva contraseña' });
+    const bloqueo = await verificarLockPropio('usuarios', req.params.id, sesion);
+    if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
+    try {
+      const hash = await hashearPassword(password);
+      await pool.query('UPDATE usuarios SET password_hash = $2 WHERE id = $1', [req.params.id, hash]);
+      return res.json({ id: req.params.id, status: 'ok' });
+    } catch (err) {
+      return res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  }
+
   const rol = (req.body || {}).rol || 'usuario';
   if (!puedeAsignarRol(sesion, rol)) return res.status(403).json({ error: 'No podés asignar ese rol' });
   const email = (req.body && req.body.email) ? req.body.email.trim().toLowerCase() : req.body.email;
@@ -1025,13 +1072,18 @@ app.put('/api/usuarios/:id', async (req, res) => {
   const bloqueo = await verificarLockPropio('usuarios', req.params.id, sesion);
   if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
   const { nombre, password, activo } = req.body || {};
-  // admin_cliente no puede reasignar el usuario a otro cliente.
-  const clienteId = sesion.rol === 'admin_cliente' ? sesion.cliente_id : ((req.body || {}).clienteId || null);
+  // admin_cliente y 'usuario' administrador no pueden reasignar el usuario a otro cliente.
+  const clienteId = (sesion.rol === 'admin_cliente' || sesion.rol === 'usuario')
+    ? sesion.cliente_id
+    : ((req.body || {}).clienteId || null);
+  if (rol !== 'admin_general' && !clienteId) {
+    return res.status(400).json({ error: 'Los usuarios con rol usuario o admin_cliente necesitan un cliente asociado' });
+  }
   try {
     const hash = password ? await hashearPassword(password) : null;
     await pool.query(
       `UPDATE usuarios SET nombre=$2, email=$3, rol=$4, cliente_id=$5, activo=$6,
-         password_hash = CASE WHEN $7 IS NULL THEN password_hash ELSE $7 END
+         password_hash = CASE WHEN $7::text IS NULL THEN password_hash ELSE $7::text END
        WHERE id=$1`,
       [req.params.id, nombre, email, rol, clienteId, activo !== false, hash]
     );
@@ -1039,6 +1091,7 @@ app.put('/api/usuarios/:id', async (req, res) => {
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
+    console.error('/api/usuarios PUT error:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
@@ -1046,7 +1099,6 @@ app.put('/api/usuarios/:id', async (req, res) => {
 app.delete('/api/usuarios/:id', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
-  if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
   if (req.params.id === sesion.id) return res.status(403).json({ error: 'No podés borrarte a vos mismo' });
   if (!(await puedeSobreUsuario(sesion, req.params.id))) {
     return res.status(403).json({ error: 'No podés borrar este usuario' });
@@ -1068,29 +1120,35 @@ app.delete('/api/usuarios/:id', async (req, res) => {
 app.get('/api/permisos', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
-  if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
   try {
-    let q;
     if (sesion.rol === 'admin_general') {
-      q = pool.query(
+      return res.json((await pool.query(
         'SELECT usuario_id AS "usuarioId", empresa_id AS "empresaId", campo_ids AS "campoIds", herramientas, nivel FROM permisos'
-      );
-    } else {
-      q = pool.query(
+      )).rows);
+    }
+    if (sesion.rol === 'admin_cliente') {
+      return res.json((await pool.query(
         `SELECT p.usuario_id AS "usuarioId", p.empresa_id AS "empresaId", p.campo_ids AS "campoIds", p.herramientas, p.nivel
            FROM permisos p JOIN usuarios u ON u.id = p.usuario_id
           WHERE u.cliente_id = $1`,
         [sesion.cliente_id]
-      );
+      )).rows);
     }
-    res.json((await q).rows);
+    // 'usuario' administrador de empresa: solo ve los permisos de las empresas que administra.
+    const empresas = await empresasQueAdministraUsuario(sesion.id);
+    if (!empresas.length) return res.status(403).json({ error: 'Sin permiso' });
+    const r = await pool.query(
+      `SELECT usuario_id AS "usuarioId", empresa_id AS "empresaId", campo_ids AS "campoIds", herramientas, nivel
+         FROM permisos WHERE empresa_id = ANY($1)`,
+      [empresas]
+    );
+    res.json(r.rows);
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 app.post('/api/permisos', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
-  if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
   const { usuarioId, empresaId, campoIds, herramientas, nivel } = req.body || {};
   if (!usuarioId || !empresaId) return res.status(400).json({ error: 'Faltan usuarioId o empresaId' });
 
@@ -1102,9 +1160,19 @@ app.post('/api/permisos', async (req, res) => {
   if ((await rolDeUsuario(usuarioId)) !== 'usuario') {
     return res.status(400).json({ error: 'Este usuario ya administra todo su alcance por su rol; no necesita un permiso por empresa' });
   }
-  if (sesion.rol === 'admin_cliente' && (await clienteDeEmpresa(empresaId)) !== sesion.cliente_id) {
+  if (!(await puedeAdministrarEmpresa(sesion, empresaId))) {
     return res.status(403).json({ error: 'No podés asignar permisos sobre esta empresa' });
   }
+  const nivelFinal = nivel || 'ver';
+  // Un 'usuario' administrador de empresa nunca delega nivel='administrar'
+  // (docs/Roles y permisos.txt: solo puede dar ver o cargar).
+  if (sesion.rol === 'usuario' && nivelFinal === 'administrar') {
+    return res.status(403).json({ error: 'No podés asignar nivel administrar — como máximo ver o cargar' });
+  }
+  // nivel='administrar' implica acceso a TODOS los campos y herramientas de la
+  // empresa (docs/Roles y permisos.txt) — se ignoran restricciones parciales.
+  const campoIdsFinal = nivelFinal === 'administrar' ? [] : (campoIds || []);
+  const herramientasFinal = nivelFinal === 'administrar' ? [] : (herramientas || []);
 
   const bloqueo = await verificarLockPropio('permisos', usuarioId + '_' + empresaId, sesion);
   if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
@@ -1114,20 +1182,19 @@ app.post('/api/permisos', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (usuario_id, empresa_id) DO UPDATE
          SET campo_ids=$3, herramientas=$4, nivel=$5`,
-      [usuarioId, empresaId, campoIds || [], herramientas || [], nivel || 'ver']
+      [usuarioId, empresaId, campoIdsFinal, herramientasFinal, nivelFinal]
     );
-    res.status(201).json(req.body);
+    res.status(201).json({ usuarioId, empresaId, campoIds: campoIdsFinal, herramientas: herramientasFinal, nivel: nivelFinal });
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
 app.delete('/api/permisos/:usuarioId/:empresaId', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
-  if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
   if (!(await puedeSobreUsuario(sesion, req.params.usuarioId))) {
     return res.status(403).json({ error: 'No podés modificar los permisos de este usuario' });
   }
-  if (sesion.rol === 'admin_cliente' && (await clienteDeEmpresa(req.params.empresaId)) !== sesion.cliente_id) {
+  if (!(await puedeAdministrarEmpresa(sesion, req.params.empresaId))) {
     return res.status(403).json({ error: 'No podés modificar permisos sobre esta empresa' });
   }
   const bloqueo = await verificarLockPropio('permisos', req.params.usuarioId + '_' + req.params.empresaId, sesion);
@@ -1287,15 +1354,17 @@ async function clienteDeCampo(campoId) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DELEGACIÓN DE PERMISOS
+// DELEGACIÓN DE PERMISOS (ver docs/Roles y permisos.txt — fuente de verdad)
 // - admin_general: sin techo, sobre cualquier cliente/empresa/usuario.
 // - admin_cliente: acceso administrar sobre TODAS las empresas de su propio
 //   cliente (sin necesidad de una fila propia en `permisos` — ver obtenerPermiso());
 //   puede crear/gestionar 'usuario' y 'admin_cliente', nunca 'admin_general';
 //   nunca toca un usuario admin_general; no ve ni asigna permisos fuera de su cliente.
-// - usuario: solo tiene acceso a las empresas donde tiene una fila explícita en
-//   `permisos`, con el nivel que esa fila indique — nunca delega a otros (esta
-//   pantalla ni /api/usuarios ni /api/permisos son alcanzables con este rol).
+// - usuario con nivel='administrar' en una empresa ("administrador de esa
+//   Empresa"): puede crear/gestionar MÁS usuarios 'usuario' (nunca admin_cliente
+//   ni admin_general) para esa empresa puntual, y solo asignarles nivel ver o
+//   cargar (nunca administrar). Un 'usuario' sin ninguna fila nivel='administrar'
+//   sigue sin acceso a esta pantalla ni a /api/usuarios ni a /api/permisos.
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function clienteDeUsuario(usuarioId) {
@@ -1308,22 +1377,67 @@ async function rolDeUsuario(usuarioId) {
   return r.rows.length ? r.rows[0].rol : null;
 }
 
+// Empresas donde este usuario (rol 'usuario') tiene nivel='administrar' — lo
+// habilita a delegar ver/cargar en esa empresa puntual (docs/Roles y permisos.txt).
+async function empresasQueAdministraUsuario(usuarioId) {
+  const r = await pool.query(
+    `SELECT empresa_id AS "empresaId" FROM permisos WHERE usuario_id = $1 AND nivel = 'administrar'`,
+    [usuarioId]
+  );
+  return r.rows.map(function (row) { return row.empresaId; });
+}
+
+// ¿Puede 'sesion' administrar permisos sobre esta empresa puntual?
+// admin_general: siempre. admin_cliente: si la empresa es de su cliente.
+// usuario: solo si tiene nivel='administrar' en esa empresa específica.
+async function puedeAdministrarEmpresa(sesion, empresaId) {
+  if (sesion.rol === 'admin_general') return true;
+  if (sesion.rol === 'admin_cliente') return (await clienteDeEmpresa(empresaId)) === sesion.cliente_id;
+  if (sesion.rol === 'usuario') return (await empresasQueAdministraUsuario(sesion.id)).indexOf(empresaId) >= 0;
+  return false;
+}
+
 // admin_cliente puede crear/reasignar 'usuario' o 'admin_cliente', nunca 'admin_general'.
+// Un 'usuario' administrador de empresa solo puede crear/reasignar 'usuario' (nunca
+// admin_cliente/admin_general — no delega su propio nivel de administración).
 function puedeAsignarRol(sesion, rolDestino) {
   if (sesion.rol === 'admin_general') return true;
-  if (sesion.rol === 'admin_cliente') return rolDestino === 'usuario' || rolDestino === 'admin_cliente';
+  // admin_cliente solo crea/reasigna 'usuario' — nunca admin_cliente ni admin_general.
+  // El único que da de alta un admin_cliente es admin_general (docs/Roles y permisos.txt).
+  if (sesion.rol === 'admin_cliente') return rolDestino === 'usuario';
+  if (sesion.rol === 'usuario') return rolDestino === 'usuario';
   return false;
 }
 
 // ¿Puede este otorgante gestionar (editar/borrar/asignarle permisos a) este usuario?
 // admin_cliente: solo usuarios de su propio cliente, y nunca un admin_general.
+// usuario administrador de empresa: solo usuarios 'usuario' de su mismo cliente
+// (el recorte a "esta empresa puntual" para permisos lo hace puedeAdministrarEmpresa).
 async function puedeSobreUsuario(sesion, usuarioId) {
   if (sesion.rol === 'admin_general') return true;
-  if (sesion.rol !== 'admin_cliente') return false;
-  const rolDestino = await rolDeUsuario(usuarioId);
-  if (rolDestino === 'admin_general') return false;
-  const clienteDestino = await clienteDeUsuario(usuarioId);
-  return clienteDestino === sesion.cliente_id;
+  if (sesion.rol === 'admin_cliente') {
+    // admin_cliente solo gestiona 'usuario' de su propio cliente — nunca a otro
+    // admin_cliente (ni a admin_general, ya cubierto por no ser 'usuario'), y
+    // nunca a sí mismo (evita autoeditarse el rol/permiso; explícito aunque hoy
+    // ya es imposible en la práctica porque su propio rol nunca es 'usuario').
+    if (usuarioId === sesion.id) return false;
+    const rolDestino = await rolDeUsuario(usuarioId);
+    if (rolDestino !== 'usuario') return false;
+    const clienteDestino = await clienteDeUsuario(usuarioId);
+    return clienteDestino === sesion.cliente_id;
+  }
+  if (sesion.rol === 'usuario') {
+    // Un 'usuario' administrador de empresa nunca administra su PROPIA cuenta ni
+    // su propio permiso — si pudiera, se autoasignaría/quitaría acceso a mano
+    // (el mismo criterio que admin_cliente, que estructuralmente nunca se
+    // administra a sí mismo porque su rol nunca es 'usuario').
+    if (usuarioId === sesion.id) return false;
+    const rolDestino = await rolDeUsuario(usuarioId);
+    if (rolDestino !== 'usuario') return false;
+    const clienteDestino = await clienteDeUsuario(usuarioId);
+    return clienteDestino === sesion.cliente_id;
+  }
+  return false;
 }
 
 app.get('/api/clientes', async (req, res) => {
