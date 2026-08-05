@@ -408,9 +408,7 @@ tbody tr.lote-start:first-child td{border-top:none}
     <span class="espacio-lbl">Cliente:</span>
     <select class="ctx-sel" id="selCliente"></select>
     <span class="espacio-lbl">Campo:</span>
-    <select class="ctx-sel" id="selCampo">
-      <option value="TODOS">Todos los campos</option>
-    </select>
+    <div class="ms-dd ms-dd-hdr" id="msCampo"></div>
     <span class="espacio-lbl">Campaña:</span>
     <select class="ctx-sel" id="selCampania"></select>
     <span class="ctx-pill" id="ctxPill">Don Eduardo · 26-27</span>
@@ -1204,6 +1202,7 @@ var LOTES = [{"l":"EC 1A","c":"EC","s":28.0,"a":"G1","p":{"22-23":[{"c":"PPFe","
 // ────────────────────────────────────────────────────────────
 var state = {
   campo: 'TODOS',
+  fCampo: [],     // campos seleccionados (multi). Vacío = todos los campos. campo queda en 'TODOS' (compat).
   campania: '26-27',
   view: 'plan',
   search: '',
@@ -1555,9 +1554,26 @@ function loteExpl(l){
 function loteExplPendiente(l){ return loteExpl(l) == null; }
 function loteActivo(l){ return !(l && l.activo === false); }
 
+// ¿El lote pasa el filtro de campo del header? fCampo (multi) tiene prioridad;
+// state.campo queda fijo en 'TODOS' (compat, ver poblarCampos).
+function campoMatch(l){
+  if(state.fCampo && state.fCampo.length) return state.fCampo.indexOf(l.c) >= 0;
+  return state.campo === 'TODOS' || l.c === state.campo;
+}
+// Lista de campos activos según el filtro (para reportes/exports). Vacío => todos.
+function camposSeleccionados(){
+  if(state.fCampo && state.fCampo.length) return state.fCampo.slice();
+  if(state.campo && state.campo !== 'TODOS') return [state.campo];
+  return [];
+}
+function campoSufijo(){
+  var s = camposSeleccionados();
+  return s.length ? s.join('-') : 'TODOS';
+}
+
 function lotesFiltrados(){
   var res = LOTES.slice();
-  if(state.campo!=='TODOS') res = res.filter(function(l){return l.c===state.campo;});
+  res = res.filter(campoMatch);
   // Filtro tipo (uso): deja los lotes con alguna actividad de ese uso en la campaña
   // activa. Se mide contra la actividad real de la campaña, no contra lotTipo() (perfil
   // histórico del lote) — así un lote agrícola por historia con solo actividad ganadera
@@ -1709,7 +1725,7 @@ function buildFiltros(){
   
   // Scope base para contar opciones disponibles
   var base = LOTES.slice();
-  if(state.campo!=='TODOS') base = base.filter(function(l){return l.c===state.campo;});
+  base = base.filter(function(l){return campoMatch(l);});
 
   // Tipo (uso): un uso por opción, contando lotes con esa actividad en la campaña activa.
   var usosCatFiltro = listarUsos();
@@ -1784,13 +1800,21 @@ function buildMultiSelect(containerId, label, opts, stateKey, cfg){
   
   var selected = state[stateKey];
   var triggerCls = 'ms-trigger' + (selected.length ? ' active' : '');
-  var labelTxt = selected.length 
-    ? label
-    : label;
-  var countHtml = selected.length 
-    ? '<span class="ms-trigger-count">'+selected.length+'</span>' 
-    : '';
-  
+  var labelTxt, countHtml;
+  if(cfg.resumenSeleccion){
+    // El trigger muestra la selección concreta en vez del label fijo + contador.
+    var totalOpts = (opts && opts.length) ? opts.length : 0;
+    if(!selected.length) labelTxt = label;
+    else if(totalOpts && selected.length === totalOpts) labelTxt = label; // todos → label fijo
+    else if(selected.length === 1) labelTxt = selected[0];
+    else if(selected.length === 2) labelTxt = selected.join(', ');
+    else labelTxt = selected.length + ' campos';
+    countHtml = '';
+  } else {
+    labelTxt = label;
+    countHtml = selected.length ? '<span class="ms-trigger-count">'+selected.length+'</span>' : '';
+  }
+
   cont.innerHTML = '<button type="button" class="'+triggerCls+'" onclick="toggleMsPanel(\''+containerId+'\',event)">' +
                     '<span>'+labelTxt+'</span>' + countHtml +
                     '<span class="ms-arrow">▾</span>' +
@@ -2531,7 +2555,7 @@ function renderCierreBanner(){
   if(!cont) return;
   // Universo: lotes de la empresa (todos los estados), acotado al campo si hay uno elegido
   var universo = LOTES.slice();
-  universo = universo.filter(function(l){ return state.campo === 'TODOS' || l.c === state.campo; });
+  universo = universo.filter(function(l){return campoMatch(l);});
   var descuadres = controlCierreCampos(universo);
   if(!descuadres.length){ cont.innerHTML = ''; return; }
   var html = '';
@@ -3117,7 +3141,8 @@ function openLoteModal(loteName){
     } else {
       document.getElementById('modalLoteTitle').textContent = 'Agregar lote';
       document.getElementById('mlNombre').value = '';
-      document.getElementById('mlCampo').value = (state.campo !== 'TODOS' ? state.campo : (_esModoApi() && CTX ? (PA.demo.camposDeEmpresa(CTX.empresaActivaId)[0] || {}).nombre || '' : 'EC'));
+      var selC = camposSeleccionados();
+      document.getElementById('mlCampo').value = (selC.length ? selC[0] : (_esModoApi() && CTX ? (PA.demo.camposDeEmpresa(CTX.empresaActivaId)[0] || {}).nombre || '' : 'EC'));
       document.getElementById('mlSup').value = '';
       document.getElementById('mlExpl').value = '';
       document.getElementById('mlActivo').checked = true;
@@ -3215,10 +3240,11 @@ function esAdminGeneral(){
 }
 
 // Lista de campos de la empresa (para las columnas de la matriz).
-// Respeta el filtro de campo del header (state.campo, single): si hay uno
-// elegido, solo esa columna. Si no, todos los campos de la empresa activa.
+// Respeta el filtro de campo del header (fCampo, multi): si hay elegidos,
+// solo esas columnas. Si no, todos los campos de la empresa activa.
 function camposReporte(){
-  if(state.campo !== 'TODOS') return [state.campo];
+  var sel = camposSeleccionados();
+  if(sel.length) return sel;
   var nombres = [];
   if(typeof PA !== 'undefined' && PA.demo && CTX){
     var cs = PA.demo.camposDeEmpresa(CTX.empresaActivaId) || [];
@@ -3798,7 +3824,8 @@ function renderComposicion(){
   );
 
   // Título + alcance de la torta (qué campo/campaña está incluido)
-  var campoTxt = (state.campo!=='TODOS') ? state.campo : 'todos los campos';
+  var selC = camposSeleccionados();
+  var campoTxt = selC.length ? selC.join(', ') : 'todos los campos';
   var dimNom = tortaDim==='cultivo' ? 'cultivo' : 'ambiente';
   var tTit = document.getElementById('repTortaTitulo');
   if(tTit) tTit.textContent = 'Superficie por '+dimNom+' · Campaña '+state.campania;
@@ -4405,7 +4432,7 @@ function exportPlanXLSXCamps(camps){
   }
   var sufCamp = camps.length===1 ? camps[0] : (camps.length+'campanias');
   var nomHoja = camps.length===1 ? ('Plan '+camps[0]) : ('Plan '+camps.length+' campañas');
-  downloadXLSX('Plan_uso_suelo_'+sufCamp+'_'+state.campo+'.xlsx', nomHoja, headers, rows);
+  downloadXLSX('Plan_uso_suelo_'+sufCamp+'_'+campoSufijo()+'.xlsx', nomHoja, headers, rows);
 }
 function exportPadronXLSX(){
   var lts = sortLotes(lotesFiltrados());
@@ -4422,7 +4449,7 @@ function exportPadronXLSX(){
   // Fila TOTAL al pie
   var totSup = lts.reduce(function(a,b){return a+(b.s||0);},0);
   rows.push([state.campania, '', 'TOTAL', '', totSup, '']);
-  downloadXLSX('Padron_lotes_'+state.campo+'.xlsx', 'Padrón', headers, rows);
+  downloadXLSX('Padron_lotes_'+campoSufijo()+'.xlsx', 'Padrón', headers, rows);
 }
 
 // Export del Histórico: matriz completa con todas las campañas
@@ -4453,7 +4480,7 @@ function exportHistoricoXLSXCamps(camps){
   // Fila TOTAL al pie con la suma de sup. física del lote
   var totSup = lts.reduce(function(a,b){return a+(b.s||0);},0);
   rows.push(['', 'TOTAL', '', '', totSup, '', '', '', '', '']);
-  downloadXLSX('Historico_rotacion_'+state.campo+'.xlsx', 'Histórico', headers, rows);
+  downloadXLSX('Historico_rotacion_'+campoSufijo()+'.xlsx', 'Histórico', headers, rows);
 }
 
 // Export según vista activa (botón "Exportar Excel" del header)
@@ -4653,7 +4680,6 @@ function deleteAmbiente(code){
 // ────────────────────────────────────────────────────────────
 function renderAll(){
   state.search = (document.getElementById('searchLote').value || '').trim();
-  state.campo = document.getElementById('selCampo').value;
   state.campania = document.getElementById('selCampania').value;
   var selEstado = document.getElementById('selEstado');
   if(selEstado) state.estado = selEstado.value;
@@ -4679,7 +4705,8 @@ function renderAll(){
   if(pill){
     var selCli = document.getElementById('selCliente');
     var cli = (selCli && selCli.options.length && selCli.selectedIndex>=0) ? selCli.options[selCli.selectedIndex].text : '';
-    var campoTxt = state.campo==='TODOS' ? 'Todos los campos' : state.campo;
+    var selCampos = camposSeleccionados();
+    var campoTxt = selCampos.length ? (selCampos.length<=2 ? selCampos.join(', ') : selCampos.length+' campos') : 'Todos los campos';
     pill.textContent = (cli ? cli + ' · ' : '') + campoTxt + ' · ' + state.campania;
   }
 }
@@ -4705,28 +4732,36 @@ function poblarCampanias(){
   state.campania = vig;
 }
 
-// Llena el selector de campos desde el contexto (camposDeEmpresa) o, en fallback,
+// Llena el multiselect de campos (msCampo) desde el contexto (camposDeEmpresa,
+// filtrado por permiso.campoIds si el usuario no es admin_general) o, en fallback,
 // desde los campos presentes en los LOTES.
-function poblarCampos(){
-  var sel = document.getElementById('selCampo');
-  if(!sel) return;
-  var prev = state.campo;
-  sel.innerHTML = '<option value="TODOS">Todos los campos</option>';
+function poblarCampos(forzarReset){
   var nombres = [];
   if(typeof PA !== 'undefined' && PA.demo && CTX){
     var cs = PA.demo.camposDeEmpresa(CTX.empresaActivaId);
-    for(var i=0;i<cs.length;i++) nombres.push(cs[i].nombre);
+    var permIds = (CTX.permiso && CTX.permiso.campoIds) ? CTX.permiso.campoIds : null;
+    var restringir = !esAdminGeneral() && permIds && permIds.length;
+    for(var i=0;i<cs.length;i++){
+      if(restringir && permIds.indexOf(cs[i].id) < 0) continue;
+      nombres.push(cs[i].nombre);
+    }
   } else {
     // fallback: campos derivados de los lotes
     var vistos = {};
     for(var j=0;j<LOTES.length;j++){ if(!vistos[LOTES[j].c]){ vistos[LOTES[j].c]=true; nombres.push(LOTES[j].c); } }
   }
-  for(var k=0;k<nombres.length;k++){
-    var o = document.createElement('option');
-    o.value = nombres[k]; o.textContent = nombres[k];
-    sel.appendChild(o);
+  // Al cambiar de empresa reseteamos la selección; si no, conservamos la que siga siendo válida.
+  if(forzarReset){
+    state.fCampo = [];
+  } else {
+    state.fCampo = state.fCampo.filter(function(c){ return nombres.indexOf(c) >= 0; });
   }
-  sel.value = (prev && (prev==='TODOS' || nombres.indexOf(prev)>=0)) ? prev : 'TODOS';
+  state.campo = 'TODOS'; // compat: el string queda neutro; el filtro real es fCampo
+  // Conteo de lotes por campo para mostrar en las opciones
+  var cnt = {};
+  for(var m=0;m<LOTES.length;m++){ cnt[LOTES[m].c] = (cnt[LOTES[m].c]||0)+1; }
+  var opts = nombres.map(function(n){ return { val:n, label:n, desc:'', count:(cnt[n]||0) }; });
+  buildMultiSelect('msCampo', 'Todos los campos', opts, 'fCampo', {grouped:false, showSig:false, resumenSeleccion:true});
 }
 
 // Llena el selector de cliente/empresa desde el contexto.
@@ -4758,7 +4793,7 @@ function onCambioEmpresa(){
     PA.loadContext(sel.value, function(err, ctx){
       if(!err && ctx){ CTX = ctx; }
       cargarCultivos();
-      poblarCampos();
+      poblarCampos(true);
       if (_esModoApi()) {
         LOTES = [];
         cargarDesdeApi(function(){ renderAll(); });
@@ -4771,7 +4806,6 @@ function onCambioEmpresa(){
   }
 }
 
-document.getElementById('selCampo').addEventListener('change', renderAll);
 document.getElementById('selCampania').addEventListener('change', renderAll);
 document.getElementById('selCliente').addEventListener('change', onCambioEmpresa);
 
