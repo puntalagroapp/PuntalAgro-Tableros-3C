@@ -1153,38 +1153,22 @@ function listarTenencias(){
 function tenenciaNombre(id){ if(!id) return '—'; var t = listarTenencias()[id]; return t ? t.n : id; }
 function actTen(a){ return (a && a.ten) || ''; }
 
-// Catálogo embebido (fallback demo): solo se usa si la empresa activa todavía
-// no tiene ambientes cargados en Maestros (ver cargarAmbientes()). Ambientes
-// es de solo lectura acá — el ABM real vive en maestros.html.
-var AMBIENTES_FALLBACK = {
-  'A1':  {d:'Agricultura 1 - Rotación larga c/PP', t:'AGR', c:'#3B6D11'},
-  'A2':  {d:'Agricultura 2 - Rotación corta c/PP', t:'AGR', c:'#3B6D11'},
-  'G1':  {d:'Ganadería sin limitantes',            t:'GAN', c:'#C8642D'},
-  'G2':  {d:'Gan. CL/RH/CN Degradado',             t:'GAN', c:'#C8642D'},
-  'G3':  {d:'Gan. CL/RH/CN No degradado',          t:'GAN', c:'#C8642D'},
-  'G4':  {d:'Gan. CL/RH/CN Salino',                t:'GAN', c:'#C8642D'},
-  'G5':  {d:'Gan. Espartos',                       t:'GAN', c:'#C8642D'},
-  'G6':  {d:'Gan. CL Inundable',                   t:'GAN', c:'#C8642D'},
-  'DESP':{d:'Desperdicios',                        t:'OTRO',c:'#7A8899'}
-};
 var AMBIENTES = {};
 // Puebla AMBIENTES desde el padrón de Maestros (PA.demo.listarAmbientes),
 // indexado por código, con la misma forma {codigo:{d,t,c}} que usa el resto
-// del tablero. Si la empresa no tiene ambientes cargados todavía, cae al
-// catálogo embebido (misma lógica que cargarCultivos()).
+// del tablero. A diferencia de cargarCultivos(), NO tiene catálogo embebido de
+// respaldo: si la empresa todavía no cargó ambientes en Maestros, la tabla
+// queda vacía (decisión explícita: no proponer una lista de ejemplo acá).
+// Ambientes es de solo lectura en este tablero — el ABM real vive en maestros.html.
 function cargarAmbientes(){
   AMBIENTES = {};
   var usados = (typeof PA !== 'undefined' && PA.demo && CTX) ? PA.demo.listarAmbientes(CTX.empresaActivaId) : null;
-  if(usados && usados.length){
-    for(var i=0;i<usados.length;i++){
-      var a = usados[i];
-      if(a.activo === false) continue;
-      AMBIENTES[a.codigo] = { d: a.descripcion, t: a.tipo, c: a.color || '#7A8899' };
-    }
-    return true; // origen: padrón
+  if(!usados) return;
+  for(var i=0;i<usados.length;i++){
+    var a = usados[i];
+    if(a.activo === false) continue;
+    AMBIENTES[a.codigo] = { d: a.descripcion, t: a.tipo, c: a.color || '#7A8899' };
   }
-  for(var k in AMBIENTES_FALLBACK){ AMBIENTES[k] = AMBIENTES_FALLBACK[k]; }
-  return false; // origen: fallback
 }
 // Helpers de ambiente (compatibilidad + nuevos campos)
 function ambDesc(k){ return AMBIENTES[k] ? AMBIENTES[k].d : ''; }
