@@ -81,6 +81,12 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
 
   <div class="panel">
     <h2>Usuarios</h2>
+    <div class="row" id="filtros-usuarios" style="margin-bottom:12px">
+      <div class="fld" id="fld-f-cliente"><label>Cliente</label><select id="f-cliente" onchange="onCambioFiltroCliente()"></select></div>
+      <div class="fld"><label>Empresa</label><select id="f-empresa" onchange="renderUsuarios()"></select></div>
+      <div class="fld"><label>Usuario</label><input id="f-usuario" placeholder="Nombre o email…" autocomplete="off" oninput="renderUsuarios()"></div>
+      <button class="btn-sm" onclick="limpiarFiltrosUsuarios()">Limpiar filtros</button>
+    </div>
     <table id="tbl-usuarios"><thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Permisos</th><th></th></tr></thead><tbody></tbody></table>
   </div>
 
@@ -163,6 +169,79 @@ function renderRoles(){
   }
 }
 
+// ¿Este usuario tiene algún tipo de acceso a la empresa indicada?
+// admin_general: acceso total, siempre true. admin_cliente: implícito a
+// todas las empresas de su propio cliente. usuario: solo si tiene una fila
+// en permisos para esa empresa puntual.
+function usuarioTieneAccesoEmpresa(u, empresaId){
+  if(!empresaId) return true;
+  if(u.rol==='admin_general') return true;
+  if(u.rol==='admin_cliente'){
+    for(var i=0;i<_empresas.length;i++){
+      if(_empresas[i].id===empresaId) return _empresas[i].clienteId===u.clienteId;
+    }
+    return false;
+  }
+  for(var j=0;j<_permisos.length;j++){
+    if(_permisos[j].usuarioId===u.id && _permisos[j].empresaId===empresaId) return true;
+  }
+  return false;
+}
+
+// Empresas que puede ofrecer el filtro de Empresa: las del cliente elegido en
+// el filtro de Cliente (admin_general) o las del propio cliente (admin_cliente).
+function empresasParaFiltro(){
+  var esAdminGeneral=CTX && CTX.usuario.rol==='admin_general';
+  var filtroCliente=esAdminGeneral ? (document.getElementById('f-cliente')||{}).value : (CTX && CTX.usuario.clienteId);
+  if(!filtroCliente) return esAdminGeneral ? _empresas : _empresas.filter(function(e){ return e.clienteId===filtroCliente; });
+  return _empresas.filter(function(e){ return e.clienteId===filtroCliente; });
+}
+
+function poblarFiltrosUsuarios(){
+  var esAdminGeneral=CTX && CTX.usuario.rol==='admin_general';
+  var fldCliente=document.getElementById('fld-f-cliente');
+  if(fldCliente) fldCliente.style.display=esAdminGeneral?'':'none';
+
+  var selCli=document.getElementById('f-cliente');
+  var prevCli=selCli.value;
+  selCli.innerHTML='<option value="">Todos los clientes</option>';
+  for(var i=0;i<_clientes.length;i++){
+    var oc=document.createElement('option'); oc.value=_clientes[i].id; oc.textContent=_clientes[i].nombre;
+    selCli.appendChild(oc);
+  }
+  var cliSigueValido=false;
+  for(var ci=0;ci<_clientes.length;ci++){ if(_clientes[ci].id===prevCli) cliSigueValido=true; }
+  selCli.value=cliSigueValido?prevCli:'';
+
+  poblarFiltroEmpresa();
+}
+
+function poblarFiltroEmpresa(){
+  var selEmp=document.getElementById('f-empresa');
+  var prevEmp=selEmp.value;
+  var emps=empresasParaFiltro();
+  selEmp.innerHTML='<option value="">Todas las empresas</option>';
+  for(var j=0;j<emps.length;j++){
+    var oe=document.createElement('option'); oe.value=emps[j].id; oe.textContent=emps[j].razonSocial;
+    selEmp.appendChild(oe);
+  }
+  var empSigueValida=false;
+  for(var k=0;k<emps.length;k++){ if(emps[k].id===prevEmp) empSigueValida=true; }
+  selEmp.value=empSigueValida?prevEmp:'';
+}
+
+function onCambioFiltroCliente(){
+  poblarFiltroEmpresa();
+  renderUsuarios();
+}
+
+function limpiarFiltrosUsuarios(){
+  document.getElementById('f-cliente').value='';
+  document.getElementById('f-usuario').value='';
+  poblarFiltroEmpresa();
+  renderUsuarios();
+}
+
 function renderUsuarios(){
   var nombreEmp={};
   for(var e=0;e<_empresas.length;e++) nombreEmp[_empresas[e].id]=_empresas[e].razonSocial;
@@ -171,9 +250,22 @@ function renderUsuarios(){
     ? _usuarios.filter(function(u){ return u.clienteId===CTX.usuario.clienteId; })
     : _usuarios;
 
+  // Filtros de la lista (no afectan el selector de "Asignar/editar permiso",
+  // que sigue ofreciendo todos los usuarios dentro del alcance del admin).
+  var filtroCliente=(CTX && CTX.usuario.rol==='admin_general') ? document.getElementById('f-cliente').value : '';
+  var filtroEmpresa=document.getElementById('f-empresa').value;
+  var filtroTexto=(document.getElementById('f-usuario').value||'').trim().toLowerCase();
+
+  var usFiltrados=us;
+  if(filtroCliente) usFiltrados=usFiltrados.filter(function(u){ return u.clienteId===filtroCliente; });
+  if(filtroEmpresa) usFiltrados=usFiltrados.filter(function(u){ return usuarioTieneAccesoEmpresa(u,filtroEmpresa); });
+  if(filtroTexto) usFiltrados=usFiltrados.filter(function(u){
+    return (u.nombre||'').toLowerCase().indexOf(filtroTexto)>=0 || (u.email||'').toLowerCase().indexOf(filtroTexto)>=0;
+  });
+
   var tb=document.querySelector('#tbl-usuarios tbody'); tb.innerHTML='';
-  for(var i=0;i<us.length;i++){
-    var u=us[i];
+  for(var i=0;i<usFiltrados.length;i++){
+    var u=usFiltrados[i];
     var permisosTxt='';
     if(u.rol==='admin_general'){ permisosTxt='<span class="bdg">acceso total</span>'; }
     else if(u.rol==='admin_cliente'){ permisosTxt='<span class="bdg">administra todo su cliente</span>'; }
@@ -434,6 +526,7 @@ function borrarPermisoActual(){
         :'Estás viendo solo los usuarios de tu cliente.';
     }
     recargarTodo(function(){
+      poblarFiltrosUsuarios();
       renderUsuarios();
       renderRoles();
       precargar();
