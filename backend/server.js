@@ -268,6 +268,7 @@ const COLECCIONES = {
   'ambientes':         { tabla: 'ambientes',         porEmpresa: true  },
   'actividades':     { tabla: 'actividades',     porEmpresa: true  },
   'campanias':       { tabla: 'campanias',       porEmpresa: false },
+  'cultivos-default':{ tabla: 'cultivos_default', porEmpresa: false },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -679,6 +680,12 @@ app.get('/api/maestros/:coleccion', async (req, res) => {
       q = pool.query('SELECT id, codigo, descripcion, orden, activo FROM formulaciones WHERE activo = true ORDER BY orden');
     } else if (cfg.tabla === 'principios_activos') {
       q = pool.query('SELECT id, nombre, eiq, uso, activo FROM principios_activos WHERE activo = true ORDER BY nombre');
+    } else if (cfg.tabla === 'cultivos_default') {
+      q = pool.query(
+        `SELECT id, sigla, nombre, es_cultivo AS "esCultivo", actividad,
+                especie_id AS "especieId", graminea, default2da, activo
+           FROM cultivos_default WHERE activo = true ORDER BY nombre`
+      );
     } else {
       return res.status(500).json({ error: 'Tabla global sin query definida' });
     }
@@ -1211,12 +1218,22 @@ async function _upsertGlobal(tabla, obj) {
        ON CONFLICT (id) DO UPDATE SET nombre=$2, eiq=$3, uso=$4, activo=$5`,
       [obj.id, obj.nombre, obj.eiq != null ? obj.eiq : null, obj.uso || null, obj.activo !== false]
     );
+  } else if (tabla === 'cultivos_default') {
+    await pool.query(
+      `INSERT INTO cultivos_default (id, sigla, nombre, es_cultivo, actividad, especie_id, graminea, default2da, activo)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (id) DO UPDATE
+         SET sigla=$2, nombre=$3, es_cultivo=$4, actividad=$5, especie_id=$6, graminea=$7, default2da=$8, activo=$9`,
+      [obj.id, obj.sigla, obj.nombre, obj.esCultivo !== false, obj.actividad || null,
+       obj.especieId || null, obj.graminea == null ? null : !!obj.graminea, !!obj.default2da, obj.activo !== false]
+    );
   }
 }
 
 async function _deleteGlobal(tabla, id) {
   const tablas = ['labores','especies','unidades','modos_accion','tipos_proveedor','campanias',
-                  'categorias_insumo','usos_actividad','tenencias','formulaciones','principios_activos'];
+                  'categorias_insumo','usos_actividad','tenencias','formulaciones','principios_activos',
+                  'cultivos_default'];
   if (tablas.indexOf(tabla) < 0) throw new Error('Tabla no permitida: ' + tabla);
   await pool.query(`DELETE FROM ${tabla} WHERE id = $1`, [id]);
 }
@@ -1431,46 +1448,18 @@ app.get('/api/empresas', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
-// Catálogo default de cultivos/usos del suelo que se siembra en tipos_actividad
-// al dar de alta una empresa nueva (mismo catálogo que se usó para Estancia Don
-// Eduardo — ver database/init.sql — y que antes vivía como fallback hardcodeado
-// en tablero_uso_suelo.html). especieId apunta al catálogo global `especies`.
-const CULTIVOS_DEFAULT = [
-  { sig:'tr',    sigla:'Tr',    nombre:'Trigo',                     actividad:'AGR', especieId:'esp_2', graminea:null,  default2da:false, esCultivo:true  },
-  { sig:'cb',    sigla:'Cb',    nombre:'Cebada',                    actividad:'AGR', especieId:'esp_5', graminea:null,  default2da:false, esCultivo:true  },
-  { sig:'av',    sigla:'Av',    nombre:'Avena',                     actividad:'AGR', especieId:'esp_6', graminea:null,  default2da:false, esCultivo:true  },
-  { sig:'g',     sigla:'G',     nombre:'Girasol',                   actividad:'AGR', especieId:'esp_4', graminea:null,  default2da:false, esCultivo:true  },
-  { sig:'mz',    sigla:'Mz',    nombre:'Maíz',                      actividad:'AGR', especieId:'esp_1', graminea:null,  default2da:false, esCultivo:true  },
-  { sig:'mzt',   sigla:'MzT',   nombre:'Maíz tardío',               actividad:'AGR', especieId:'esp_1', graminea:null,  default2da:false, esCultivo:true  },
-  { sig:'mz2',   sigla:'Mz2ª',  nombre:'Maíz 2ª',                   actividad:'AGR', especieId:'esp_1', graminea:null,  default2da:true,  esCultivo:true  },
-  { sig:'mzspe', sigla:'MzSPE', nombre:'Maíz Silo PE',              actividad:'AGR', especieId:'esp_7', graminea:null,  default2da:false, esCultivo:true  },
-  { sig:'sj1',   sigla:'Sj1ª',  nombre:'Soja 1ª',                   actividad:'AGR', especieId:'esp_0', graminea:false, default2da:false, esCultivo:true  },
-  { sig:'sj2',   sigla:'Sj2ª',  nombre:'Soja 2ª',                   actividad:'AGR', especieId:'esp_0', graminea:false, default2da:true,  esCultivo:true  },
-  { sig:'sg',    sigla:'Sg',    nombre:'Sorgo',                     actividad:'AGR', especieId:'esp_3', graminea:true,  default2da:false, esCultivo:true  },
-  { sig:'csvg',  sigla:'CS-VG', nombre:'Cv. Servicio Vicia-Gram.',  actividad:'AGR', especieId:null,    graminea:null,  default2da:false, esCultivo:true  },
-  { sig:'csg',   sigla:'CS-G',  nombre:'Cv. Servicio Gramínea',     actividad:'AGR', especieId:null,    graminea:true,  default2da:false, esCultivo:true  },
-  { sig:'vi',    sigla:'VI',    nombre:'Verdeo invierno',           actividad:'GAN', especieId:null,    graminea:true,  default2da:true,  esCultivo:true  },
-  { sig:'mzp',   sigla:'MzP',   nombre:'Maíz pastoreo',             actividad:'GAN', especieId:null,    graminea:true,  default2da:false, esCultivo:true  },
-  { sig:'sgf',   sigla:'SgF',   nombre:'Sorgo forrajero',           actividad:'GAN', especieId:null,    graminea:true,  default2da:false, esCultivo:true  },
-  { sig:'mzd',   sigla:'MzD',   nombre:'Maíz pastoreo diferido',    actividad:'GAN', especieId:null,    graminea:true,  default2da:false, esCultivo:true  },
-  { sig:'sgd',   sigla:'SgD',   nombre:'Sorgo pastoreo diferido',   actividad:'GAN', especieId:null,    graminea:true,  default2da:false, esCultivo:true  },
-  { sig:'prg',   sigla:'PRG',   nombre:'Promoción Rye Grass',       actividad:'GAN', especieId:null,    graminea:true,  default2da:false, esCultivo:true  },
-  { sig:'pi',    sigla:'PI',    nombre:'Pradera implantada',        actividad:'GAN', especieId:null,    graminea:true,  default2da:true,  esCultivo:true  },
-  { sig:'ppfe',  sigla:'PPFe',  nombre:'Pradera Festuca',           actividad:'GAN', especieId:null,    graminea:true,  default2da:false, esCultivo:true  },
-  { sig:'ppalf', sigla:'PPAlf', nombre:'Pradera Alfalfa',           actividad:'GAN', especieId:null,    graminea:false, default2da:false, esCultivo:true  },
-  { sig:'ppag',  sigla:'PPAg',  nombre:'Pradera Agropiro',          actividad:'GAN', especieId:null,    graminea:true,  default2da:false, esCultivo:true  },
-  { sig:'pd',    sigla:'PD',    nombre:'Pradera degradada',         actividad:'GAN', especieId:null,    graminea:null,  default2da:false, esCultivo:true  },
-  { sig:'cn',    sigla:'CN',    nombre:'Campo natural',             actividad:'GAN', especieId:null,    graminea:null,  default2da:false, esCultivo:true  },
-  { sig:'cnd',   sigla:'CND',   nombre:'Campo natural degradado',   actividad:'GAN', especieId:null,    graminea:null,  default2da:false, esCultivo:true  },
-  { sig:'arrto', sigla:'ARRTO', nombre:'Arrendamiento',             actividad:null,  especieId:null,    graminea:null,  default2da:false, esCultivo:false },
-];
-
-// Siembra el catálogo default de cultivos/usos del suelo para una empresa
+// Siembra el catálogo default de cultivos/usos del suelo (tabla global
+// cultivos_default, editable en Maestros por admin_general) para una empresa
 // recién creada — no rompe el alta si falla (empresa igual queda creada).
 async function sembrarCultivosDefault(empresaId) {
-  for (const c of CULTIVOS_DEFAULT) {
+  const r = await pool.query(
+    `SELECT id, sigla, nombre, es_cultivo AS "esCultivo", actividad,
+            especie_id AS "especieId", graminea, default2da
+       FROM cultivos_default WHERE activo = true`
+  );
+  for (const c of r.rows) {
     const datos = {
-      id: 'ta_' + empresaId + '_' + c.sig, empresaId, nombre: c.nombre, sigla: c.sigla,
+      id: 'ta_' + empresaId + '_' + c.id, empresaId, nombre: c.nombre, sigla: c.sigla,
       esCultivo: c.esCultivo, actividad: c.actividad, especieId: c.especieId,
       graminea: c.graminea, default2da: c.default2da, activo: true,
     };

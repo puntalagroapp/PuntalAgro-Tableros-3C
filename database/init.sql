@@ -304,6 +304,22 @@ CREATE TABLE tipos_actividad (
 CREATE INDEX idx_tipos_actividad_empresa ON tipos_actividad(empresa_id);
 CREATE UNIQUE INDEX uq_tipos_actividad_nombre_empresa ON tipos_actividad (empresa_id, trim(lower(datos->>'nombre')));
 
+-- Catálogo default de cultivos/usos del suelo (global, editable por
+-- admin_general en Maestros): plantilla que se copia a tipos_actividad de
+-- cada empresa al darse de alta (ver sembrarCultivosDefault() en server.js).
+CREATE TABLE cultivos_default (
+    id         TEXT PRIMARY KEY,
+    sigla      TEXT NOT NULL,
+    nombre     TEXT NOT NULL,
+    es_cultivo BOOLEAN NOT NULL DEFAULT true,
+    actividad  TEXT,               -- código de uso: AGR/GAN/DOB (ver usos_actividad)
+    especie_id TEXT REFERENCES especies(id),
+    graminea   BOOLEAN,
+    default2da BOOLEAN NOT NULL DEFAULT false,
+    activo     BOOLEAN NOT NULL DEFAULT true
+);
+CREATE UNIQUE INDEX uq_cultivos_default_sigla ON cultivos_default (trim(upper(sigla)));
+
 -- Ambientes (clasificación de lotes por potencial productivo, por empresa;
 -- código, descripción, tipo sugerido AGR/GAN/OTRO y color de UI)
 CREATE TABLE ambientes (
@@ -553,6 +569,37 @@ INSERT INTO usos_actividad (id, codigo, label, color, activo) VALUES
     ('uso_agr', 'AGR', 'Agricultura',      '#4A6533', true),
     ('uso_gan', 'GAN', 'Ganadería',        '#C8642D', true),
     ('uso_dob', 'DOB', 'Doble propósito',  '#A86A1F', true);
+
+-- Catálogo default de cultivos/usos del suelo: se copia a tipos_actividad de
+-- cada empresa nueva al darse de alta (ver sembrarCultivosDefault() en server.js).
+INSERT INTO cultivos_default (id, sigla, nombre, es_cultivo, actividad, especie_id, graminea, default2da, activo) VALUES
+    ('cd_tr',    'Tr',    'Trigo',                    true,  'AGR', 'esp_2', null,  false, true),
+    ('cd_cb',    'Cb',    'Cebada',                    true,  'AGR', 'esp_5', null,  false, true),
+    ('cd_av',    'Av',    'Avena',                     true,  'AGR', 'esp_6', null,  false, true),
+    ('cd_g',     'G',     'Girasol',                   true,  'AGR', 'esp_4', null,  false, true),
+    ('cd_mz',    'Mz',    'Maíz',                      true,  'AGR', 'esp_1', null,  false, true),
+    ('cd_mzt',   'MzT',   'Maíz tardío',               true,  'AGR', 'esp_1', null,  false, true),
+    ('cd_mz2',   'Mz2ª',  'Maíz 2ª',                   true,  'AGR', 'esp_1', null,  true,  true),
+    ('cd_mzspe', 'MzSPE', 'Maíz Silo PE',              true,  'AGR', 'esp_7', null,  false, true),
+    ('cd_sj1',   'Sj1ª',  'Soja 1ª',                   true,  'AGR', 'esp_0', false, false, true),
+    ('cd_sj2',   'Sj2ª',  'Soja 2ª',                   true,  'AGR', 'esp_0', false, true,  true),
+    ('cd_sg',    'Sg',    'Sorgo',                     true,  'AGR', 'esp_3', true,  false, true),
+    ('cd_csvg',  'CS-VG', 'Cv. Servicio Vicia-Gram.',  true,  'AGR', null,    null,  false, true),
+    ('cd_csg',   'CS-G',  'Cv. Servicio Gramínea',     true,  'AGR', null,    true,  false, true),
+    ('cd_vi',    'VI',    'Verdeo invierno',           true,  'GAN', null,    true,  true,  true),
+    ('cd_mzp',   'MzP',   'Maíz pastoreo',             true,  'GAN', null,    true,  false, true),
+    ('cd_sgf',   'SgF',   'Sorgo forrajero',           true,  'GAN', null,    true,  false, true),
+    ('cd_mzd',   'MzD',   'Maíz pastoreo diferido',    true,  'GAN', null,    true,  false, true),
+    ('cd_sgd',   'SgD',   'Sorgo pastoreo diferido',   true,  'GAN', null,    true,  false, true),
+    ('cd_prg',   'PRG',   'Promoción Rye Grass',       true,  'GAN', null,    true,  false, true),
+    ('cd_pi',    'PI',    'Pradera implantada',        true,  'GAN', null,    true,  true,  true),
+    ('cd_ppfe',  'PPFe',  'Pradera Festuca',           true,  'GAN', null,    true,  false, true),
+    ('cd_ppalf', 'PPAlf', 'Pradera Alfalfa',           true,  'GAN', null,    false, false, true),
+    ('cd_ppag',  'PPAg',  'Pradera Agropiro',          true,  'GAN', null,    true,  false, true),
+    ('cd_pd',    'PD',    'Pradera degradada',         true,  'GAN', null,    null,  false, true),
+    ('cd_cn',    'CN',    'Campo natural',             true,  'GAN', null,    null,  false, true),
+    ('cd_cnd',   'CND',   'Campo natural degradado',   true,  'GAN', null,    null,  false, true),
+    ('cd_arrto', 'ARRTO', 'Arrendamiento',             false, null,  null,    null,  false, true);
 
 INSERT INTO tenencias (id, nombre, activo) VALUES
     ('ten_prop', 'Propio',                true),
