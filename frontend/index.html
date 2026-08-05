@@ -188,7 +188,7 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
     <div class="block-title">Administración<span class="ln" style="background:var(--olive)"></span></div>
     <div class="grid" style="margin-top:14px">
 
-      <div class="tool t-est">
+      <div class="tool t-est" id="card-estructura-clientes" style="display:none">
         <a class="tool-main" href="administracion.html">
           <span class="tool-name">Estructura de Clientes</span>
           <span class="tool-right"><span class="tool-tag tag-ins">Configuración</span><svg class="tool-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
@@ -197,7 +197,7 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
         <div class="tool-detail">Alta y edición de la estructura Cliente → Empresa → Campo, base sobre la que se reparten los permisos de cada usuario.</div>
       </div>
 
-      <div class="tool t-mae">
+      <div class="tool t-mae" id="card-maestros" style="display:none">
         <a class="tool-main" href="maestros.html">
           <span class="tool-name">Maestros / Padrones</span>
           <span class="tool-right"><span class="tool-tag tag-ins">Configuración</span><svg class="tool-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
@@ -206,7 +206,7 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
         <div class="tool-detail">Catálogos base que consumen los demás módulos: proveedores y clientes, choferes, depósitos y acopios, labores, cultivos, especies y unidades.</div>
       </div>
 
-      <div class="tool t-usu">
+      <div class="tool t-usu" id="card-usuarios-permisos" style="display:none">
         <a class="tool-main" href="usuarios.html">
           <span class="tool-name">Usuarios y Permisos</span>
           <span class="tool-right"><span class="tool-tag tag-ins">Configuración</span><svg class="tool-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
@@ -225,6 +225,7 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
       </div>
 
     </div>
+    <div class="empty" id="empty-admin" style="display:none">No tenés opciones de administración habilitadas.</div>
   </div>
 
 </main>
@@ -324,8 +325,31 @@ function aplicarCtx(ctx) {
   filtrarGrupo('grid-dec-propios', 'empty-dec-propios', ctx.permiso);
   filtrarGrupo('grid-gestion',     'empty-gestion',     ctx.permiso);
 
+  // Administración: cada tarjeta según lo que el rol/nivel realmente puede hacer,
+  // no simplemente "está logueado". Un 'usuario' (aunque sea nivel='administrar'
+  // en su empresa) no crea Clientes/Empresas/Campos — esa pantalla lo rebota
+  // igual, así que ni se le muestra el link.
+  var esAdminEstructura = ctx.usuario.rol === 'admin_general' || ctx.usuario.rol === 'admin_cliente';
+  // 'usuario' administrador de empresa: solo si tiene una empresa activa Y es
+  // nivel='administrar' ahí (mismo criterio que usuarios.html/server.js).
+  var esAdminUsuarios = esAdminEstructura || (ctx.usuario.rol === 'usuario' && !!ctx.empresaActivaId && nivel === 'administrar');
+  // Maestros es de solo lectura para nivel='ver'/'cargar' y editable para
+  // 'administrar' — pero visible para cualquiera que tenga al menos una
+  // empresa asignada (sin eso, no hay nada que ver).
+  var puedeVerMaestros = esAdminEstructura || !!ctx.empresaActivaId;
+
+  var cardEstructura = document.getElementById('card-estructura-clientes');
+  if (cardEstructura) cardEstructura.style.display = esAdminEstructura ? '' : 'none';
+  var cardMaestros = document.getElementById('card-maestros');
+  if (cardMaestros) cardMaestros.style.display = puedeVerMaestros ? '' : 'none';
+  var cardUsuarios = document.getElementById('card-usuarios-permisos');
+  if (cardUsuarios) cardUsuarios.style.display = esAdminUsuarios ? '' : 'none';
   var cardHerrExt = document.getElementById('card-herramientas-externas');
   if (cardHerrExt) cardHerrExt.style.display = (ctx.usuario.rol === 'admin_general') ? '' : 'none';
+
+  var visiblesAdmin = esAdminEstructura || puedeVerMaestros || esAdminUsuarios || ctx.usuario.rol === 'admin_general';
+  var emptyAdmin = document.getElementById('empty-admin');
+  if (emptyAdmin) emptyAdmin.style.display = visiblesAdmin ? 'none' : 'block';
 
   document.getElementById('fts2').textContent = new Date().toLocaleString('es-AR');
 }
