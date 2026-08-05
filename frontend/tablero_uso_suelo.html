@@ -463,7 +463,6 @@ tbody tr.lote-start:first-child td{border-top:none}
       <div class="ct-actions">
         <button class="btn-sm" onclick="abrirConciliar()">⇄ Conciliar superficies</button>
         <button class="btn-sm" onclick="exportPlanXLSX()">↓ Excel</button>
-        <button class="btn-sm" onclick="abrirExportCamp()">↓ Excel (multi-campaña)</button>
       </div>
     </div>
     <div class="filtro-resumen" id="ctFiltrosPlan" style="display:none"></div>
@@ -682,20 +681,20 @@ tbody tr.lote-start:first-child td{border-top:none}
   </div>
 </div>
 
-<!-- Modal: exportar el Plan de uso de varias campañas en un mismo Excel -->
+<!-- MODAL: Selección de CAMPAÑAS para exportar -->
 <div class="modal-bg" id="modalExportCamp">
-  <div class="modal">
-    <div class="modal-title">Exportar campañas a Excel</div>
-    <div class="modal-sub">Elegí qué campañas incluir. Cada una se exporta con el mismo detalle que "↓ Excel" (una fila por actividad).</div>
-    <div id="expCampList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px"></div>
-    <div class="modal-row" style="margin-top:-6px">
-      <span class="modal-lbl"></span>
-      <button class="btn-sm" onclick="mecTodas()">Todas</button>
-      <button class="btn-sm" onclick="mecNinguna()">Ninguna</button>
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">Exportar a Excel</div>
+    <div class="modal-sub" id="mecSub">Elegí qué campañas incluir. Todas van en una sola hoja, con una columna "Campaña".</div>
+    <div style="display:flex;gap:8px;margin:2px 0 8px">
+      <button class="btn-sm" onclick="mecTodas(true)">Todas</button>
+      <button class="btn-sm" onclick="mecTodas(false)">Ninguna</button>
     </div>
+    <div id="mecLista" style="max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:6px 10px"></div>
+    <div class="modal-warn" id="mecWarn"></div>
     <div class="modal-actions">
-      <button class="btn-sm" onclick="closeExportCampModal()">Cancelar</button>
-      <button class="btn-sm primary" onclick="confirmExportCamp()">Exportar</button>
+      <button class="modal-cancel" onclick="closeExportCampModal()">Cancelar</button>
+      <button class="modal-ok" onclick="confirmExportCamp()">Exportar</button>
     </div>
   </div>
 </div>
@@ -3981,78 +3980,78 @@ function campaniasConDatos(lts){
   return conDatos;
 }
 
+// ────────────────────────────────────────────────────────────
+// EXPORT: selección de campañas
+// El export de Plan / Histórico pregunta qué campañas incluir. Todas las
+// campañas elegidas salen en UNA sola hoja, con una columna "Campaña"
+// (permite armar tablas dinámicas sobre el archivo).
+// El Padrón no participa: sus datos son del lote y no tienen dimensión campaña.
+// ────────────────────────────────────────────────────────────
+var exportCampCb = null;   // callback que recibe el array de campañas elegidas
+
+// Abre el modal. preSel: array de campañas pretildadas. cb: recibe las elegidas.
+function abrirExportCamp(preSel, cb, subtitulo){
+  exportCampCb = cb;
+  var sel = {};
+  for(var i=0;i<(preSel||[]).length;i++) sel[preSel[i]] = true;
+  var html = '';
+  for(var c=0;c<CAMPANIAS.length;c++){
+    var camp = CAMPANIAS[c];
+    var id = 'mecCb_'+camp.replace(/[^A-Za-z0-9]/g,'_');
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:13px">'
+          + '<input type="checkbox" class="mec-cb" value="'+camp+'" id="'+id+'"'+(sel[camp]?' checked':'')+' style="accent-color:#4A6533;width:15px;height:15px;cursor:pointer">'
+          + '<span>'+camp+(camp===state.campania?' <span style="color:var(--muted);font-size:11px">(activa)</span>':'')+'</span>'
+          + '</label>';
+  }
+  document.getElementById('mecLista').innerHTML = html;
+  document.getElementById('mecSub').textContent = subtitulo || 'Elegí qué campañas incluir. Todas van en una sola hoja, con una columna "Campaña".';
+  document.getElementById('mecWarn').style.display = 'none';
+  document.getElementById('modalExportCamp').classList.add('on');
+}
+function closeExportCampModal(){
+  document.getElementById('modalExportCamp').classList.remove('on');
+  exportCampCb = null;
+}
+function mecTodas(on){
+  var cbs = document.querySelectorAll('#mecLista .mec-cb');
+  for(var i=0;i<cbs.length;i++) cbs[i].checked = !!on;
+}
+function mecSeleccionadas(){
+  var out = [], cbs = document.querySelectorAll('#mecLista .mec-cb');
+  for(var i=0;i<cbs.length;i++){ if(cbs[i].checked) out.push(cbs[i].value); }
+  return out;
+}
+function confirmExportCamp(){
+  var camps = mecSeleccionadas();
+  var warn = document.getElementById('mecWarn');
+  if(!camps.length){
+    warn.textContent = 'Elegí al menos una campaña.';
+    warn.style.display = 'block';
+    return;
+  }
+  var cb = exportCampCb;
+  closeExportCampModal();
+  if(cb) cb(camps);
+}
+
 function exportPlanXLSX(){
+  // Pregunta qué campañas incluir; la activa viene pretildada (comportamiento previo).
+  abrirExportCamp([state.campania], exportPlanXLSXCamps,
+    'Elegí qué campañas incluir en el plan. Todas van en una sola hoja, con una columna "Campaña".');
+}
+function exportPlanXLSXCamps(camps){
   var lts = sortLotes(lotesFiltrados());
   // Una fila por ACTIVIDAD (lote+cultivo+campaña), repitiendo datos del lote.
   var headers = ['Campo','Lote','Ambiente','Descripción ambiente','Sup lote (ha)',
                  'Campaña','Cultivo/Uso','Sigla','Sup actividad (ha)','2ª','Sup física lote (ha)','Sup sembrada lote (ha)','% uso lote'];
   var rows = [];
-  for(var i=0;i<lts.length;i++){
-    var l = lts[i];
-    var acts = actsDe(l, state.campania);
-    var fis = supFisica(acts), semb = supSembrada(acts);
-    var pct = (l.s>0) ? Math.round(fis/l.s*1000)/10 : 0;
-    if(!acts.length){
-      rows.push([l.c||'', l.l, l.a||'', ambDesc(l.a||'')||'', l.s||0, state.campania, '', '', '', '', 0, 0, 0]);
-      continue;
-    }
-    for(var j=0;j<acts.length;j++){
-      var a = acts[j];
-      rows.push([l.c||'', l.l, l.a||'', ambDesc(l.a||'')||'', l.s||0,
-                 state.campania, cultName(a.c), a.c, a.ha!=null?a.ha:'', a.seg?'Sí':'', fis, semb, pct]);
-    }
-  }
-  // Fila TOTAL
-  var totFis=0, totSemb=0, totSupLote=0;
-  for(var i=0;i<lts.length;i++){
-    var ac = actsDe(lts[i], state.campania);
-    totFis += supFisica(ac); totSemb += supSembrada(ac); totSupLote += lts[i].s||0;
-  }
-  rows.push(['', 'TOTAL', '', '', totSupLote, state.campania, '', '', '', '', totFis, totSemb, totSupLote>0?Math.round(totFis/totSupLote*1000)/10:0]);
-
-  downloadXLSX('Plan_uso_suelo_'+state.campania+'_'+state.campo+'.xlsx', 'Plan '+state.campania, headers, rows);
-}
-
-// ────────────────────────────────────────────────────────────
-// EXPORT MULTI-CAMPAÑA (Plan): un solo Excel con varias campañas juntas,
-// misma fila-por-actividad que exportPlanXLSX pero repetida por cada campaña elegida.
-// ────────────────────────────────────────────────────────────
-function abrirExportCamp(){
-  var conDatos = campaniasConDatos(sortLotes(lotesFiltrados()));
-  var opts = conDatos.length ? conDatos : CAMPANIAS;
-  var html = '';
-  for(var i=0;i<opts.length;i++){
-    var c = opts[i];
-    html += '<label style="display:flex;align-items:center;gap:5px;font-size:12px">'+
-      '<input type="checkbox" class="expCampChk" value="'+c+'" '+(c===state.campania?'checked':'')+'> '+c+'</label>';
-  }
-  document.getElementById('expCampList').innerHTML = html;
-  document.getElementById('modalExportCamp').classList.add('on');
-}
-function closeExportCampModal(){ document.getElementById('modalExportCamp').classList.remove('on'); }
-function mecTodas(){
-  document.querySelectorAll('.expCampChk').forEach(function(c){ c.checked = true; });
-}
-function mecNinguna(){
-  document.querySelectorAll('.expCampChk').forEach(function(c){ c.checked = false; });
-}
-function confirmExportCamp(){
-  var camps = [];
-  document.querySelectorAll('.expCampChk:checked').forEach(function(c){ camps.push(c.value); });
-  if(!camps.length){ alert('Elegí al menos una campaña.'); return; }
-  closeExportCampModal();
-  exportPlanXLSXCamps(camps);
-}
-function exportPlanXLSXCamps(camps){
-  var lts = sortLotes(lotesFiltrados());
-  var headers = ['Campo','Lote','Ambiente','Descripción ambiente','Sup lote (ha)',
-                 'Campaña','Cultivo/Uso','Sigla','Sup actividad (ha)','2ª','Sup física lote (ha)','Sup sembrada lote (ha)','% uso lote'];
-  var rows = [];
-  for(var c=0;c<camps.length;c++){
-    var camp = camps[c];
+  for(var ci=0; ci<camps.length; ci++){
+    var camp = camps[ci];
     for(var i=0;i<lts.length;i++){
       var l = lts[i];
-      var acts = actsDe(l, camp);
+      // Los filtros de actividad ("solo filtrado") solo recortan la campaña activa;
+      // para las demás se exporta la actividad completa del lote.
+      var acts = (camp === state.campania) ? actsVisibles(l, camp) : actsDe(l, camp);
       var fis = supFisica(acts), semb = supSembrada(acts);
       var pct = (l.s>0) ? Math.round(fis/l.s*1000)/10 : 0;
       if(!acts.length){
@@ -4066,27 +4065,48 @@ function exportPlanXLSXCamps(camps){
       }
     }
   }
-  downloadXLSX('Plan_uso_suelo_multi_'+state.campo+'.xlsx', 'Plan multi-campaña', headers, rows);
+  // Fila TOTAL por campaña (con varias campañas, un único total sería ambiguo)
+  for(var ct=0; ct<camps.length; ct++){
+    var cmp = camps[ct];
+    var totFis=0, totSemb=0, totSupLote=0;
+    for(var k=0;k<lts.length;k++){
+      var ac = actsDe(lts[k], cmp);
+      totFis += supFisica(ac); totSemb += supSembrada(ac); totSupLote += lts[k].s||0;
+    }
+    rows.push(['', 'TOTAL '+cmp, '', '', totSupLote, cmp, '', '', '', '', totFis, totSemb, totSupLote>0?Math.round(totFis/totSupLote*1000)/10:0]);
+  }
+  var sufCamp = camps.length===1 ? camps[0] : (camps.length+'campanias');
+  var nomHoja = camps.length===1 ? ('Plan '+camps[0]) : ('Plan '+camps.length+' campañas');
+  downloadXLSX('Plan_uso_suelo_'+sufCamp+'_'+state.campo+'.xlsx', nomHoja, headers, rows);
 }
 function exportPadronXLSX(){
   var lts = sortLotes(lotesFiltrados());
-  var headers = ['Campo','Lote','Ambiente','Sup (ha)','Campañas con plan'];
+  // El padrón es el maestro de lotes: sus datos no dependen de la campaña, por eso
+  // no ofrece selección múltiple. Igual lleva la columna "Campaña" con la campaña de
+  // contexto, para que el archivo sea consistente con el resto de los exports.
+  var headers = ['Campaña (contexto)','Campo','Lote','Ambiente','Sup (ha)','Campañas con plan'];
   var rows = [];
   for(var i=0;i<lts.length;i++){
     var l=lts[i];
     var nCamps = Object.keys(l.p).filter(function(k){return l.p[k] && l.p[k].length;}).length;
-    rows.push([l.c||'', l.l, l.a||'', l.s||0, nCamps+'/6']);
+    rows.push([state.campania, l.c||'', l.l, l.a||'', l.s||0, nCamps+'/'+CAMPANIAS.length]);
   }
   // Fila TOTAL al pie
   var totSup = lts.reduce(function(a,b){return a+(b.s||0);},0);
-  rows.push(['', 'TOTAL', '', totSup, '']);
+  rows.push([state.campania, '', 'TOTAL', '', totSup, '']);
   downloadXLSX('Padron_lotes_'+state.campo+'.xlsx', 'Padrón', headers, rows);
 }
 
-// Export del Histórico: matriz completa con todas las campañas (1ª/2ª por columna)
+// Export del Histórico: matriz completa con todas las campañas
 function exportHistoricoXLSX(){
+  var conDatos = campaniasConDatos(sortLotes(lotesFiltrados()));
+  // Pretilda todas las campañas con datos: mantiene el comportamiento previo si el
+  // usuario acepta sin tocar nada, y permite acotar a un subconjunto.
+  abrirExportCamp(conDatos, exportHistoricoXLSXCamps,
+    'Elegí qué campañas incluir en el histórico. Todas van en una sola hoja, con una columna "Campaña".');
+}
+function exportHistoricoXLSXCamps(camps){
   var lts = sortLotes(lotesFiltrados());
-  var camps = campaniasConDatos(lts);
   // Una fila por ACTIVIDAD (lote+cultivo+campaña), repitiendo datos del lote.
   var headers = ['Campo','Lote','Ambiente','Descripción ambiente','Sup lote (ha)',
                  'Campaña','Cultivo/Uso','Sigla','Sup actividad (ha)','2ª'];
