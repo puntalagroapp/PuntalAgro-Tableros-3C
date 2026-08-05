@@ -178,6 +178,10 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
 .rep-tbl tr.rep-det td.rep-dim .rep-nom{color:var(--muted)}
 .rep-tbl tr.rep-subtot td{background:#F6F8F3;font-weight:600;font-style:italic;border-bottom:1px solid #E3E8DA}
 .rep-tbl tr.rep-subtot td.rep-dim{padding-left:26px;color:#5A6B44}
+tr.hist-subtot td{background:#F4F6F1;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.hist-camp-h{text-align:center;font-size:13px;font-weight:700;color:var(--text);padding:8px 8px}
+.hist-camp-start{border-left:1.5px solid #C5CCD6}
+#view-historico thead th{vertical-align:middle}
 .scroll-x{overflow-x:auto}
 .tot-row td{font-weight:600;background:#F5F7FA!important;border-top:2px solid var(--border)}
 .dimmed{opacity:.45}
@@ -704,6 +708,46 @@ tbody tr.lote-start:first-child td{border-top:none}
   </div>
 </div>
 
+<!-- MODAL: Configurar matriz de rotación (mismo patrón que la tabla de Reportes) -->
+<div class="modal-bg" id="modalConfigHist">
+  <div class="modal">
+    <div class="modal-title">⚙ Configurar tabla</div>
+    <div class="modal-sub">Definí cómo se arma la matriz. Las columnas son siempre las campañas. No afecta a los filtros de arriba.</div>
+    <div class="cfg-row"><label>Filas — Agrupar por</label>
+      <select class="filtro-select" id="cfgHistDim" onchange="sincronizarCfgHistDims('fila')">
+        <option value="lote">Lote</option>
+        <option value="ambiente">Ambiente</option>
+        <option value="campo">Campo</option>
+        <option value="cultivo">Cultivo</option>
+        <option value="uso">Uso</option>
+        <option value="tenencia">Propiedad / Tenencia</option>
+      </select>
+    </div>
+    <div class="cfg-row"><label>Filas — 2ª variable (detallar por)</label>
+      <select class="filtro-select" id="cfgHistDim2" onchange="sincronizarCfgHistDims('desglose')">
+        <option value="">— (sin desglose)</option>
+        <option value="lote">Lote</option>
+        <option value="ambiente">Ambiente</option>
+        <option value="campo">Campo</option>
+        <option value="cultivo">Cultivo</option>
+        <option value="uso">Uso</option>
+        <option value="tenencia">Propiedad / Tenencia</option>
+      </select>
+    </div>
+    <div class="cfg-row"><label>Superficie a mostrar</label>
+      <select class="filtro-select" id="cfgHistValor">
+        <option value="neta">Neta (1ª/2ª)</option>
+        <option value="explotable">Explotable</option>
+        <option value="total">Total</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm" onclick="closeConfigHist()">Cancelar</button>
+      <button class="btn-sm primary" onclick="aplicarConfigHist()">Aplicar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: Selección de CAMPAÑAS para exportar -->
 <div class="modal-bg" id="modalExportCamp">
   <div class="modal" style="max-width:420px">
@@ -726,25 +770,75 @@ tbody tr.lote-start:first-child td{border-top:none}
 <div class="view" id="view-historico">
   <div class="view-actions"><button class="btn-sm btn-pdf" onclick="imprimirVista('historico')">⬇ Bajar PDF</button></div>
   <div class="card">
-    <div class="chd"><span class="ct">Composición por actividad · Proporción del total por campaña</span></div>
-    <div class="legend" id="histLegend"></div>
-    <div class="cw" style="height:300px"><canvas id="chartHist"></canvas></div>
+    <div class="chd">
+      <div class="ct-wrap"><span class="ct">Matriz de rotación · evolución por campaña</span><span class="ct-filtros" id="ctFiltrosRot" style="display:none"></span></div>
+      <div class="ct-actions">
+        <span class="rep-config-resumen" id="histConfigResumen"></span>
+        <button class="btn-sm primary btn-lg" onclick="abrirConfigHist()"><span class="btn-cfg-ico">⚙</span> Configurar tabla</button>
+        <button class="btn-sm" onclick="exportHistoricoXLSX()">↓ Excel</button>
+      </div>
+      <!-- Selects ocultos: son la fuente de verdad de la config; el modal los lee y escribe.
+           Mismo patrón que la tabla dinámica de Reportes. -->
+      <div style="display:none">
+        <select id="histDimFila">
+          <option value="lote">Lote</option>
+          <option value="ambiente" selected>Ambiente</option>
+          <option value="campo">Campo</option>
+          <option value="cultivo">Cultivo</option>
+          <option value="uso">Uso</option>
+          <option value="tenencia">Propiedad / Tenencia</option>
+        </select>
+        <select id="histDimFila2">
+          <option value="">— (sin desglose)</option>
+          <option value="lote">Lote</option>
+          <option value="ambiente">Ambiente</option>
+          <option value="campo">Campo</option>
+          <option value="cultivo">Cultivo</option>
+          <option value="uso">Uso</option>
+          <option value="tenencia">Propiedad / Tenencia</option>
+        </select>
+        <select id="histValor">
+          <option value="neta">Sup. neta (ha)</option>
+          <option value="explotable">Sup. explotable (ha)</option>
+          <option value="total">Sup. total (ha)</option>
+        </select>
+      </div>
+    </div>
+    <div class="scroll-x">
+      <table>
+        <thead id="histHead"></thead>
+        <tbody id="histBody"></tbody>
+        <tfoot id="histFoot"></tfoot>
+      </table>
+    </div>
   </div>
   <div class="card">
     <div class="chd">
-      <span class="ct">Matriz de rotación · qué actividad se hizo en cada lote por campaña</span>
+      <div class="ct-wrap"><span class="ct">Indicadores de rotación por campaña</span><span class="ct-filtros" id="ctFiltrosIndic" style="display:none"></span></div>
       <div class="ct-actions">
-        <span style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-right:6px">1ª + 2ª combinados</span>
-        <button class="btn-sm" onclick="exportHistoricoXLSX()">↓ Excel</button>
+        <span class="filtro-lbl-inline">Agrupar por:</span>
+        <select class="filtro-select" id="indicDim" onchange="renderHistorico()">
+          <option value="">Total empresa</option>
+          <option value="ambiente">Ambiente</option>
+          <option value="campo">Campo</option>
+          <option value="uso">Uso</option>
+          <option value="tenencia">Propiedad / Tenencia</option>
+        </select>
       </div>
     </div>
-    <div class="scroll-y">
-      <table>
-        <thead><tr>
-          <th>Campo</th><th>Lote</th><th>Amb.</th><th>Sup (ha)</th>
-          <th>22-23</th><th>23-24</th><th>24-25</th><th>25-26</th><th>26-27</th><th>27-28</th>
-        </tr></thead>
-        <tbody id="histBody"></tbody>
+    <div class="rep-note">% Intensificación = has sembradas (1ª + 2ª) / sup. neta planificable (sin duplicar 2ª). % Gramíneas = sup. con gramíneas / total sembrado.</div>
+    <div style="font-size:12px;font-weight:600;color:var(--text);margin:4px 0 2px">% Intensificación</div>
+    <div class="scroll-x">
+      <table class="rep-tbl">
+        <thead id="indicIntensHead"></thead>
+        <tbody id="indicIntensBody"></tbody>
+      </table>
+    </div>
+    <div style="font-size:12px;font-weight:600;color:var(--text);margin:14px 0 2px">% Gramíneas</div>
+    <div class="scroll-x">
+      <table class="rep-tbl">
+        <thead id="indicGramHead"></thead>
+        <tbody id="indicGramBody"></tbody>
       </table>
     </div>
   </div>
@@ -3847,143 +3941,353 @@ function exportReporteComposicion(){
 // ────────────────────────────────────────────────────────────
 // RENDER HISTÓRICO
 // ────────────────────────────────────────────────────────────
+var DIM_LABEL_HIST = {lote:'Lote', campo:'Campo', cultivo:'Cultivo', ambiente:'Ambiente', uso:'Uso', tenencia:'Tenencia'};
+
+function sincronizarCfgHistDims(origen){
+  var sFila = document.getElementById('cfgHistDim');
+  var sDesg = document.getElementById('cfgHistDim2');
+  if(!sFila || !sDesg) return;
+
+  // Resolver la colisión moviendo el selector que NO se tocó.
+  if(sDesg.value && sDesg.value === sFila.value){
+    var mover = (origen === 'desglose') ? sFila : sDesg;
+    var fijo  = (origen === 'desglose') ? sDesg.value : sFila.value;
+    var opts = mover.options, puesto = false;
+    for(var i=0;i<opts.length;i++){
+      if(opts[i].value !== '' && opts[i].value !== fijo){ mover.value = opts[i].value; puesto = true; break; }
+    }
+    if(!puesto) mover.value = '';
+  }
+
+  // Deshabilitar en cada selector la dimensión tomada por el otro.
+  function pintar(sel, tomada){
+    var opts = sel.options;
+    for(var i=0;i<opts.length;i++){
+      var v = opts[i].value;
+      var bloq = (v !== '' && v !== sel.value && v === tomada);
+      opts[i].disabled = bloq;
+      opts[i].style.color = bloq ? '#B9C2CE' : '';
+    }
+  }
+  pintar(sFila, sDesg.value);
+  pintar(sDesg, sFila.value);
+}
+
+function abrirConfigHist(){
+  document.getElementById('cfgHistDim').value   = (document.getElementById('histDimFila')||{}).value || 'ambiente';
+  document.getElementById('cfgHistDim2').value  = (document.getElementById('histDimFila2')||{}).value || '';
+  document.getElementById('cfgHistValor').value = (document.getElementById('histValor')||{}).value || 'neta';
+  sincronizarCfgHistDims('');
+  document.getElementById('modalConfigHist').classList.add('on');
+}
+function closeConfigHist(){ document.getElementById('modalConfigHist').classList.remove('on'); }
+function aplicarConfigHist(){
+  document.getElementById('histDimFila').value  = document.getElementById('cfgHistDim').value;
+  document.getElementById('histDimFila2').value = document.getElementById('cfgHistDim2').value;
+  document.getElementById('histValor').value    = document.getElementById('cfgHistValor').value;
+  closeConfigHist();
+  renderHistorico();
+}
+// Resumen compacto, ej: "Campo › Uso × Campañas · Neta"
+function actualizarConfigResumenHist(dim, dim2, modoVal){
+  var filas = DIM_LABEL_HIST[dim] || dim;
+  if(dim2) filas += ' › ' + (DIM_LABEL_HIST[dim2] || dim2);
+  var txt = filas + ' × Campañas · ' + (SUP_LABEL[modoVal] || modoVal);
+  var el = document.getElementById('histConfigResumen');
+  if(el) el.textContent = txt;
+}
+
 function renderHistorico(){
+  pintarResumenFiltros('ctFiltrosRot');
+  pintarResumenFiltros('ctFiltrosIndic');
   var lts = lotesFiltrados();
-  // Agregar ha por cultivo por campaña
-  var cultByCamp = {}; // {camp: {cult: ha}}
-  for(var i=0;i<CAMPANIAS.length;i++) cultByCamp[CAMPANIAS[i]] = {};
+
+  // ── Matriz de rotación flexible ──
+  // Variable de fila (lote/ambiente/campo/cultivo/uso/tenencia) y valor por celda
+  // (sup neta ha / sigla de cultivo / ambas). Columnas = campañas.
+  var dimFila = (document.getElementById('histDimFila')||{}).value || 'ambiente';
+  var dimFila2 = (document.getElementById('histDimFila2')||{}).value || '';
+  // Si el 2º nivel repite el 1º no aporta desglose: se ignora.
+  if(dimFila2 === dimFila) dimFila2 = '';
+  var modoVal = (document.getElementById('histValor')||{}).value || 'neta';
+  actualizarConfigResumenHist(dimFila, dimFila2, modoVal);
+
+  // Acumular por clave de fila × campaña: neta (ha sembradas, separada en 1ª/2ª),
+  // y total/explotable del lote (contados una sola vez por lote en cada celda).
+  // Con 2º nivel activo se acumula en dos mapas paralelos: el del grupo (subtotal)
+  // y el del subgrupo (detalle). El subtotal NO es la suma de los subgrupos en los
+  // modos total/explotable: un lote que cae en dos subgrupos se cuenta una vez en el
+  // grupo pero una vez en cada subgrupo, así que cada nivel se acumula por separado.
+  var filasH = {};   // claveFila -> { camp -> { neta, neta1, neta2, total, expl, _lotes:{} } }
+  var ordenFilas = []; // preserva orden de aparición
+  var subH = {};     // claveFila -> { claveSub -> { camp -> celda } }
+  var ordenSub = {}; // claveFila -> [claveSub...]
+  var campHas2 = {};   // camp -> bool: ¿alguna 2ª en esa campaña? (para abrir la columna)
+  function celdasVacias(){
+    var o = {};
+    for(var z=0;z<CAMPANIAS.length;z++) o[CAMPANIAS[z]] = {neta:0, neta1:0, neta2:0, total:0, expl:0, _lotes:{}};
+    return o;
+  }
+  function ensureFila(k){
+    if(!filasH[k]){ filasH[k] = celdasVacias(); ordenFilas.push(k); }
+    return filasH[k];
+  }
+  function ensureSub(k, k2){
+    if(!subH[k]){ subH[k] = {}; ordenSub[k] = []; }
+    if(!subH[k][k2]){ subH[k][k2] = celdasVacias(); ordenSub[k].push(k2); }
+    return subH[k][k2];
+  }
   for(var i=0;i<lts.length;i++){
     var l = lts[i];
-    for(var c in l.p){
-      var acts = l.p[c] || [];
-      for(var j=0;j<acts.length;j++){
-        cultByCamp[c][acts[j].c] = (cultByCamp[c][acts[j].c]||0)+(acts[j].ha||0);
-      }
-    }
-  }
-  // top cultivos totales
-  var totals = {};
-  for(var c in cultByCamp){ for(var k in cultByCamp[c]){ totals[k] = (totals[k]||0)+cultByCamp[c][k]; } }
-  // Si hay filtro activo de cultivo/uso, mostrar SOLO esos cultivos en el gráfico.
-  var cultFilter = [];
-  if(state.fCult && state.fCult.length) cultFilter = cultFilter.concat(state.fCult);
-  var topCults;
-  if(cultFilter.length){
-    // dedup, solo los que tienen datos en algún período
-    var seen = {};
-    topCults = cultFilter.filter(function(k){
-      if(seen[k]) return false; seen[k]=1;
-      return totals[k] != null;
-    });
-    // ordenar por total desc
-    topCults.sort(function(a,b){return (totals[b]||0)-(totals[a]||0);});
-  } else {
-    topCults = Object.keys(totals).sort(function(a,b){return totals[b]-totals[a];}).slice(0,10);
-  }
-  
-  // Totales por campaña (para normalizar al 100%)
-  var totalPorCamp = {};
-  CAMPANIAS.forEach(function(c){
-    totalPorCamp[c] = 0;
-    for(var k in cultByCamp[c]) totalPorCamp[c] += cultByCamp[c][k];
-  });
-  
-  // Paleta tierra/pastel para el gráfico apilado.
-  // Tonos sobrios: verdes salvia/musgo/oliva, mostazas, terracotas, ocres, beiges, taupes.
-  var CHART_PALETTE = [
-    '#4F6F44', // verde musgo
-    '#C9A227', // mostaza
-    '#8FA866', // verde salvia
-    '#B5651D', // terracota
-    '#6A7B8E', // azul pizarra (slate)
-    '#A8927A', // beige tostado
-    '#8B5E3C', // marrón suave
-    '#C5957A', // salmón terroso
-    '#5C7A66', // verde oliva oscuro
-    '#D4A574', // arena / ocre claro
-    '#927C5B', // caqui
-    '#6B8E76', // verde mar muted
-    '#A0826D', // taupe
-    '#7A6B53'  // marrón gris
-  ];
-  
-  var datasets = topCults.map(function(k, idx){
-    var haPorCamp = CAMPANIAS.map(function(c){return cultByCamp[c][k]||0;});
-    var pctPorCamp = CAMPANIAS.map(function(c){
-      var t = totalPorCamp[c];
-      return t>0 ? (cultByCamp[c][k]||0)/t*100 : 0;
-    });
-    return {
-      label: k+' — '+cultName(k),
-      data: pctPorCamp,
-      // guardamos las ha originales para el tooltip
-      _ha: haPorCamp,
-      backgroundColor: CHART_PALETTE[idx % CHART_PALETTE.length],
-      borderColor: '#fff',
-      borderWidth: 1,
-      stack: 'stack'
-    };
-  });
-  
-  try {
-    if(typeof Chart !== 'undefined'){
-      if(charts.chartHist) charts.chartHist.destroy();
-      charts.chartHist = new Chart(document.getElementById('chartHist').getContext('2d'),{
-        type:'bar',
-        data:{labels:CAMPANIAS, datasets:datasets},
-        options:{
-          responsive:true, maintainAspectRatio:false,
-          plugins:{
-            legend:{position:'right', labels:{font:{family:"'DM Sans'",size:10}, boxWidth:14, padding:5}},
-            tooltip:{
-              callbacks:{
-                label:function(c){
-                  var ha = c.dataset._ha ? c.dataset._ha[c.dataIndex] : 0;
-                  var pct = c.parsed.y;
-                  if(ha <= 0) return null;
-                  return c.dataset.label+': '+fInt(ha)+' ha · '+pct.toFixed(1)+'%';
-                },
-                footer:function(items){
-                  if(!items.length) return '';
-                  var campania = items[0].label;
-                  return 'Total '+campania+': '+fInt(totalPorCamp[campania]||0)+' ha';
-                }
-              }
-            }
-          },
-          scales:{
-            x:{stacked:true, ticks:{font:{family:"'DM Sans'",size:11}}, grid:{display:false}},
-            y:{stacked:true, min:0, max:100, ticks:{font:{family:"'DM Sans'",size:10}, callback:function(v){return v+'%';}}, grid:{color:'#F0F2F5'}, title:{display:true, text:'Proporción del total (%)', font:{family:"'DM Sans'",size:11}, color:'#7A8899'}}
-          }
+    if(esLoteDesperdicio(l)) continue;
+    var loteTotal = l.s || 0;
+    var loteExplV = loteExpl(l); if(loteExplV==null) loteExplV = loteTotal; // fallback si no cargada
+    for(var jc=0;jc<CAMPANIAS.length;jc++){
+      var camp = CAMPANIAS[jc];
+      var acts = actsDe(l, camp);
+      for(var ai=0; ai<acts.length; ai++){
+        var a = acts[ai];
+        var kf = dimClave(dimFila, l, a);
+        var cell = ensureFila(kf)[camp];
+        var haA = a.ha||0;
+        cell.neta += haA; // neta = suma de actividades (1ª + 2ª)
+        if(a.seg){ cell.neta2 += haA; campHas2[camp] = true; } else { cell.neta1 += haA; }
+        // total/explotable del lote: una sola vez por lote en esta celda
+        if(!cell._lotes[l.l]){ cell._lotes[l.l] = true; cell.total += loteTotal; cell.expl += loteExplV; }
+        // 2º nivel de desglose (mismo criterio de conteo, dentro del subgrupo)
+        if(dimFila2){
+          var kf2s = dimClave(dimFila2, l, a);
+          var sc = ensureSub(kf, kf2s)[camp];
+          sc.neta += haA;
+          if(a.seg) sc.neta2 += haA; else sc.neta1 += haA;
+          if(!sc._lotes[l.l]){ sc._lotes[l.l] = true; sc.total += loteTotal; sc.expl += loteExplV; }
         }
-      });
-    }
-  } catch(e){ /* Chart.js no disponible: la matriz se renderiza igual */ }
-  
-  // Matriz de rotación
-  var html='';
-  for(var i=0;i<lts.length;i++){
-    var l = lts[i];
-    html += '<tr>';
-    html += '<td class="tdcampo">'+(l.c||'—')+'</td>';
-    html += '<td class="tdname">'+l.l+'</td>';
-    html += '<td>'+(l.a?'<span class="amb-pill" style="background:'+ambColor(l.a)+'20;color:'+ambColor(l.a)+'" title="'+(ambDesc(l.a)||'')+'">'+l.a+'</span>':'—')+'</td>';
-    html += '<td>'+f(l.s,1)+'</td>';
-    for(var j=0;j<CAMPANIAS.length;j++){
-      var c = CAMPANIAS[j];
-      var acts = actsOrdenadas(actsDe(l, c));
-      if(acts.length){
-        var cellParts = [];
-        for(var ci=0; ci<acts.length; ci++) cellParts.push(cultRoHtml(acts[ci].c, {hideName:true}));
-        var cell = '<div class="cult-multi" style="flex-direction:row;flex-wrap:wrap">'+cellParts.join('<span class="cult-sep">/</span>')+'</div>';
-        html += '<td'+(c===state.campania?' style="background:#F5F7FA"':'')+'>'+cell+'</td>';
-      } else {
-        html += '<td style="color:var(--muted)">—</td>';
       }
+    }
+  }
+  // ¿Se abren columnas 1ª/2ª? Solo en modo neta, y por campaña solo si tuvo 2ª.
+  var splitNeta = (modoVal==='neta');
+
+  // Ordenar filas: por ha total desc (para dimensiones agregadas); lote/campo alfabético.
+  if(dimFila==='lote' || dimFila==='campo'){
+    ordenFilas.sort(function(a,b){ return a<b?-1:(a>b?1:0); });
+  } else {
+    ordenFilas.sort(function(a,b){
+      var ta=0, tb=0;
+      for(var z=0;z<CAMPANIAS.length;z++){ ta+=filasH[a][CAMPANIAS[z]].neta; tb+=filasH[b][CAMPANIAS[z]].neta; }
+      return tb-ta;
+    });
+  }
+
+  // Encabezado dinámico. En modo neta, las campañas con 2ª se abren en 1ª/2ª.
+  var nomDim = {lote:'Lote', ambiente:'Ambiente', campo:'Campo', cultivo:'Cultivo', uso:'Uso', tenencia:'Propiedad'};
+  var nomFila = nomDim[dimFila] || 'Fila';
+  var nomFila2 = dimFila2 ? (nomDim[dimFila2] || 'Detalle') : '';
+  function campAbierta(camp){ return splitNeta && campHas2[camp]; }
+  var head1 = '<tr><th rowspan="2">'+nomFila+'</th>' + (dimFila2 ? '<th rowspan="2">'+nomFila2+'</th>' : '');
+  for(var hc=0;hc<CAMPANIAS.length;hc++){
+    var cAbre = campAbierta(CAMPANIAS[hc]);
+    var bg = CAMPANIAS[hc]===state.campania?' style="background:#EEF1F6"':'';
+    head1 += '<th'+(cAbre?' colspan="2"':' rowspan="2"')+' class="hist-camp-h hist-camp-start"'+bg+'>'+CAMPANIAS[hc]+'</th>';
+  }
+  head1 += '</tr>';
+  var head2 = '<tr>';
+  for(var hc2=0;hc2<CAMPANIAS.length;hc2++){
+    if(campAbierta(CAMPANIAS[hc2])){
+      var bg2 = CAMPANIAS[hc2]===state.campania?' style="background:#EEF1F6"':'';
+      head2 += '<th class="rep-sub hist-camp-start"'+bg2+'>Cult. 1</th><th class="rep-sub"'+bg2+'>Cult. 2</th>';
+    }
+  }
+  head2 += '</tr>';
+  document.getElementById('histHead').innerHTML = head1 + (splitNeta && Object.keys(campHas2).length ? head2 : '');
+
+  // Cuerpo
+  function celdaVal(cell){
+    var v = (modoVal==='total') ? cell.total : (modoVal==='explotable') ? cell.expl : cell.neta;
+    return v>0 ? f(v,0) : '<span style="color:var(--muted)">—</span>';
+  }
+  function celdasCampania(cell, camp){
+    var bg = camp===state.campania?' style="background:#EEF1F6"':'';
+    if(campAbierta(camp)){
+      var v1 = cell.neta1>0 ? f(cell.neta1,0) : '<span style="color:var(--muted)">·</span>';
+      var v2 = cell.neta2>0 ? f(cell.neta2,0) : '<span style="color:var(--muted)">·</span>';
+      return '<td class="hist-camp-start"'+bg+'>'+v1+'</td><td'+bg+'>'+v2+'</td>';
+    }
+    return '<td class="hist-camp-start"'+bg+'>'+celdaVal(cell)+'</td>';
+  }
+  // Etiqueta de una clave según su dimensión (reutilizada por ambos niveles).
+  function etiquetaDe(dim, k){
+    var et = dimEtiqueta(dim, k);
+    if(dim==='ambiente'){
+      return '<span class="amb-pill" style="background:'+ambColor(k)+'20;color:'+ambColor(k)+'" title="'+(ambDesc(k)||'')+'">'+k+'</span> <span style="color:var(--muted);font-size:11px">'+(et.nom||'')+'</span>';
+    }
+    if(et.sig){
+      return '<strong>'+et.sig+'</strong>'+(et.nom?' <span style="color:var(--muted);font-size:11px">'+et.nom+'</span>':'');
+    }
+    return et.nom;
+  }
+  var html='';
+  for(var r=0;r<ordenFilas.length;r++){
+    var kf2 = ordenFilas[r];
+    var etiqueta = etiquetaDe(dimFila, kf2);
+    if(!dimFila2){
+      html += '<tr><td class="tdname">'+etiqueta+'</td>';
+      for(var cc2=0;cc2<CAMPANIAS.length;cc2++){
+        var c2 = CAMPANIAS[cc2];
+        html += celdasCampania(filasH[kf2][c2], c2);
+      }
+      html += '</tr>';
+      continue;
+    }
+    // Con desglose: una fila por subgrupo y una fila de subtotal del grupo.
+    var subs = ordenSub[kf2] || [];
+    subs.sort(function(a,b){
+      var ta=0, tb=0;
+      for(var z=0;z<CAMPANIAS.length;z++){ ta+=subH[kf2][a][CAMPANIAS[z]].neta; tb+=subH[kf2][b][CAMPANIAS[z]].neta; }
+      return tb-ta;
+    });
+    for(var s=0;s<subs.length;s++){
+      var ks = subs[s];
+      // El nombre del grupo se escribe una sola vez (en la primera fila del bloque).
+      html += '<tr><td class="tdname">'+(s===0?etiqueta:'')+'</td><td class="tdname" style="padding-left:14px">'+etiquetaDe(dimFila2, ks)+'</td>';
+      for(var cs=0;cs<CAMPANIAS.length;cs++){
+        var ccs = CAMPANIAS[cs];
+        html += celdasCampania(subH[kf2][ks][ccs], ccs);
+      }
+      html += '</tr>';
+    }
+    html += '<tr class="hist-subtot"><td class="tdname" style="font-weight:600">Subtotal</td><td class="tdname" style="font-weight:600">'+etiqueta+'</td>';
+    for(var cst=0;cst<CAMPANIAS.length;cst++){
+      var cct = CAMPANIAS[cst];
+      html += celdasCampania(filasH[kf2][cct], cct);
     }
     html += '</tr>';
   }
-  document.getElementById('histBody').innerHTML = html;
+  // colspan total de la tabla (para el "sin datos")
+  var totalCols = 1 + (dimFila2 ? 1 : 0);
+  for(var tc=0;tc<CAMPANIAS.length;tc++) totalCols += campAbierta(CAMPANIAS[tc]) ? 2 : 1;
+  document.getElementById('histBody').innerHTML = html || '<tr><td colspan="'+totalCols+'" style="text-align:center;color:var(--muted);padding:16px">Sin datos para los filtros actuales.</td></tr>';
+
+  // Pie: superficie del modo activo por campaña. En neta abierta, separa 1ª/2ª.
+  var modoLbl = (modoVal==='total') ? 'Sup. total (ha)' : (modoVal==='explotable') ? 'Sup. explotable (ha)' : 'Sup. neta sembrada (ha)';
+  // Sumas por campaña
+  var sum1 = {}, sum2 = {}, sumMode = {};
+  for(var jc2=0;jc2<CAMPANIAS.length;jc2++){
+    var cc3 = CAMPANIAS[jc2]; sum1[cc3]=0; sum2[cc3]=0; sumMode[cc3]=0;
+    for(var li2=0;li2<lts.length;li2++){
+      var lo2 = lts[li2];
+      if(esLoteDesperdicio(lo2)) continue;
+      var acts2 = actsDe(lo2, cc3);
+      if(!acts2.length) continue;
+      if(modoVal==='neta'){
+        for(var ax=0; ax<acts2.length; ax++){ var h2a=acts2[ax].ha||0; sumMode[cc3]+=h2a; if(acts2[ax].seg) sum2[cc3]+=h2a; else sum1[cc3]+=h2a; }
+      } else if(modoVal==='total'){
+        sumMode[cc3] += (lo2.s||0);
+      } else {
+        var ev = loteExpl(lo2); sumMode[cc3] += (ev==null ? (lo2.s||0) : ev);
+      }
+    }
+  }
+  var foot = '<tr class="tot-row"><td class="tdname">'+modoLbl+'</td>' + (dimFila2 ? '<td></td>' : '');
+  for(var fc=0;fc<CAMPANIAS.length;fc++){
+    var cf = CAMPANIAS[fc];
+    var bgf = cf===state.campania?' style="background:#EAEFE4"':'';
+    if(campAbierta(cf)){
+      foot += '<td class="hist-camp-start"'+bgf+'>'+(sum1[cf]>0?f(sum1[cf],0):'·')+'</td><td'+bgf+'>'+(sum2[cf]>0?f(sum2[cf],0):'·')+'</td>';
+    } else {
+      foot += '<td class="hist-camp-start"'+bgf+'>'+(sumMode[cf]>0?f(sumMode[cf],0):'—')+'</td>';
+    }
+  }
+  foot += '</tr>';
+  document.getElementById('histFoot').innerHTML = foot;
+
+  // ── Indicadores por campaña: % intensificación y % gramíneas ──
+  // Agrupables por dimensión (o Total empresa). Dos tablas separadas.
+  //   sembrada = suma de todas las actividades (1ª + 2ª)
+  //   neta     = suma de actividades de 1ª (superficie física planificable)
+  //   gram     = suma de actividades cuyo cultivo es gramínea (1ª + 2ª)
+  var indicDim = (document.getElementById('indicDim')||{}).value || '';
+
+  // Acumular por grupo × campaña
+  var G = {}; // clave -> { camp -> {sembrada, neta, gram} }
+  var ordenG = [];
+  function ensureG(k, camp){
+    if(!G[k]){ G[k] = {}; ordenG.push(k); for(var z=0;z<CAMPANIAS.length;z++) G[k][CAMPANIAS[z]] = {sembrada:0, neta:0, gram:0}; }
+    return G[k][camp];
+  }
+  for(var gi=0; gi<lts.length; gi++){
+    var lo = lts[gi];
+    if(esLoteDesperdicio(lo)) continue;
+    for(var gc=0; gc<CAMPANIAS.length; gc++){
+      var camp = CAMPANIAS[gc];
+      var acts = actsDe(lo, camp);
+      for(var ga=0; ga<acts.length; ga++){
+        var a = acts[ga], ha = a.ha||0;
+        var kg = indicDim ? dimClave(indicDim, lo, a) : '__all__';
+        var cell = ensureG(kg, camp);
+        cell.sembrada += ha;
+        if(!a.seg) cell.neta += ha;
+        if(cultEsGraminea(a.c)) cell.gram += ha;
+      }
+    }
+  }
+  // Orden de grupos: alfabético para lote/campo; por sembrada desc para el resto; Total siempre único.
+  if(indicDim === 'campo'){
+    ordenG.sort(function(a,b){ return a<b?-1:(a>b?1:0); });
+  } else if(indicDim){
+    ordenG.sort(function(a,b){
+      var ta=0, tb=0; for(var z=0;z<CAMPANIAS.length;z++){ ta+=G[a][CAMPANIAS[z]].sembrada; tb+=G[b][CAMPANIAS[z]].sembrada; }
+      return tb-ta;
+    });
+  }
+
+  // Encabezado común (Grupo + campañas)
+  // Nota: "Cultivo" no es una dimensión válida acá. Agrupados por cultivo, los dos
+  // indicadores se degeneran: intensificación de un cultivo contra sí mismo da 100%,
+  // y % gramíneas da 0 o 100 según la definición del cultivo. No mide rotación.
+  var colGrupo = indicDim ? ({ambiente:'Ambiente', campo:'Campo', uso:'Uso', tenencia:'Propiedad'}[indicDim]||'Grupo') : 'Indicador';
+  function headHtml(){
+    var h = '<tr><th class="rep-dim-h">'+colGrupo+'</th>';
+    for(var ic=0;ic<CAMPANIAS.length;ic++) h += '<th class="rep-num'+(CAMPANIAS[ic]===state.campania?' rep-tot-h':'')+'">'+CAMPANIAS[ic]+'</th>';
+    return h+'</tr>';
+  }
+  function etiquetaGrupo(k){
+    if(!indicDim) return '';
+    var et = dimEtiqueta(indicDim, k);
+    return et.sig ? (et.sig+(et.nom?' <span class="rep-nom">'+et.nom+'</span>':'')) : et.nom;
+  }
+  // Construye el cuerpo de una tabla para un indicador dado.
+  // calc(cell) -> {val, hay}
+  function bodyHtml(calc){
+    var b = '';
+    if(!indicDim){
+      // una sola fila (Total empresa)
+      b += '<tr><td class="rep-dim">Total empresa</td>';
+      for(var c=0;c<CAMPANIAS.length;c++){
+        var r = calc(G['__all__'][CAMPANIAS[c]]);
+        b += '<td class="rep-num'+(CAMPANIAS[c]===state.campania?' rep-tot':'')+'">'+(r.hay?f(r.val,0)+'%':'<span class="rep-z">·</span>')+'</td>';
+      }
+      b += '</tr>';
+      return b;
+    }
+    for(var g=0;g<ordenG.length;g++){
+      var k = ordenG[g];
+      b += '<tr><td class="rep-dim">'+etiquetaGrupo(k)+'</td>';
+      for(var c2=0;c2<CAMPANIAS.length;c2++){
+        var r2 = calc(G[k][CAMPANIAS[c2]]);
+        b += '<td class="rep-num'+(CAMPANIAS[c2]===state.campania?' rep-tot':'')+'">'+(r2.hay?f(r2.val,0)+'%':'<span class="rep-z">·</span>')+'</td>';
+      }
+      b += '</tr>';
+    }
+    return b;
+  }
+  var calcIntens = function(cell){ return { val: cell.neta>0 ? (cell.sembrada/cell.neta*100) : 0, hay: cell.sembrada>0 }; };
+  var calcGram   = function(cell){ return { val: cell.sembrada>0 ? (cell.gram/cell.sembrada*100) : 0, hay: cell.sembrada>0 }; };
+
+  document.getElementById('indicIntensHead').innerHTML = headHtml();
+  document.getElementById('indicIntensBody').innerHTML = bodyHtml(calcIntens);
+  document.getElementById('indicGramHead').innerHTML = headHtml();
+  document.getElementById('indicGramBody').innerHTML = bodyHtml(calcGram);
 }
 
 // ────────────────────────────────────────────────────────────
