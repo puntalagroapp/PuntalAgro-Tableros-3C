@@ -3116,11 +3116,16 @@ function openLoteModal(loteName){
     loteEditandoId = lExistente ? lExistente._id : null;
     document.getElementById('modalLoteWarn').style.display = 'none';
     buildAmbienteSelect('mlAmbiente', '');
-    // En modo API: poblar select de campos desde el caché (filtrado por permisos)
+    // En modo API: poblar select de campos desde el caché, restringido a
+    // permiso.campoIds si el usuario no es admin_general (mismo criterio que
+    // camposReporte()/poblarCampos() — nunca ofrecer un campo fuera de permiso).
     if (_esModoApi() && CTX) {
       var mlCampoSel = document.getElementById('mlCampo');
       mlCampoSel.innerHTML = '';
-      var camposDisp = PA.demo.camposDeEmpresa(CTX.empresaActivaId);
+      var camposDisp = PA.demo.camposDeEmpresa(CTX.empresaActivaId) || [];
+      var mlPermIds = (CTX.permiso && CTX.permiso.campoIds) ? CTX.permiso.campoIds : null;
+      var mlRestringir = !esAdminGeneral() && mlPermIds && mlPermIds.length;
+      camposDisp = camposDisp.filter(function(c){ return !mlRestringir || mlPermIds.indexOf(c.id) >= 0; });
       for (var ci = 0; ci < camposDisp.length; ci++) {
         var co = document.createElement('option');
         co.value = camposDisp[ci].nombre;
@@ -3142,7 +3147,8 @@ function openLoteModal(loteName){
       document.getElementById('modalLoteTitle').textContent = 'Agregar lote';
       document.getElementById('mlNombre').value = '';
       var selC = camposSeleccionados();
-      document.getElementById('mlCampo').value = (selC.length ? selC[0] : (_esModoApi() && CTX ? (PA.demo.camposDeEmpresa(CTX.empresaActivaId)[0] || {}).nombre || '' : 'EC'));
+      var mlSelEl = document.getElementById('mlCampo');
+      document.getElementById('mlCampo').value = (selC.length ? selC[0] : (mlSelEl.options.length ? mlSelEl.options[0].value : 'EC'));
       document.getElementById('mlSup').value = '';
       document.getElementById('mlExpl').value = '';
       document.getElementById('mlActivo').checked = true;
