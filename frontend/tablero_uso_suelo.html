@@ -368,6 +368,27 @@ tbody tr.lote-start:first-child td{border-top:none}
 .hist-mini-table thead th{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600;padding:6px 12px;border-bottom:1px solid var(--border);text-align:left;background:#FAFBFC;position:static}
 .hist-mini-table tbody td{padding:6px 12px;border-bottom:1px solid #F5F7FA;font-size:11px;vertical-align:middle}
 .hist-mini-table tbody tr:last-child td{border-bottom:none}
+.print-ctx{display:none}
+@media print {
+  @page { margin: 12mm; size: landscape; }
+  .print-ctx { display: block !important; font-size: 12px; color: #333; font-weight: 600; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #DDD; }
+  /* Ocultar cromo de la app al imprimir */
+  header, .nav-wrap, #fbarMain, #subnavMaestros, .ct-actions, .btn-sm,
+  .hdr-btn, .nav-btn, .nav-reset, .btn-toggle, .ms-dd, .filtro-select,
+  .search-box, .fbar, .view-actions { display: none !important; }
+  /* Por defecto, ocultar todas las vistas; mostrar solo la marcada */
+  body[data-print] .view { display: none !important; }
+  body[data-print="reportes"] #view-reportes,
+  body[data-print="historico"] #view-historico { display: block !important; }
+  body[data-print] main { display: block !important; }
+  .card { break-inside: avoid; box-shadow: none !important; border: 1px solid #DDD !important; }
+  .scroll-y, .scroll-x { overflow: visible !important; max-height: none !important; }
+  table { page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+  thead { display: table-header-group; }
+  body { background: #fff !important; }
+  .cw { page-break-inside: avoid; }
+}
 </style>
 </head>
 <body>
@@ -454,6 +475,7 @@ tbody tr.lote-start:first-child td{border-top:none}
 </div>
 
 <main>
+<div id="printCtx" class="print-ctx"></div>
 
 <!-- VISTA PLAN DE USO -->
 <div class="view active" id="view-plan">
@@ -526,6 +548,7 @@ tbody tr.lote-start:first-child td{border-top:none}
 
 <!-- VISTA REPORTES -->
 <div class="view" id="view-reportes">
+  <div class="view-actions"><button class="btn-sm btn-pdf" onclick="imprimirVista('reportes')">⬇ Bajar PDF</button></div>
   <!-- SECCIÓN 1: Composición de la superficie + torta -->
   <div class="g2">
     <div class="card">
@@ -701,6 +724,7 @@ tbody tr.lote-start:first-child td{border-top:none}
 
 <!-- VISTA HISTÓRICO -->
 <div class="view" id="view-historico">
+  <div class="view-actions"><button class="btn-sm btn-pdf" onclick="imprimirVista('historico')">⬇ Bajar PDF</button></div>
   <div class="card">
     <div class="chd"><span class="ct">Composición por actividad · Proporción del total por campaña</span></div>
     <div class="legend" id="histLegend"></div>
@@ -4138,6 +4162,23 @@ function exportActual(){
     case 'plan':
     default: return exportPlanXLSX();
   }
+}
+// Imprime / guarda como PDF solo la vista indicada (reportes o historico).
+// Marca el body con una clase para que el CSS @media print oculte todo lo demás.
+function imprimirVista(view){
+  var target = document.getElementById('view-'+view);
+  if(!target){ window.print(); return; }
+  // Copiar el contexto (empresa · campo · campaña) al banner que se ve solo al imprimir.
+  var pc = document.getElementById('printCtx');
+  var pill = document.getElementById('ctxPill');
+  if(pc && pill){ pc.textContent = pill.textContent; }
+  document.body.setAttribute('data-print', view);
+  // Pequeño respiro para que el navegador aplique estilos antes de abrir el diálogo.
+  setTimeout(function(){
+    window.print();
+    // Limpiar el marcador después de imprimir (o cancelar).
+    setTimeout(function(){ document.body.removeAttribute('data-print'); }, 300);
+  }, 60);
 }
 // Genera un archivo Excel real (SpreadsheetML 2003) que abre con texto en columnas
 function downloadXLSX(filename, sheetName, headers, rows){
