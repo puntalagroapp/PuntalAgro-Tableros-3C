@@ -317,6 +317,51 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
 /* Fila de grupo (Agrícolas/Ganaderos) - neutra, sin fondo de color */
 .grp-row td{font-weight:600;font-family:var(--sans);padding:6px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text);background:#F5F7FA}
 .grp-row td::before{content:"▸ ";color:var(--muted)}
+.grp-row.grp-campo td{color:var(--olive);background:#F0F4EC}
+/* Bloque de actividad (Plan de uso): se distingue con borde izquierdo. */
+thead th.th-act{color:#8A4B24}
+thead th.th-act.act-start{border-left:2px solid #D8C9BE}
+tbody td.td-act.act-start{border-left:2px solid #EADDD1}
+.act-cult{font-weight:700}
+.act-cult .cult-ro .cult-sig{font-size:16px;font-weight:700;color:var(--text)}
+.act-cult .cult-ro .cult-nom{font-size:12px}
+.act-ten{font-family:var(--sans);font-size:11px;color:var(--muted)}
+tbody tr.act-sub td.td-act{border-top:none}
+tbody td.td-lote{vertical-align:top}
+tbody tr.lote-start td{border-top:1px solid var(--border)}
+tbody tr.lote-start:first-child td{border-top:none}
+.td-act-acc{text-align:right;white-space:nowrap}
+.act-acc{display:inline-flex;gap:4px;justify-content:flex-end}
+.btn-act-edit,.btn-act-del,.btn-act-add{width:26px;height:26px;border-radius:6px;border:1.5px solid #D8DDE3;background:#fff;cursor:pointer;font-size:14px;font-family:var(--sans);transition:all .12s;opacity:1;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+.btn-act-edit{color:var(--olive)}
+.btn-act-del{color:var(--terra);font-size:18px}
+.btn-act-add{color:var(--olive);font-weight:700;font-size:18px}
+.btn-act-edit:hover{background:#F0F4EC;border-color:var(--olive)}
+.btn-act-del:hover{background:#FBEEE7;border-color:var(--terra)}
+.btn-act-add:hover{background:#F0F4EC;border-color:var(--olive)}
+.btn-off{opacity:.35;cursor:not-allowed;color:var(--muted)!important}
+.btn-off:hover{background:#fff;border-color:#D8DDE3}
+.cult-empty-off{opacity:.4;cursor:not-allowed}
+.uso-pill{font-family:var(--sans);font-size:11px;font-weight:500}
+.badge-2da{display:inline-block;padding:1px 5px;border-radius:4px;background:#F0E4D8;color:#8A4B24;font-family:var(--mono);font-size:9px;font-weight:600;vertical-align:middle;cursor:help}
+.hist-cult{display:inline-flex;align-items:baseline;gap:5px}
+.hist-ha{font-family:var(--mono);font-size:12px;color:#64748B;font-weight:500}
+.cierre-banner{border-radius:8px;padding:9px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px;font-family:var(--sans)}
+.cierre-banner strong{font-variant-numeric:tabular-nums}
+.cierre-falta{background:#FFFBEB;border:1.5px solid #FCD34D;color:#854F0B}
+.cierre-exceso{background:#FEF2F2;border:1.5px solid #FCA5A5;color:#991B1B}
+.cierre-btn{margin-left:auto;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid var(--terra);background:var(--terra);color:#fff;font-family:var(--sans);white-space:nowrap}
+.cierre-btn:hover{background:#A84D1F;border-color:#A84D1F}
+.ma-grid{display:grid;grid-template-columns:110px 1fr;gap:14px 14px;align-items:start;margin-bottom:6px}
+.ma-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;font-weight:600;padding-top:9px;text-align:right}
+.ma-field{min-width:0}
+.ma-field .modal-input{width:100%;box-sizing:border-box}
+.ma-uso-line{font-size:11px;color:var(--muted);margin-top:5px}
+.ma-uso-line #maUso{font-weight:600}
+.ma-hint-inline{color:var(--muted);opacity:.8}
+.ma-hint{font-size:11px;color:var(--muted);margin-top:5px}
+.ma-modal .modal-warn{margin-top:12px}
+.ma-lote-badge{display:inline-block;background:#EAF0E2;color:var(--olive-dark);font-weight:700;padding:1px 10px;border-radius:6px;border:1px solid #C9D9B8}
 /* Maestros: sigla de cultivo (neutra, sin color) */
 .cult-sigla{display:inline-block;padding:2px 8px;border-radius:5px;background:#F0F2F5;color:var(--text);font-family:var(--mono);font-size:12px;font-weight:600}
 .hist-mini-table{width:auto;min-width:420px;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
@@ -416,13 +461,13 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
     <div class="chd">
       <span class="ct" id="tablaPlanTitulo">Plan de uso de suelo · Campaña 26-27</span>
       <div class="ct-actions">
-        <span style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-right:6px" id="planSubt">— lotes</span>
+        <button class="btn-sm" onclick="abrirConciliar()">⇄ Conciliar superficies</button>
         <button class="btn-sm" onclick="exportPlanXLSX()">↓ Excel</button>
         <button class="btn-sm" onclick="abrirExportCamp()">↓ Excel (multi-campaña)</button>
       </div>
     </div>
-    <div class="help-row">Las celdas con recuadro son editables (click para escribir). Click en un cultivo para cambiarlo (lista desplegable). La sup. real no puede superar la sup. física. Botón "+" en cada fila despliega la historia completa del lote. Tocá un encabezado para ordenar.</div>
     <div class="filtro-resumen" id="ctFiltrosPlan" style="display:none"></div>
+    <div id="cierreBanner"></div>
     <div id="massBanner"></div>
     <div class="scroll-y">
       <table>
@@ -430,17 +475,19 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
           <th style="width:24px"></th>
           <th class="th-sort" onclick="sortBy('campo')">Campo <span class="sort-ind" id="si-campo"></span></th>
           <th class="th-sort" onclick="sortBy('lote')">Lote <span class="sort-ind" id="si-lote"></span></th>
-          <th class="th-sort" onclick="sortBy('sup')">Sup lote <span class="sort-ind" id="si-sup"></span></th>
+          <th class="th-sort" onclick="sortBy('sup')">Sup total <span class="sort-ind" id="si-sup"></span></th>
+          <th class="th-sort" onclick="sortBy('expl')">Sup explotable <span class="sort-ind" id="si-expl"></span></th>
           <th class="th-sort" onclick="sortBy('amb')">Ambiente <span class="sort-ind" id="si-amb"></span></th>
-          <th class="th-sort" onclick="sortBy('tipo')">Tipo <span class="sort-ind" id="si-tipo"></span></th>
           <th class="th-hist-global" id="thHist0" style="display:none">—</th>
           <th class="th-hist-global" id="thHist1" style="display:none">—</th>
           <th class="th-hist-global" id="thHist2" style="display:none">—</th>
           <th>Antec. (<span id="thAntCamp">—</span>)</th>
-          <th>Actividades (<span id="thActCamp">—</span>)</th>
-          <th class="th-sort" onclick="sortBy('fisica')">Sup física <span class="sort-ind" id="si-fisica"></span></th>
-          <th class="th-sort" onclick="sortBy('sembrada')">Sup sembrada <span class="sort-ind" id="si-sembrada"></span></th>
-          <th class="th-sort" onclick="sortBy('pct')">% uso <span class="sort-ind" id="si-pct"></span></th>
+          <th class="th-act act-start">Cultivo <span id="thActCamp">—</span></th>
+          <th class="th-act">Uso</th>
+          <th class="th-act">Tenencia</th>
+          <th class="th-act">Sup neta</th>
+          <th class="th-act">% uso</th>
+          <th class="th-act td-act-acc" style="width:60px"></th>
         </tr></thead>
         <tbody id="planBody"></tbody>
         <tfoot id="planFoot"></tfoot>
@@ -803,37 +850,42 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
 
 <!-- MODAL: Editor de ACTIVIDADES de una celda (lote × campaña) -->
 <div class="modal-bg" id="modalActs">
-  <div class="modal" style="max-width:560px">
-    <div class="modal-title" id="modalActsTitle">Actividades</div>
+  <div class="modal ma-modal" style="max-width:560px">
+    <div class="modal-title" id="modalActsTitle">Actividad</div>
     <div class="modal-sub" id="modalActsSub">—</div>
-    <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">Actividades del lote en esta campaña</div>
-    <div id="modalActsList"></div>
-    <div style="margin-top:14px;padding:12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
-      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:8px">Agregar actividad</div>
-      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-        <div style="flex:1.6;min-width:160px">
-          <label style="font-size:10px;color:var(--muted);display:block;margin-bottom:3px">Cultivo / Uso</label>
-          <select class="modal-input" id="maNuevoCult" style="width:100%;box-sizing:border-box"></select>
+    <div class="ma-grid">
+      <label class="ma-lbl">Cultivo</label>
+      <div class="ma-field">
+        <select class="modal-input" id="maCult" onchange="maCultSel()"></select>
+        <div class="ma-uso-line">Uso: <span id="maUso">—</span> <span class="ma-hint-inline">(según el cultivo)</span></div>
+      </div>
+
+      <label class="ma-lbl">Tenencia</label>
+      <div class="ma-field">
+        <select class="modal-input" id="maTen"></select>
+      </div>
+
+      <label class="ma-lbl">Sup. neta</label>
+      <div class="ma-field">
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="number" class="modal-input" id="maHa" min="0" step="0.1" placeholder="0,0" style="max-width:140px">
+          <span style="font-size:12px;color:var(--muted)">ha</span>
         </div>
-        <div style="flex:1;min-width:80px">
-          <label style="font-size:10px;color:var(--muted);display:block;margin-bottom:3px">Ha</label>
-          <input type="number" class="modal-input" id="maNuevoHa" min="0" step="0.1" style="width:100%;box-sizing:border-box">
-        </div>
-        <label style="font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;padding-bottom:8px;white-space:nowrap">
-          <input type="checkbox" id="maNuevoSeg"> 2ª
+        <div class="ma-hint" id="maExplHint">—</div>
+      </div>
+
+      <label class="ma-lbl" style="padding-top:2px">2ª actividad</label>
+      <div class="ma-field">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:help" title="¿Este cultivo es la 2ª actividad sobre la misma superficie en la misma campaña?">
+          <input type="checkbox" id="maSeg" style="accent-color:#4A6533;cursor:pointer;width:15px;height:15px;flex:none;margin:0">
+          <span style="color:var(--text);line-height:1.35">Comparte superficie con otro cultivo de la campaña <span style="color:var(--muted)">ⓘ</span></span>
         </label>
-        <button class="modal-ok" style="padding-bottom:8px;padding-top:8px" onclick="maAgregarActividad()">+ Agregar</button>
       </div>
     </div>
     <div class="modal-warn" id="modalActsWarn" style="display:none"></div>
-    <div style="display:flex;gap:20px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:12px">
-      <span>Sup. física: <strong id="maTotFisica" style="font-variant-numeric:tabular-nums">0</strong> ha</span>
-      <span>Sup. sembrada: <strong id="maTotSembrada" style="font-variant-numeric:tabular-nums">0</strong> ha</span>
-      <span style="color:var(--muted)">Lote: <strong id="maSupLote" style="font-variant-numeric:tabular-nums">0</strong> ha</span>
-    </div>
     <div class="modal-actions">
       <button class="modal-cancel" onclick="closeActsModal()">Cancelar</button>
-      <button class="modal-ok" onclick="guardarActividades()">Guardar</button>
+      <button class="modal-ok" id="maBtnGuardar" onclick="guardarActividadUnica()">Guardar</button>
     </div>
   </div>
 </div>
@@ -1165,6 +1217,11 @@ function fInt(n){
 function cultName(s){return CULTIVOS[s]?CULTIVOS[s].n:s;}
 function cultTipo(s){return CULTIVOS[s]?CULTIVOS[s].t:null;}
 function cultColor(s){return CULTIVOS[s]?CULTIVOS[s].c:'#7A8899';}
+// g/d2 son metadatos de CULTIVOS_FALLBACK (no existen en el padrón real todavía,
+// tipos_actividad no tiene esas columnas) — con datos reales devuelven false, sin
+// romper nada: no hay gramínea marcada ni default de 2ª automático.
+function cultEsGraminea(sig){ var c = CULTIVOS[sig] || CULTIVOS_FALLBACK[sig]; return !!(c && c.g); }
+function cultDefault2da(sig){ var c = CULTIVOS[sig] || CULTIVOS_FALLBACK[sig]; return !!(c && c.d2); }
 
 // Renderiza un cultivo como dato plano (editable: click handler)
 function cultHtml(sigla, onclickStr, opts){
@@ -2304,16 +2361,16 @@ function renderPlan(){
     }
   }
   var lts = lotesFiltrados();
-  document.getElementById('planSubt').textContent = lts.length + ' lotes';
 
-  // Sincronizar indicadores de orden en encabezados
-  updateSortInds(['campo','lote','amb','tipo','sup','fisica','sembrada','pct'], 'si-');
+  // Sincronizar indicadores de orden en encabezados (sort a nivel lote)
+  updateSortInds(['campo','lote','amb','sup','expl'], 'si-');
 
   // Banner de acción masiva (visible cuando hay algún filtro activo aparte de campo/tipo)
   renderMassBanner(lts);
+  renderCierreBanner();
 
-  // Columnas base: 11 (sin historia) / 14 (con historia global, +3)
-  var colspan = state.histGlobal ? 14 : 11;
+  // Columnas base: 12 (sin historia) / 15 (con historia global, +3)
+  var colspan = state.histGlobal ? 16 : 13;
 
   var html = '';
   if(state.sortKey){
@@ -2324,18 +2381,22 @@ function renderPlan(){
       html += '<tr><td colspan="'+colspan+'" style="text-align:center;padding:20px;color:var(--muted);font-style:italic">No hay lotes que coincidan con los filtros aplicados.</td></tr>';
     }
   } else {
-    var agrs = lts.filter(function(l){return lotTipo(l)==='AGR';});
-    var gans = lts.filter(function(l){return lotTipo(l)==='GAN';});
-    if(agrs.length){
-      html += '<tr class="grp-row grp-agr"><td colspan="'+colspan+'">Lotes Agrícolas · '+agrs.length+'</td></tr>';
-      html += renderRows(agrs, 'row-agr');
-    }
-    if(gans.length){
-      html += '<tr class="grp-row grp-gan"><td colspan="'+colspan+'">Lotes Ganaderos · '+gans.length+'</td></tr>';
-      html += renderRows(gans, 'row-gan');
-    }
-    if(!agrs.length && !gans.length){
+    // Agrupado por CAMPO (EC/EM/LR/LM). El uso ya no agrupa lotes (vive por actividad).
+    if(!lts.length){
       html += '<tr><td colspan="'+colspan+'" style="text-align:center;padding:20px;color:var(--muted);font-style:italic">No hay lotes que coincidan con los filtros aplicados.</td></tr>';
+    } else {
+      var porCampo = {}; var ordenCampos = [];
+      for(var gi=0; gi<lts.length; gi++){
+        var cc2 = lts[gi].c || '—';
+        if(!porCampo[cc2]){ porCampo[cc2] = []; ordenCampos.push(cc2); }
+        porCampo[cc2].push(lts[gi]);
+      }
+      for(var ci=0; ci<ordenCampos.length; ci++){
+        var campo = ordenCampos[ci];
+        var grupo = porCampo[campo];
+        html += '<tr class="grp-row grp-campo"><td colspan="'+colspan+'">Campo '+campo+' · '+grupo.length+' lotes</td></tr>';
+        html += renderRows(grupo, 'row-flat');
+      }
     }
   }
   document.getElementById('planBody').innerHTML = html;
@@ -2344,55 +2405,93 @@ function renderPlan(){
     el.style.display = state.histGlobal ? '' : 'none';
   });
 
-  // Totales: sup lote, física, sembrada, % uso global
-  var totSupLote=0, totFis=0, totSemb=0;
-  for(var i=0;i<lts.length;i++){
-    totSupLote += lts[i].s||0;
-    var acts = actsDe(lts[i], state.campania);
-    totFis += supFisica(acts);
-    totSemb += supSembrada(acts);
+  // El total del Plan lo muestran los cuadros de resultado (KPIs) según lo filtrado.
+  document.getElementById('planFoot').innerHTML = '';
+}
+
+function renderCierreBanner(){
+  var cont = document.getElementById('cierreBanner');
+  if(!cont) return;
+  // Universo: lotes de la empresa (todos los estados), acotado al campo si hay uno elegido
+  var universo = LOTES.slice();
+  universo = universo.filter(function(l){ return state.campo === 'TODOS' || l.c === state.campo; });
+  var descuadres = controlCierreCampos(universo);
+  if(!descuadres.length){ cont.innerHTML = ''; return; }
+  var html = '';
+  for(var i=0;i<descuadres.length;i++){
+    var d = descuadres[i];
+    if(d.dif > 0){
+      // Faltan ha para cerrar el campo → ofrecer generar lote de desperdicios
+      html += '<div class="cierre-banner cierre-falta">'
+            + '<span>⚠ Campo <strong>'+d.campo+'</strong>: los lotes suman <strong>'+fInt(d.suma)+' ha</strong> de <strong>'+fInt(d.total)+' ha</strong> del campo. Faltan <strong>'+fInt(d.dif)+' ha</strong>.</span>'
+            + '<button class="cierre-btn" onclick="generarLoteDesperdicios(\''+d.campo+'\','+d.dif+')">Generar «'+d.campo+' Desperdicios y estructura»</button>'
+            + '</div>';
+    } else {
+      // Exceso: los lotes superan el total del campo (error de datos)
+      html += '<div class="cierre-banner cierre-exceso">'
+            + '<span>⚠ Campo <strong>'+d.campo+'</strong>: los lotes suman <strong>'+fInt(d.suma)+' ha</strong>, más que el total del campo (<strong>'+fInt(d.total)+' ha</strong>). Revisá las superficies.</span>'
+            + '</div>';
+    }
   }
-  var histCols = state.histGlobal ? '<td></td><td></td><td></td>' : '';
-  // Orden: [btn][campo][lote][sup lote][amb][tipo][hist x3][antecesor][actividades][física][sembrada][%]
-  // TOTAL ocupa campo+lote = colspan 2; luego sup lote; luego amb+tipo vacíos
-  document.getElementById('planFoot').innerHTML = '<tr class="tot-row"><td></td><td colspan="2" class="tdname">TOTAL</td><td>'+fInt(totSupLote)+'</td><td></td><td></td>'+histCols+'<td></td><td></td><td>'+fInt(totFis)+'</td><td>'+fInt(totSemb)+'</td><td>'+f(totSupLote>0?totFis/totSupLote*100:0,0)+'%</td></tr>';
+  cont.innerHTML = html;
+}
+
+function controlCierreCampos(lts){
+  // Suma de sup total por campo (todos los lotes, activos e inactivos)
+  var sumaPorCampo = {};
+  for(var i=0;i<lts.length;i++){
+    var c = lts[i].c || '—';
+    sumaPorCampo[c] = (sumaPorCampo[c]||0) + (lts[i].s||0);
+  }
+  var res = [];
+  for(var campo in sumaPorCampo){
+    var total = totalDeCampo(campo);
+    if(total > 0){ // solo se controla si el total del campo está cargado
+      var suma = sumaPorCampo[campo];
+      var dif = total - suma; // >0 faltan lotes (desperdicios); <0 exceso (error de datos)
+      if(Math.abs(dif) > 0.5){
+        res.push({ campo: campo, total: total, suma: suma, dif: dif });
+      }
+    }
+  }
+  return res;
+}
+
+// Genera (o ajusta) el lote "<campo> Desperdicios y estructura" con el faltante del campo.
+function generarLoteDesperdicios(campo, faltante){
+  var nombre = campo + ' Desperdicios y estructura';
+  var existente = LOTES.find(function(x){return x.l===nombre;});
+  if(existente){
+    existente.s = (existente.s||0) + faltante;
+  } else {
+    LOTES.push({ l:nombre, c:campo, s:faltante, a:'DESP', expl:0, activo:true, p:{}, desperdicio:true });
+  }
+  if (_esModoApi()) guardarPlanApi();
+  renderAll();
 }
 
 function renderMassBanner(lts){
-  var hayFiltros = state.fAmb.length || state.fAnt.length || state.fCult.length || state.fSeg;
+  // Banner de filtrados retirado: el conteo de lotes y ha ya se muestra en los cuadros
+  // de resultado (KPIs) de arriba, que reaccionan a lo filtrado. Se evita duplicar.
   var cont = document.getElementById('massBanner');
-  if(!hayFiltros || lts.length===0){ cont.innerHTML = ''; return; }
-  var totHa = lts.reduce(function(a,b){return a + (b.s||0);},0);
-  var prev = campAnterior(state.campania);
-  var resumen = [];
-  if(state.fAmb.length) resumen.push('Ambiente: '+state.fAmb.join(', '));
-  if(state.fAnt.length) resumen.push('Antecesor '+(prev||'')+': '+state.fAnt.join(', '));
-  if(state.fCult.length) resumen.push('Cultivo/Uso: '+state.fCult.join(', '));
-  if(state.fSeg==='1') resumen.push('con 1ª');
-  else if(state.fSeg==='2') resumen.push('con 2ª');
-  cont.innerHTML = '<div class="mass-banner"><div class="mass-banner-info">📋 <strong>'+lts.length+' lotes</strong> · <strong>'+fInt(totHa)+' ha</strong> filtrados · '+resumen.join(' · ')+'</div></div>';
+  if(cont) cont.innerHTML = '';
 }
 
 function renderRows(lts, cls){
   var html = '';
   var prev = campAnterior(state.campania);
+  var histActivo = state.histGlobal;
 
   for(var i=0;i<lts.length;i++){
     var l = lts[i];
-    var acts = actsDe(l, state.campania);
-    var fisica = supFisica(acts);
-    var sembrada = supSembrada(acts);
+    var acts = actsVisibles(l, state.campania);       // actividades de la campaña activa
+    var actsOrd = actsOrdenadas(acts);                 // ordenadas (1ª antes que 2ª, por ha desc)
     var sup = l.s || 0;
-    var pct = sup>0 ? (fisica/sup*100) : 0;
-    var exceeded = fisica > sup + 0.01;
+    var expl = loteExpl(l);                            // sup explotable (null = pendiente de carga)
+    var explPend = loteExplPendiente(l);
     var escName = l.l.replace(/'/g,"\\'");
 
     var ambHtml = l.a ? '<span class="amb-code" title="'+(ambDesc(l.a)||'')+'">'+l.a+'</span>' : '<span style="color:var(--muted)">—</span>';
-
-    // Tipo editable (Agrícola/Ganadero) con flechita
-    var tipoVal = lotTipo(l);
-    var tipoTxt = tipoVal==='AGR' ? 'Agrícola' : 'Ganadero';
-    var tipoHtml = '<span class="cell-dd-trigger" onclick="openTipoLoteDd(this,\''+escName+'\',\''+tipoVal+'\')">'+tipoTxt+'<span class="cell-dd-arrow">▾</span></span>';
 
     // ANTECESOR (campaña previa): siglas ordenadas por ha desc, separadas con /
     var antActs = prev ? actsOrdenadas(actsDe(l, prev)) : [];
@@ -2400,9 +2499,10 @@ function renderRows(lts, cls){
     for(var ai=0; ai<antActs.length; ai++) antParts.push(cultRoHtml(antActs[ai].c, {hideName:true}));
     var antHtml = antParts.length ? '<div class="cult-multi" style="flex-direction:row;flex-wrap:wrap">'+antParts.join('<span class="cult-sep">/</span>')+'</div>' : '<span style="color:var(--muted)">—</span>';
 
-    // HISTORIA: 3 columnas de campaña (anteriores al antecesor), solo si histGlobal
-    var histCells = '';
-    if(state.histGlobal){
+    // HISTORIA: 3 celdas de campaña (anteriores al antecesor), solo si histGlobal.
+    // Muestra sigla + sup neta por cultivo.
+    var histCells = [];
+    if(histActivo){
       var histCamps = histCampanias(state.campania);
       for(var hc=0; hc<3; hc++){
         var cc = histCamps[hc];
@@ -2411,55 +2511,116 @@ function renderRows(lts, cls){
           var pa = actsOrdenadas(actsDe(l, cc));
           if(pa.length){
             var parts = [];
-            for(var pi=0; pi<pa.length; pi++) parts.push(cultRoHtml(pa[pi].c, {hideName:true}));
-            inner = '<div class="cult-multi" style="flex-direction:row;flex-wrap:wrap">'+parts.join('<span class="cult-sep">/</span>')+'</div>';
+            for(var pi=0; pi<pa.length; pi++){
+              parts.push('<span class="hist-cult">'+cultRoHtml(pa[pi].c, {hideName:true})+'<span class="hist-ha">'+f(pa[pi].ha,0)+'</span></span>');
+            }
+            inner = '<div class="cult-multi" style="flex-direction:column;gap:2px">'+parts.join('')+'</div>';
           }
         }
-        histCells += '<td class="td-hist-global">'+inner+'</td>';
+        histCells.push('<td class="td-hist-global">'+inner+'</td>');
       }
     }
-
-    // CELDA DE ACTIVIDADES (campaña activa) — chips. Click abre el editor (próxima tanda).
-    var actsHtml = acts.length
-      ? '<div class="acts-cell" onclick="openCeldaActividades(\''+escName+'\')" title="Click para editar actividades">'+cultsCell(acts, {})+'</div>'
-      : '<span class="cult-empty" onclick="openCeldaActividades(\''+escName+'\')">+ actividad</span>';
-
-    var fisicaHtml = '<td'+(exceeded?' class="exceeded"':'')+'>'+(acts.length?f(fisica,1):'<span style="color:var(--muted)">—</span>')+'</td>';
-    var sembradaHtml = '<td>'+(acts.length?f(sembrada,1):'<span style="color:var(--muted)">—</span>')+'</td>';
 
     var expanded = !!state.expandedRows[l.l];
     var btnExp = '<button class="btn-expand'+(expanded?' on':'')+'" onclick="toggleExpandRow(\''+escName+'\')" title="'+(expanded?'Ocultar':'Ver')+' historia completa">'+(expanded?'−':'+')+'</button>';
 
-    html += '<tr class="'+cls+'">';
-    html += '<td>'+btnExp+'</td>';
-    html += '<td class="tdcampo">'+(l.c||'—')+'</td>';
-    html += '<td class="tdname">'+l.l+'</td>';
-    html += '<td>'+f(sup,1)+'</td>';
-    html += '<td>'+ambHtml+'</td>';
-    html += '<td>'+tipoHtml+'</td>';
-    html += histCells;
-    html += '<td>'+antHtml+'</td>';
-    html += '<td>'+actsHtml+'</td>';
-    html += fisicaHtml;
-    html += sembradaHtml;
-    html += '<td style="color:'+(exceeded?'#991B1B':(pct>=95?'#3B6D11':(pct>=50?'#92400E':'#7A8899')))+';font-weight:600">'+f(pct,0)+'%</td>';
-    html += '</tr>';
+    // Nº de subfilas del bloque actividad: una por actividad (mín 1 si no hay).
+    // Los lotes de desperdicio no se planifican: nunca muestran "+ agregar" ni edición.
+    var esDesp = esLoteDesperdicio(l);
+    var tieneActs = !esDesp && actsOrd.length > 0;
+    var nActRows = Math.max(1, actsOrd.length);
+    var nSub = nActRows;
 
-    // Fila expandida: historia completa de TODAS las campañas (chips por campaña)
+    // Celdas del BLOQUE LOTE (van solo en la primera subfila, con rowspan=nSub)
+    var rs = ' rowspan="'+nSub+'"';
+    var loteCells = ''
+      + '<td class="td-lote"'+rs+'>'+btnExp+'</td>'
+      + '<td class="td-lote tdcampo"'+rs+'>'+(l.c||'—')+'</td>'
+      + '<td class="td-lote tdname"'+rs+'>'+l.l+'</td>'
+      + '<td class="td-lote"'+rs+'>'+f(sup,1)+'</td>'
+      + '<td class="td-lote"'+rs+'>'+(explPend?'<span style="color:#C8642D;cursor:pointer" title="Editar el lote para cargar la sup explotable" onclick="openLoteModal(\''+escName+'\')">— cargar</span>':f(expl,1))+'</td>'
+      + '<td class="td-lote"'+rs+'>'+ambHtml+'</td>';
+    for(var h=0; h<histCells.length; h++){ loteCells += histCells[h].replace('<td class="td-hist-global">','<td class="td-hist-global td-lote"'+rs+'>'); }
+    loteCells += '<td class="td-lote"'+rs+'>'+antHtml+'</td>';
+
+    // Función para armar el bloque ACTIVIDAD de una subfila
+    function actCells(a, aIdx, esUltima){
+      if(esDesp){
+        // Lote de desperdicios/estructura: no se planifica
+        return '<td class="td-act act-start" colspan="6"><span style="color:var(--muted);font-style:italic;font-size:11px">Desperdicios y estructura · no se planifica</span></td>';
+      }
+      if(!a){
+        // Lote sin actividad en la campaña: bloque vacío con "+ actividad"
+        var emptyClick = loteActivo(l) ? 'abrirEditorActividad(\''+escName+'\',-1)' : 'avisoLoteInactivo(\''+escName+'\')';
+        var emptyCls = loteActivo(l) ? 'cult-empty' : 'cult-empty cult-empty-off';
+        return '<td class="td-act act-start"><span class="'+emptyCls+'" onclick="'+emptyClick+'">+ actividad</span></td>'
+             + '<td class="td-act"><span style="color:var(--muted)">—</span></td>'
+             + '<td class="td-act"><span style="color:var(--muted)">—</span></td>'
+             + '<td class="td-act"><span style="color:var(--muted)">—</span></td>'
+             + '<td class="td-act"><span style="color:var(--muted)">—</span></td>'
+             + '<td class="td-act td-act-acc"></td>';
+      }
+      var cultHtml = '<span class="act-cult">'+cultRoHtml(a.c, {})+'</span>' + (a.seg ? ' <span class="badge-2da" title="2ª actividad sobre la misma superficie en la campaña">2ª</span>' : '');
+      var usoId = usoDeCultivo(a.c);
+      var usoHtml = '<span class="uso-pill" style="color:'+usoColor(usoId)+'">'+usoNombre(usoId)+'</span>';
+      var negHtml = actTen(a) ? '<span class="act-ten">'+tenenciaNombre(actTen(a))+'</span>' : '<span style="color:var(--muted)">—</span>';
+      var neta = a.ha || 0;
+      // % uso por actividad = sup neta / sup explotable del lote
+      var pct = expl>0 ? (neta/expl*100) : 0;
+      var exceeded = expl>0 && neta > expl + 0.01;
+      var pctColor = exceeded ? '#991B1B' : (pct>=95?'#3B6D11':(pct>=50?'#92400E':'#7A8899'));
+      var pctTxt = expl>0 ? f(pct,0)+'%' : '<span style="color:var(--muted)" title="Falta sup explotable">—</span>';
+      // Acciones a la derecha: lápiz + tacho, y en la última actividad también "+"
+      // En lotes inactivos: lápiz y "+" apagados (el lápiz igual dispara el cartel de aviso);
+      // el tacho queda activo para poder limpiar actividades viejas.
+      var offCls = loteActivo(l) ? '' : ' btn-off';
+      var addBtn = esUltima
+        ? '<button class="btn-act-add'+offCls+'" title="'+(loteActivo(l)?'Agregar cultivo a este lote':'Lote inactivo · reactivalo en el Padrón')+'" onclick="'+(loteActivo(l)?'abrirEditorActividad(\''+escName+'\',-1)':'avisoLoteInactivo(\''+escName+'\')')+'">+</button>'
+        : '';
+      var acc = '<span class="act-acc">'
+              + '<button class="btn-act-edit'+offCls+'" title="Editar actividad" onclick="editarActividad(\''+escName+'\','+aIdx+')">✎</button>'
+              + '<button class="btn-act-del" title="Quitar actividad" onclick="borrarActividad(\''+escName+'\','+aIdx+')">×</button>'
+              + addBtn
+              + '</span>';
+      return '<td class="td-act act-start">'+cultHtml+'</td>'
+           + '<td class="td-act">'+usoHtml+'</td>'
+           + '<td class="td-act">'+negHtml+'</td>'
+           + '<td class="td-act'+(exceeded?' exceeded':'')+'">'+f(neta,1)+'</td>'
+           + '<td class="td-act" style="color:'+pctColor+';font-weight:600">'+pctTxt+'</td>'
+           + '<td class="td-act td-act-acc">'+acc+'</td>';
+    }
+
+    // Separación entre lotes por línea fina (clase lote-start en la primera subfila).
+    var inactivo = !loteActivo(l);
+    var rowCls = cls + (inactivo ? ' dimmed' : '');
+
+    // Primera subfila: bloque lote (rowspan) + primer bloque actividad
+    var firstAct = actsOrd.length ? actsOrd[0] : null;
+    var ultimaIdx = actsOrd.length - 1;
+    html += '<tr class="'+rowCls+' lote-start">' + loteCells + actCells(firstAct, 0, ultimaIdx===0 && tieneActs) + '</tr>';
+    // Subfilas siguientes: solo bloque actividad (2ª, 3ª cultivo...)
+    for(var s=1; s<actsOrd.length; s++){
+      html += '<tr class="'+rowCls+' act-sub">' + actCells(actsOrd[s], s, s===ultimaIdx) + '</tr>';
+    }
+
+    // Fila expandida: historia completa de TODAS las campañas (con sup neta por cultivo)
     if(expanded){
-      var colspanE = state.histGlobal ? 14 : 11;
+      var colspanE = histActivo ? 16 : 13;
       var histRows = CAMPANIAS.map(function(c){
-        var pa = actsDe(l, c);
+        var pa = actsOrdenadas(actsDe(l, c));
         var isCurrent = c === state.campania;
         var rowStyle = isCurrent ? ' style="background:#F5F7FA"' : '';
         if(!pa.length){
-          return '<tr'+rowStyle+'><td style="font-family:var(--mono);font-weight:500">'+c+(isCurrent?' ◀':'')+'</td><td style="color:var(--muted);font-style:italic">sin plan</td><td>—</td><td>—</td></tr>';
+          return '<tr'+rowStyle+'><td style="font-family:var(--mono);font-weight:500">'+c+(isCurrent?' ◀':'')+'</td><td style="color:var(--muted);font-style:italic">sin plan</td><td>—</td></tr>';
         }
-        var actsTxt = cultsCell(pa, {ro:true});
-        return '<tr'+rowStyle+'><td style="font-family:var(--mono);font-weight:500">'+c+(isCurrent?' ◀':'')+'</td><td>'+actsTxt+'</td><td style="font-family:var(--mono);text-align:right">'+f(supFisica(pa),1)+'</td><td style="font-family:var(--mono);text-align:right">'+f(supSembrada(pa),1)+'</td></tr>';
+        // Cada cultivo con su sup neta
+        var cellParts = pa.map(function(a){
+          return '<span class="hist-cult">'+cultRoHtml(a.c,{})+(a.seg?' <span class="badge-2da">2ª</span>':'')+' <span class="hist-ha">'+f(a.ha,1)+' ha</span></span>';
+        }).join('<br>');
+        return '<tr'+rowStyle+'><td style="font-family:var(--mono);font-weight:500">'+c+(isCurrent?' ◀':'')+'</td><td>'+cellParts+'</td><td style="font-family:var(--mono);text-align:right">'+f(supFisica(pa),1)+'</td></tr>';
       }).join('');
       var histTable = '<table class="hist-mini-table"><thead><tr>'+
-        '<th>Campaña</th><th>Actividades</th><th style="text-align:right">Sup física</th><th style="text-align:right">Sup sembrada</th>'+
+        '<th>Campaña</th><th>Cultivos (sup neta)</th><th style="text-align:right">Sup física</th>'+
         '</tr></thead><tbody>'+histRows+'</tbody></table>';
       html += '<tr class="row-history"><td colspan="'+colspanE+'"><div style="font-size:10px;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.3px">Historia completa · '+l.l+'</div>'+histTable+'</td></tr>';
     }
@@ -2471,41 +2632,95 @@ function renderRows(lts, cls){
 // EDITOR DE ACTIVIDADES (lote × campaña) — modal con guardado explícito
 // Trabaja sobre una copia temporal; recién al Guardar se escribe en el lote.
 // ────────────────────────────────────────────────────────────
-var maEstado = { loteName: null, acts: [] };
+// Estado del editor de UNA actividad: qué lote y qué índice (-1 = nueva)
+var maEstado = { loteName: null, idx: -1 };
+// Cola: actividad a retomar tras cargar la explotable (si el lote no la tenía)
+var actividadPendiente = null;
 
-function openCeldaActividades(loteName){
+// Aviso reutilizable cuando se intenta accionar sobre un lote inactivo.
+function avisoLoteInactivo(loteName){
+  var l = LOTES.find(function(x){return x.l===loteName;});
+  var nom = l ? l.l : loteName;
+  alert('El lote «'+nom+'» está inactivo.\n\nNo se le pueden asignar cultivos hasta reactivarlo. Podés hacerlo desde el Padrón de lotes.');
+}
+
+function editarActividad(loteName, idx){
+  abrirEditorActividad(loteName, idx);
+}
+
+function abrirEditorActividad(loteName, idx){
+  var l = LOTES.find(function(x){return x.l===loteName;});
+  if(!l) return;
+  // Un lote inactivo no se puede planificar. Hay que reactivarlo en el Padrón primero.
+  if(!loteActivo(l)){
+    avisoLoteInactivo(loteName);
+    return;
+  }
+  // Si el lote no tiene sup explotable cargada, no se puede planificar. En vez de
+  // abrir el editor y bloquear al final, llevamos a cargar la explotable primero.
+  if(loteExplPendiente(l)){
+    actividadPendiente = { loteName: loteName, idx: idx };
+    alert('El lote «'+l.l+'» todavía no tiene la sup. explotable cargada.\n\nPrimero cargala (es la superficie que realmente se puede planificar). Al guardarla, seguís con la actividad.');
+    openLoteModal(loteName, true); // true = foco en el campo explotable
+    return;
+  }
+  abrirEditorActividadReal(loteName, idx);
+}
+
+function abrirEditorActividadReal(loteName, idx){
   var l = LOTES.find(function(x){return x.l===loteName;});
   if(!l) return;
   lockRegistro('plan_uso_suelo:lote', l._id, function(errLock){
     if(errLock){ alert(errLock.error||'No se pudo tomar el registro.'); return; }
-    // Copia temporal de las actividades de la campaña activa
-    var orig = actsDe(l, state.campania);
-    maEstado = { loteName: loteName, acts: [] };
-    for(var i=0;i<orig.length;i++){
-      maEstado.acts.push({ c: orig[i].c, ha: orig[i].ha, seg: !!orig[i].seg });
+    maEstado = { loteName: loteName, idx: idx };
+    var acts = actsOrdenadas(actsDe(l, state.campania));
+    var editando = idx >= 0 && idx < acts.length;
+    var a = editando ? acts[idx] : { c:'', ha:null, seg:false, ten:'' };
+    document.getElementById('modalActsTitle').innerHTML = (editando ? 'Editar actividad' : 'Nueva actividad') + ' · <span class="ma-lote-badge">' + l.l + '</span>';
+    var explTxt = loteExplPendiente(l) ? 'explotable sin cargar' : ('explotable '+fInt(loteExpl(l))+' ha');
+    document.getElementById('modalActsSub').textContent = 'Campaña ' + state.campania + ' · ' + fInt(l.s||0) + ' ha total · ' + explTxt;
+    document.getElementById('maCult').innerHTML = optionsCultivos(a.c);
+    document.getElementById('maTen').innerHTML = optionsTenencias(actTen(a));
+    document.getElementById('maHa').value = (a.ha!=null ? a.ha : '');
+    document.getElementById('maSeg').checked = !!a.seg;
+    var tope = maTopeNeta();
+    var hintEl = document.getElementById('maExplHint');
+    if(tope == null){
+      hintEl.innerHTML = '<span style="color:#C8642D">⚠ Falta cargar la sup. explotable del lote (en el Padrón). No vas a poder guardar hasta cargarla.</span>';
+    } else {
+      hintEl.textContent = 'La sup. neta no puede superar la sup. explotable ('+f(tope,1)+' ha).';
     }
-    document.getElementById('modalActsTitle').textContent = l.l + ' · Campaña ' + state.campania;
-    document.getElementById('modalActsSub').textContent = fInt(l.s||0) + ' ha · ambiente ' + (l.a || '—');
-    document.getElementById('maSupLote').textContent = fInt(l.s||0);
-    // Poblar el select de cultivo/uso desde el padrón
-    poblarSelectCultivos('maNuevoCult');
-    document.getElementById('maNuevoHa').value = (l.s!=null ? l.s : '');
-    document.getElementById('maNuevoSeg').checked = false;
+    document.getElementById('maBtnGuardar').textContent = editando ? 'Guardar' : 'Agregar';
     document.getElementById('modalActsWarn').style.display = 'none';
-    renderActsList();
+    maCultSel(); // pinta el uso y aplica default 2ª si es nueva
+    if(editando) document.getElementById('maSeg').checked = !!a.seg; // respetar el valor guardado al editar
     document.getElementById('modalActs').classList.add('on');
   });
 }
 function closeActsModal(){
   var l = LOTES.find(function(x){return x.l===maEstado.loteName;});
   if(l) unlockRegistro('plan_uso_suelo:lote', l._id);
-  document.getElementById('modalActs').classList.remove('on'); maEstado = { loteName:null, acts:[] };
+  document.getElementById('modalActs').classList.remove('on');
+  maEstado = { loteName:null, idx:-1 };
 }
 
-// Llena un <select> con las opciones de cultivo/uso del padrón, agrupadas por tipo
-function poblarSelectCultivos(selId){
-  var sel = document.getElementById(selId);
-  if(!sel) return;
+// Al cambiar el cultivo: actualiza el uso mostrado y (solo en alta) aplica default 2ª
+function maCultSel(){
+  var sig = document.getElementById('maCult').value;
+  var usoEl = document.getElementById('maUso');
+  if(sig){
+    var usoId = usoDeCultivo(sig);
+    usoEl.textContent = usoNombre(usoId);
+    usoEl.style.color = usoColor(usoId);
+    if(maEstado.idx < 0) document.getElementById('maSeg').checked = cultDefault2da(sig);
+  } else {
+    usoEl.textContent = '—';
+    usoEl.style.color = 'var(--muted)';
+  }
+}
+
+// Opciones de cultivo (agrupadas por uso), con `sel` preseleccionado
+function optionsCultivos(sel){
   var agr = [], gan = [];
   for(var sigla in CULTIVOS){
     var item = { sigla: sigla, n: CULTIVOS[sigla].n, t: CULTIVOS[sigla].t };
@@ -2513,61 +2728,32 @@ function poblarSelectCultivos(selId){
   }
   var byName = function(a,b){ return a.n.localeCompare(b.n); };
   agr.sort(byName); gan.sort(byName);
-  var html = '';
+  var html = '<option value="">— Elegí cultivo</option>';
   if(agr.length){
     html += '<optgroup label="Agrícolas">';
-    for(var i=0;i<agr.length;i++) html += '<option value="'+agr[i].sigla+'">'+agr[i].sigla+' — '+agr[i].n+'</option>';
+    for(var i=0;i<agr.length;i++) html += '<option value="'+agr[i].sigla+'"'+(sel===agr[i].sigla?' selected':'')+'>'+agr[i].sigla+' — '+agr[i].n+'</option>';
     html += '</optgroup>';
   }
   if(gan.length){
     html += '<optgroup label="Ganaderos / forrajeros">';
-    for(var j=0;j<gan.length;j++) html += '<option value="'+gan[j].sigla+'">'+gan[j].sigla+' — '+gan[j].n+'</option>';
+    for(var j=0;j<gan.length;j++) html += '<option value="'+gan[j].sigla+'"'+(sel===gan[j].sigla?' selected':'')+'>'+gan[j].sigla+' — '+gan[j].n+'</option>';
     html += '</optgroup>';
   }
-  sel.innerHTML = html;
+  return html;
+}
+// Opciones de tenencia, con `sel` preseleccionado
+function optionsTenencias(sel){
+  var cat = listarTenencias();
+  var html = '<option value="">— Sin tenencia</option>';
+  for(var id in cat){ html += '<option value="'+id+'"'+(sel===id?' selected':'')+'>'+cat[id].n+'</option>'; }
+  return html;
 }
 
-// Devuelve las ha del lote en edición
-function maSupLote(){
-  var l = LOTES.find(function(x){return x.l===maEstado.loteName;});
-  return l ? (l.s||0) : 0;
-}
-
-function renderActsList(){
-  var cont = document.getElementById('modalActsList');
-  if(!maEstado.acts.length){
-    cont.innerHTML = '<div style="font-size:12px;color:var(--muted);font-style:italic;padding:8px 0">Sin actividades. Agregá una abajo.</div>';
-  } else {
-    var html = '';
-    for(var i=0;i<maEstado.acts.length;i++){
-      var a = maEstado.acts[i];
-      html += '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">';
-      html += '<span class="cult-sig" style="min-width:48px;font-weight:500">'+a.c+'</span>';
-      html += '<span style="flex:1;font-size:12px;color:var(--muted)">'+cultName(a.c)+'</span>';
-      html += '<input type="number" min="0" step="0.1" value="'+(a.ha!=null?a.ha:'')+'" style="width:80px;padding:5px 8px;border:1.5px solid #CBD5E1;border-radius:6px;font-size:12px;font-variant-numeric:tabular-nums;text-align:right" onchange="maEditarHa('+i+',this.value)"> <span style="font-size:11px;color:var(--muted)">ha</span>';
-      html += '<label style="font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" '+(a.seg?'checked':'')+' onchange="maToggleSeg('+i+')"> 2ª</label>';
-      html += '<button class="btn-icon btn-icon-del" title="Quitar" onclick="maQuitarActividad('+i+')">×</button>';
-      html += '</div>';
-    }
-    cont.innerHTML = html;
-  }
-  maActualizarTotales();
-}
-
-function maActualizarTotales(){
-  var fis = supFisica(maEstado.acts);
-  var semb = supSembrada(maEstado.acts);
-  document.getElementById('maTotFisica').textContent = f(fis,1);
-  document.getElementById('maTotSembrada').textContent = f(semb,1);
-  // Aviso si la física supera la del lote
-  var warn = document.getElementById('modalActsWarn');
-  if(fis > maSupLote() + 0.01){
-    warn.textContent = 'La superficie física ('+f(fis,1)+' ha) supera la del lote ('+f(maSupLote(),1)+' ha).';
-    warn.style.display = '';
-  } else {
-    warn.style.display = 'none';
-  }
-}
+// Sup total / explotable del lote en edición
+function maSupLote(){ var l = LOTES.find(function(x){return x.l===maEstado.loteName;}); return l ? (l.s||0) : 0; }
+function maExplLote(){ var l = LOTES.find(function(x){return x.l===maEstado.loteName;}); return l ? loteExpl(l) : null; }
+// Tope de validación: SIEMPRE la explotable. Sin explotable cargada no se puede planificar.
+function maTopeNeta(){ return maExplLote(); } // null si no está cargada
 
 // Parsea un número escrito por el usuario o proveniente de un valor JS, detectando el formato.
 // Casos que resuelve:
@@ -2603,73 +2789,55 @@ function maParseHa(val){
   return isNaN(n) ? null : n;
 }
 
-function maEditarHa(idx, val){
-  var n = maParseHa(val);
-  if(n===null || n<0){ renderActsList(); return; }
-  if(n > maSupLote() + 0.01){
-    alert('La superficie de la actividad ('+f(n,1)+' ha) no puede superar la del lote ('+f(maSupLote(),1)+' ha).');
-    renderActsList();
-    return;
-  }
-  maEstado.acts[idx].ha = n;
-  maActualizarTotales();
-}
-
-function maToggleSeg(idx){
-  maEstado.acts[idx].seg = !maEstado.acts[idx].seg;
-  maActualizarTotales();
-}
-
-function maQuitarActividad(idx){
-  maEstado.acts.splice(idx, 1);
-  renderActsList();
-}
-
-function maAgregarActividad(){
-  var sigla = document.getElementById('maNuevoCult').value;
-  var ha = maParseHa(document.getElementById('maNuevoHa').value);
-  var seg = document.getElementById('maNuevoSeg').checked;
-  if(!sigla){ alert('Elegí un cultivo/uso.'); return; }
-  if(ha===null || ha<0){ alert('Poné las hectáreas.'); return; }
-  if(ha > maSupLote() + 0.01){
-    alert('La superficie de la actividad ('+f(ha,1)+' ha) no puede superar la del lote ('+f(maSupLote(),1)+' ha).');
-    return;
-  }
-  maEstado.acts.push({ c: sigla, ha: ha, seg: seg });
-  // resetear el bloque agregar (dejo las ha del lote como default otra vez)
-  document.getElementById('maNuevoHa').value = maSupLote() || '';
-  document.getElementById('maNuevoSeg').checked = false;
-  renderActsList();
-}
-
-function guardarActividades(){
+// Guardar la actividad única (alta o edición)
+function guardarActividadUnica(){
   var l = LOTES.find(function(x){return x.l===maEstado.loteName;});
   if(!l){ closeActsModal(); return; }
-  // Validación final: ninguna actividad supera el lote
-  for(var i=0;i<maEstado.acts.length;i++){
-    if((maEstado.acts[i].ha||0) > l.s + 0.01){
-      alert('Hay una actividad cuya superficie supera la del lote. Corregila antes de guardar.');
-      return;
-    }
+  var warn = document.getElementById('modalActsWarn');
+  var sig = document.getElementById('maCult').value;
+  var ha = maParseHa(document.getElementById('maHa').value);
+  var seg = document.getElementById('maSeg').checked;
+  var ten = document.getElementById('maTen').value || '';
+  if(!sig){ warn.textContent = 'Elegí un cultivo.'; warn.style.display=''; return; }
+  if(ha===null || ha<=0){ warn.textContent = 'Poné la sup. neta (ha).'; warn.style.display=''; return; }
+  var tope = maTopeNeta();
+  if(tope == null){
+    warn.textContent = 'Este lote no tiene sup. explotable cargada. Cargala primero en el Padrón para poder planificar cultivos.';
+    warn.style.display='';
+    return;
   }
-  // Escribir la copia en el lote (array nuevo, sin referencias compartidas)
-  var nuevos = [];
-  for(var j=0;j<maEstado.acts.length;j++){
-    nuevos.push({ c: maEstado.acts[j].c, ha: maEstado.acts[j].ha, seg: !!maEstado.acts[j].seg });
+  if(ha > tope + 0.01){ warn.textContent = 'La sup. neta ('+f(ha,1)+' ha) supera la sup. explotable ('+f(tope,1)+' ha).'; warn.style.display=''; return; }
+  var nueva = { c: sig, ha: ha, seg: !!seg };
+  if(ten) nueva.ten = ten;
+  // Reconstruir el array de la campaña respetando el orden actual
+  var actual = actsOrdenadas(actsDe(l, state.campania)).map(function(a){
+    var o = { c:a.c, ha:a.ha, seg:!!a.seg }; var t=actTen(a); if(t) o.ten = t; return o;
+  });
+  if(maEstado.idx >= 0 && maEstado.idx < actual.length){
+    actual[maEstado.idx] = nueva; // editar
+  } else {
+    actual.push(nueva); // agregar
   }
-  l.p[state.campania] = nuevos; // vacío [] = sin plan esa campaña; el lote permanece
+  l.p[state.campania] = actual;
   closeActsModal();
   if (_esModoApi()) guardarPlanApi();
   renderAll();
 }
 
-// ────────────────────────────────────────────────────────────
-// EDITAR DATOS
-// La edición de actividades (alta/baja/ha/2ª) se hace en el editor modal de celda.
-// Estas entradas redirigen a ese editor.
-// ────────────────────────────────────────────────────────────
-function editHa(loteName, val){ openCeldaActividades(loteName); }
-function editCultivo(loteName, slot, triggerEl){ openCeldaActividades(loteName); }
+// Borrar una actividad puntual desde la tabla (× del bloque actividad)
+function borrarActividad(loteName, idx){
+  var l = LOTES.find(function(x){return x.l===loteName;});
+  if(!l) return;
+  var actual = actsOrdenadas(actsDe(l, state.campania)).map(function(a){
+    var o = { c:a.c, ha:a.ha, seg:!!a.seg }; var t=actTen(a); if(t) o.ten = t; return o;
+  });
+  if(idx<0 || idx>=actual.length) return;
+  if(!confirm('¿Quitar la actividad «'+actual[idx].c+'» de '+loteName+' en '+state.campania+'?')) return;
+  actual.splice(idx,1);
+  l.p[state.campania] = actual;
+  if (_esModoApi()) guardarPlanApi();
+  renderAll();
+}
 
 // ────────────────────────────────────────────────────────────
 // ACCIÓN MASIVA (aplicar cultivo/uso a lotes filtrados)
@@ -2677,6 +2845,13 @@ function editCultivo(loteName, slot, triggerEl){ openCeldaActividades(loteName);
 // ────────────────────────────────────────────────────────────
 function openMasivo(){ alert('La acción masiva se reimplementa en la próxima etapa con el modelo de actividades.'); }
 function closeMasivo(){ var m=document.getElementById('modalMasivo'); if(m) m.classList.remove('on'); }
+
+// ────────────────────────────────────────────────────────────
+// CONCILIACIÓN DE SUPERFICIES — pendiente de portar.
+// En el standalone del cliente depende de datos simulados de OT (CONC_DEMO=true,
+// sin backend real de Labores/OT ni acá ni allá); se prioriza el resto del tablero primero.
+// ────────────────────────────────────────────────────────────
+function abrirConciliar(){ alert('La conciliación de superficies todavía no está portada a esta versión.'); }
 
 
 // ────────────────────────────────────────────────────────────
