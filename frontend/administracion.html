@@ -108,6 +108,17 @@ function uid(){ return 'x_' + Date.now().toString(36) + Math.random().toString(3
 function findById(arr,id){ for(var i=0;i<arr.length;i++){ if(arr[i].id===id)return arr[i]; } return null; }
 function val(id){ var el=document.getElementById(id); return el?el.value.trim():''; }
 function setMsg(t){ var m=document.getElementById('msg'); if(m) m.textContent=t||''; }
+// Validación en vivo de Hectáreas totales (además del chequeo real en
+// guardarCampo() — esto es solo feedback inmediato mientras el usuario tipea).
+function validarHa(){
+  var el=document.getElementById('k-ha');
+  if(!el) return;
+  var v=el.value.trim();
+  var n=v?Number(v):null;
+  var invalido=n!=null && (isNaN(n)||n<0);
+  el.style.borderColor=invalido?'var(--terra)':'';
+  setMsg(invalido?'Las hectáreas totales no pueden ser negativas.':'');
+}
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function esAdminPuntal(){ return !!(CTX && CTX.usuario && CTX.usuario.rol==='admin_general'); }
 
@@ -366,7 +377,8 @@ function formCampo(){
       field('Localidad','k-loc',k.localidad,true)+
       field('Partido / Depto','k-part',k.partido,true)+
       fieldProvincia(k.provincia)+
-      field('Hectáreas totales','k-ha',k.haTotales,true,'number')+
+      '<div class="fld"><label>Hectáreas totales <span class="opt">(opcional)</span></label>'+
+        '<input id="k-ha" type="number" min="0" oninput="validarHa()" value="'+esc(k.haTotales==null?'':k.haTotales)+'"></div>'+
     '</div>'+
     '<div class="actions">'+
       '<button class="btn" id="btn-guardar" onclick="guardarCampo(\''+esc(k.empresaId||'')+'\')">Guardar</button>'+
