@@ -241,6 +241,44 @@ function field(label,elId,v,opcional,type){
 }
 function inner(html){ return html.replace('<div class="fld">','').replace(/<\/div>$/,''); }
 
+// Provincias argentinas (catálogo fijo, no editable — no hace falta un ABM para esto).
+var PROVINCIAS=[
+  {id:1,codigo:'BA',pcia:'Buenos Aires'},
+  {id:2,codigo:'CA',pcia:'Catamarca'},
+  {id:3,codigo:'CH',pcia:'Chaco'},
+  {id:4,codigo:'CB',pcia:'Chubut'},
+  {id:5,codigo:'CABA',pcia:'Ciudad Autónoma de Buenos Aires'},
+  {id:6,codigo:'CO',pcia:'Córdoba'},
+  {id:7,codigo:'CR',pcia:'Corrientes'},
+  {id:8,codigo:'ER',pcia:'Entre Ríos'},
+  {id:9,codigo:'FO',pcia:'Formosa'},
+  {id:10,codigo:'JU',pcia:'Jujuy'},
+  {id:11,codigo:'LP',pcia:'La Pampa'},
+  {id:12,codigo:'LR',pcia:'La Rioja'},
+  {id:13,codigo:'ME',pcia:'Mendoza'},
+  {id:14,codigo:'MI',pcia:'Misiones'},
+  {id:15,codigo:'NQ',pcia:'Neuquén'},
+  {id:16,codigo:'RN',pcia:'Río Negro'},
+  {id:17,codigo:'SA',pcia:'Salta'},
+  {id:18,codigo:'SJ',pcia:'San Juan'},
+  {id:19,codigo:'SL',pcia:'San Luis'},
+  {id:20,codigo:'SC',pcia:'Santa Cruz'},
+  {id:21,codigo:'SF',pcia:'Santa Fe'},
+  {id:22,codigo:'SE',pcia:'Santiago del Estero'},
+  {id:23,codigo:'TF',pcia:'Tierra del Fuego'},
+  {id:24,codigo:'TU',pcia:'Tucumán'}
+];
+// Select de Provincia: guarda el nombre completo (mismo valor que ya usaban los
+// campos existentes con el input de texto libre), no el código.
+function fieldProvincia(v){
+  var opts='<option value="">— Elegí —</option>';
+  for(var i=0;i<PROVINCIAS.length;i++){
+    var p=PROVINCIAS[i];
+    opts+='<option value="'+esc(p.pcia)+'"'+(v===p.pcia?' selected':'')+'>'+esc(p.pcia)+'</option>';
+  }
+  return '<div class="fld"><label>Provincia <span class="opt">(opcional)</span></label><select id="k-prov">'+opts+'</select></div>';
+}
+
 function renderForm(){
   var ph=document.getElementById('ph'), f=document.getElementById('form');
   if(!sel.kind){ ph.style.display=''; f.style.display='none'; return; }
@@ -306,7 +344,7 @@ function formCampo(){
       '<div class="fld full">'+inner(field('Nombre del establecimiento','k-nombre',k.nombre))+'</div>'+
       field('Localidad','k-loc',k.localidad,true)+
       field('Partido / Depto','k-part',k.partido,true)+
-      field('Provincia','k-prov',k.provincia,true)+
+      fieldProvincia(k.provincia)+
       field('Hectáreas totales','k-ha',k.haTotales,true,'number')+
     '</div>'+
     '<div class="actions">'+
