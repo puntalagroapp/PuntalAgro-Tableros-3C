@@ -279,6 +279,27 @@ function fieldProvincia(v){
   return '<div class="fld"><label>Provincia <span class="opt">(opcional)</span></label><select id="k-prov">'+opts+'</select></div>';
 }
 
+// Condiciones frente al IVA (catálogo fijo, no editable).
+var CONDICIONES_IVA=[
+  {id:1,codigo:'RI',descripcion:'Responsable Inscripto'},
+  {id:2,codigo:'MT',descripcion:'Monotributista'},
+  {id:3,codigo:'EX',descripcion:'Exento'},
+  {id:4,codigo:'CF',descripcion:'Consumidor Final'},
+  {id:5,codigo:'NR',descripcion:'No Responsable'},
+  {id:6,codigo:'NA',descripcion:'No Alcanzado'},
+  {id:7,codigo:'E',descripcion:'Sujeto del Exterior'}
+];
+// Select de Condición IVA: guarda la descripción completa (mismo valor que ya
+// usaban las empresas existentes con el input de texto libre).
+function fieldCondicionIVA(v){
+  var opts='<option value="">— Elegí —</option>';
+  for(var i=0;i<CONDICIONES_IVA.length;i++){
+    var c=CONDICIONES_IVA[i];
+    opts+='<option value="'+esc(c.descripcion)+'"'+(v===c.descripcion?' selected':'')+'>'+esc(c.descripcion)+'</option>';
+  }
+  return '<div class="fld"><label>Condición IVA <span class="opt">(opcional)</span></label><select id="e-iva">'+opts+'</select></div>';
+}
+
 function renderForm(){
   var ph=document.getElementById('ph'), f=document.getElementById('form');
   if(!sel.kind){ ph.style.display=''; f.style.display='none'; return; }
@@ -323,7 +344,7 @@ function formEmpresa(){
     '<div class="grid2">'+
       '<div class="fld full">'+inner(field('Razón social','e-rs',e.razonSocial))+'</div>'+
       field('CUIT','e-cuit',e.cuit)+
-      field('Condición IVA','e-iva',e.condicionIVA,true)+
+      fieldCondicionIVA(e.condicionIVA)+
       '<div class="fld full">'+inner(field('Dirección','e-dir',e.direccion,true))+'</div>'+
     '</div>'+
     '<div class="actions">'+
