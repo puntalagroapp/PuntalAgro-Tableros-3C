@@ -237,7 +237,7 @@ function seleccionar(kind,id){
 // ── Formularios ───────────────────────────────────────────────────────────────
 function field(label,elId,v,opcional,type){
   return '<div class="fld"><label>'+label+(opcional?' <span class="opt">(opcional)</span>':'')+'</label>'+
-    '<input id="'+elId+'" type="'+(type||'text')+'" value="'+esc(v==null?'':v)+'"></div>';
+    '<input id="'+elId+'" type="'+(type||'text')+'"'+(type==='number'?' min="0"':'')+' value="'+esc(v==null?'':v)+'"></div>';
 }
 function inner(html){ return html.replace('<div class="fld">','').replace(/<\/div>$/,''); }
 
@@ -451,11 +451,13 @@ function borrarEmpresa(){
 
 function guardarCampo(empresaId){
   if(!val('k-nombre')){ setMsg('Falta el nombre del campo.'); return; }
+  var haTotales=val('k-ha')?Number(val('k-ha')):null;
+  if(haTotales!=null && (isNaN(haTotales) || haTotales<0)){ setMsg('Las hectáreas totales no pueden ser negativas.'); return; }
   var existente=(sel.id&&!sel._nuevoEnEmpresa)?findById(_campos,sel.id):null;
   var k={
     id: (sel._nuevoEnEmpresa?null:sel.id)||uid(), empresaId:empresaId,
     nombre:val('k-nombre'), localidad:val('k-loc'), partido:val('k-part'), provincia:val('k-prov'),
-    haTotales: val('k-ha')?Number(val('k-ha')):null
+    haTotales: haTotales
   };
   var isNew=sel._nuevoEnEmpresa||!sel.id;
   var cb=function(err,data){

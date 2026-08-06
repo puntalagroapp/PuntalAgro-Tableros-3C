@@ -1720,6 +1720,7 @@ app.post('/api/campos', async (req, res) => {
   if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
   const k = req.body;
   if (!k.id || !k.nombre || !k.empresaId) return res.status(400).json({ error: 'Faltan campos obligatorios' });
+  if (k.haTotales != null && Number(k.haTotales) < 0) return res.status(400).json({ error: 'Las hectáreas totales no pueden ser negativas' });
   try {
     if (sesion.rol === 'admin_cliente') {
       const cid = await clienteDeEmpresa(k.empresaId);
@@ -1746,6 +1747,7 @@ app.put('/api/campos/:id', async (req, res) => {
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   if (sesion.rol === 'usuario') return res.status(403).json({ error: 'Sin permiso' });
   const k = { ...req.body, id: req.params.id };
+  if (k.haTotales != null && Number(k.haTotales) < 0) return res.status(400).json({ error: 'Las hectáreas totales no pueden ser negativas' });
   try {
     if (sesion.rol === 'admin_cliente') {
       const cid = await clienteDeCampo(req.params.id);
