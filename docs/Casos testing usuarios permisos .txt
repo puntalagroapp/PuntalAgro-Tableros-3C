@@ -1,0 +1,78 @@
+Roles y permisos. Test, errores, correcciones.
+Definición casos para testear:
+Crear un Cliente con 2 Empresas.
+Admin Puntal crea Cliente A. cliente@clienteA.com 
+Admin Puntal crea Usuario admin_cliente: cliente@clienteA.com
+cliente@clienteA.com crea 2 Empresas: EmpA, EmpB
+cliente@clienteA.com crea 2 usuarios: EmpAadmin, EmpBadmin (usuarios admin de la empresa)
+EmpAadmin crea 1 usuario: EAuser1  y le dá permisos:
+Ver s/tableros
+Ver c/tableros
+EmpAadmin crea 1 usuario: EAuser2  y le dá permisos:
+Cargar s/tableros
+Cargar c/tableros
+EmpaAadmin le permisos de admin al usuario EAuser2
+EAuser2 puede crear usuarios.
+EAuser22 usuario creado por EAuser2 puede ver/cargar solamente.
+
+Gráficamente:
+                                                 Cliente A
+                                                     |
+                      -----------------------------------------------------------------
+                      |       Campo A1 500 ha.                                        |        Campo B1 4500 ha.
+                  Empresa A   Campo A2 1500 ha.                                   Empresa B
+                      |                                                               | 
+           -----------------------------------                             ------------------------
+           |          |           |          |                             |                      |
+     EmpAadmin    EAuser1     EAuser2    Eauser22                      EmpBadmin               EBuser1
+
+
+
+EmpAadmin: admin_cliente
+EmpAadmin: crea EAuser1 nivel Ver S/tableros. Modificar c/tableros.
+EmpAadmin: crea EAuser2 nivel Cargar S/tableros. Modificar c/tableros.
+EmpAadmin: modifica EAuser2 nivel administrar.
+EAuser2: crea usuario EAuser22 nivel ver s/tableros, c/tableros.
+EAuser2: modifica usuario EAuser22 nivel cargar.
+
+EmpBadmin: admin_cliente
+EmpBadmin: crear EBuser1 nivel ver.
+EmpBadmin no puede acceder a Empresa A 
+EBuser1: no ve nada de Empresa A.
+
+Testear operaciones sobre:
+
+1) Maestros:
+
+2) Campos:
+
+
+Además testear:
+-Según nivel del usuario testear:
+--datos erróneos.
+--email formato correcto.
+--no se puede cambiar de nivel (permisos si no es admin)
+--no se puede meter en otra empresa.
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Resultados generales
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Mejoras en pantallas:
+Usuarios y Permisos
+- La lista de usuarios debería tener filtros para el usuario admin_general, cliente, empresas, usuarios.
+  La lista de usuarios para el admin_cliente debería ver solo los usuarios de ese cliente y tener filtros por empresa, usuarios.
+  
+- Crear una empresa Condición frente al IVA debería ser una lista desplegable.
+
+- Cargar campo (Administracion.html) las hectáreas son optativas ??? se pueden cargar valores negativos. Faltan validaciones.
+  Las provincias deberían ser una lista desplegable.
+  
+usuarios.html mostrar el Cliente en lugar de Puntal Agro: Usuarios y permisos - Puntal Agro (debería decir Cliente x)
+
+index.html: si el usuario no tiene permisos para realizar alguna tarea no tendría que mostrarle la opción. Ej. usuario B empresa B rol usuario nivel admin 
+no puede crear empresas, ni campos pero aparece la opción: Estructura de clientes.
+
+
+	
+	
