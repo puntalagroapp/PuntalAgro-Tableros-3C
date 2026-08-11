@@ -99,7 +99,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
       <div class="fld"><label>Usuario</label><input id="f-usuario" placeholder="Nombre o email…" autocomplete="off" oninput="renderUsuarios()"></div>
       <button class="btn-sm" onclick="limpiarFiltrosUsuarios()">Limpiar filtros</button>
     </div>
-    <table id="tbl-usuarios"><thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Cliente</th><th>Permisos</th><th></th></tr></thead><tbody></tbody></table>
+    <table id="tbl-usuarios"><thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th id="th-cliente">Cliente</th><th>Permisos</th><th></th></tr></thead><tbody></tbody></table>
   </div>
 
   <div class="panel">
@@ -305,6 +305,13 @@ function renderUsuarios(){
   var nombreCliente={};
   for(var c=0;c<_clientes.length;c++) nombreCliente[_clientes[c].id]=_clientes[c].nombre;
 
+  // La columna Cliente solo aporta cuando quien mira la tabla puede ver
+  // usuarios de más de un cliente — admin_cliente y el 'usuario' administrador
+  // de empresa ya están acotados a un único cliente (el propio).
+  var mostrarColCliente=!!(CTX && CTX.usuario.rol==='admin_general');
+  var thCliente=document.getElementById('th-cliente');
+  if(thCliente) thCliente.style.display=mostrarColCliente?'':'none';
+
   var us=CTX && CTX.usuario.rol==='admin_cliente'
     ? _usuarios.filter(function(u){ return u.clienteId===CTX.usuario.clienteId; })
     : _usuarios;
@@ -349,8 +356,9 @@ function renderUsuarios(){
     var accBorrar=esUnoMismo?'':'<button class="btn-sm" onclick="borrarUsuario(\''+esc(u.id)+'\')">Borrar</button>';
     var estadoTxt=(u.activo===false)?' <span class="bdg" style="color:var(--terra)">inactivo</span>':'';
     var clienteTxt=(u.rol==='admin_general')?'<span style="color:var(--muted)">—</span>':esc(nombreCliente[u.clienteId]||u.clienteId||'—');
+    var clienteTd='<td'+(mostrarColCliente?'':' style="display:none"')+'>'+clienteTxt+'</td>';
     var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+esc(u.nombre)+estadoTxt+'</td><td>'+esc(u.email)+'</td><td><span class="bdg">'+esc(u.rol)+'</span></td><td>'+clienteTxt+'</td><td>'+permisosTxt+'</td>'+
+    tr.innerHTML='<td>'+esc(u.nombre)+estadoTxt+'</td><td>'+esc(u.email)+'</td><td><span class="bdg">'+esc(u.rol)+'</span></td>'+clienteTd+'<td>'+permisosTxt+'</td>'+
       '<td>'+accEditar+' '+accBorrar+'</td>';
     tb.appendChild(tr);
   }
