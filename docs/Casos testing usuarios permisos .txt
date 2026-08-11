@@ -1,0 +1,90 @@
+Roles y permisos. Test, errores, correcciones.
+Definición casos para testear:
+Crear un Cliente con 2 Empresas.
+Admin Puntal crea Cliente A. cliente@clienteA.com 
+Admin Puntal crea Usuario admin_cliente: cliente@clienteA.com
+cliente@clienteA.com crea 2 Empresas: EmpA, EmpB
+cliente@clienteA.com crea 2 usuarios: EmpAadmin, EmpBadmin (usuarios admin de la empresa)
+EmpAadmin crea 1 usuario: EAuser1  y le dá permisos:
+Ver s/tableros
+Ver c/tableros
+EmpAadmin crea 1 usuario: EAuser2  y le dá permisos:
+Cargar s/tableros
+Cargar c/tableros
+EmpaAadmin le permisos de admin al usuario EAuser2
+EAuser2 puede crear usuarios.
+EAuser22 usuario creado por EAuser2 puede ver/cargar solamente.
+
+Gráficamente:
+                                                 Cliente A
+                                                     |
+                      -----------------------------------------------------------------
+                      |       Campo A1 500 ha.                                        |        Campo B1 4500 ha.
+                  Empresa A1   Campo A2 1500 ha.                                   Empresa A2
+                      |                                                               | 
+           -----------------------------------                             ------------------------
+           |          |           |          |                             |                      |
+     EmpAadmin    EAuser1     EAuser2    Eauser22                      EmpBadmin               EBuser1
+                  Campo A1    Campo A2   Campos 1&2                                            Campo B1
+
+
+-EmpAadmin: admin_cliente (usuario: adminclientea@clientea.com contraseña: clientea)
+ * Ingreso con adminclientea y cambio contraseña: NO TIENE DONDE MODIFICAR SU CONTRASEÑA 
+EmpAadmin: crea EAuser1 (eauser@clientea.com  clientea) nivel Ver S/tableros. OK
+nivel Ver C/tableros: Evolucion de variables, Fitosanitarios, Plan Uso del Suelo. OK
+Todos los tableros y herramientas de gestión. OK
+
+EmpAadmin: crea EAuser2 nivel Cargar S/tableros. Modificar c/tableros. OK
+EmpAadmin: modifica EAuser2 nivel administrar. OK
+EAuser2: crea usuario EAuser22 nivel ver s/tableros, c/tableros. OK crear
+EAuser2 usuario EAuser2 sale, entra pantalla usuarios, lista usuarios muestra columna Cliente id ver imagen1.png ERROR
+EmpaAadmin vé correctamente el nombre del cliente en la columna Cliente, ver imagen2.png. 
+El usuario EAuser2 creó el usuario EAuser22 (nivel admin) pero no lo vé en la lista de usuarios. ERROR? o Error crear?
+EAuser2: modifica usuario EAuser22 nivel cargar. OK
+
+Entrar con EAuser22 operar sobre el campo A1.
+Entrar con el EAuser ver el campo A1.
+
+EmpBadmin: admin_cliente OK
+EmpBadmin: crear EBuser1 nivel ver. OK
+EmpBadmin no puede acceder a Empresa A OK
+EBuser1: no ve nada de Empresa A. OK
+
+Testear operaciones sobre:
+
+1) Maestros: 
+  usuario con nivel ver solo visualiza. OK
+  usuario con nivel cargar puede cargar. OK
+  usuario con nivel admin puede todo.
+
+2) Campos:
+  
+
+Además testear:
+-Según nivel del usuario testear:
+--datos erróneos.
+--email formato correcto.
+--no se puede cambiar de nivel (permisos si no es admin)
+--no se puede meter en otra empresa.
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Mejoras 
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Usuarios y Permisos
+- La lista de usuarios debería tener filtros para el usuario admin_general, cliente, empresas, usuarios.
+  La lista de usuarios para el admin_cliente debería ver solo los usuarios de ese cliente y tener filtros por empresa, usuarios.
+  
+- Crear una empresa Condición frente al IVA debería ser una lista desplegable. (listo 6-08)
+
+- Cargar campo (Administracion.html) las hectáreas son optativas ??? se pueden cargar valores negativos. Faltan validaciones.
+  Las provincias deberían ser una lista desplegable.  (listo 6-08)
+  
+usuarios.html mostrar el Cliente en lugar de Puntal Agro: Usuarios y permisos - Puntal Agro (debería decir Cliente x)
+
+index.html: si el usuario no tiene permisos para realizar alguna tarea no tendría que mostrarle la opción. Ej. usuario B empresa B rol usuario nivel admin 
+no puede crear empresas, ni campos pero aparece la opción: Estructura de clientes.
+
+login.html (poner ícono para ver contraseña)
+	
+Los tableros y las herramientas de gestión deberían tener un "Volver" al menú ppal.}
