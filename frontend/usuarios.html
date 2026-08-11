@@ -724,10 +724,6 @@ function borrarPermisoActual(){
     CTX=ctx;
     // Un 'usuario' sin nivel='administrar' en ninguna empresa no tiene nada que
     // hacer acá — la única fuente de verdad es si /api/usuarios lo autoriza.
-    if(ctx.usuario.rol==='usuario'){
-      var optAdmin=document.getElementById('opt-nivel-administrar');
-      if(optAdmin) optAdmin.parentNode.removeChild(optAdmin);
-    }
     recargarTodo(function(errUsuarios){
       if(errUsuarios){ location.href='index.html'; return; }
       var alcance=document.getElementById('alcance');

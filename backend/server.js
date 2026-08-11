@@ -983,15 +983,17 @@ app.get('/api/usuarios', async (req, res) => {
         [sesion.cliente_id]
       )).rows);
     }
-    // 'usuario' administrador de empresa: solo ve usuarios con permiso en las
-    // empresas que administra. Sin ninguna empresa administrada, sin acceso.
+    // 'usuario' administrador de empresa: ve TODOS los 'usuario' de su mismo
+    // cliente (igual que admin_cliente) — no solo los que ya tienen una fila en
+    // permisos, si no un usuario recién creado (sin permiso asignado todavía)
+    // no aparecería ni en la lista ni en el selector de "Asignar/editar permiso".
+    // Sin ninguna empresa administrada, sin acceso a esta pantalla.
     const empresas = await empresasQueAdministraUsuario(sesion.id);
     if (!empresas.length) return res.status(403).json({ error: 'Sin permiso' });
     const r = await pool.query(
-      `SELECT DISTINCT u.id, u.nombre, u.email, u.rol, u.cliente_id AS "clienteId", u.activo
-         FROM usuarios u JOIN permisos p ON p.usuario_id = u.id
-        WHERE p.empresa_id = ANY($1) AND u.rol = 'usuario' ORDER BY u.nombre`,
-      [empresas]
+      `SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo
+         FROM usuarios WHERE cliente_id = $1 AND rol = 'usuario' ORDER BY nombre`,
+      [sesion.cliente_id]
     );
     res.json(r.rows);
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
@@ -1164,11 +1166,10 @@ app.post('/api/permisos', async (req, res) => {
     return res.status(403).json({ error: 'No podés asignar permisos sobre esta empresa' });
   }
   const nivelFinal = nivel || 'ver';
-  // Un 'usuario' administrador de empresa nunca delega nivel='administrar'
-  // (docs/Roles y permisos.txt: solo puede dar ver o cargar).
-  if (sesion.rol === 'usuario' && nivelFinal === 'administrar') {
-    return res.status(403).json({ error: 'No podés asignar nivel administrar — como máximo ver o cargar' });
-  }
+  // Un 'usuario' administrador de empresa puede delegar nivel='administrar' a
+  // otro 'usuario' de la misma empresa que administra (co-administradores) —
+  // puedeAdministrarEmpresa() ya validó arriba que esta empresa es una de las
+  // que administra; no hace falta ningún techo adicional de nivel acá.
   // nivel='administrar' implica acceso a TODOS los campos y herramientas de la
   // empresa (docs/Roles y permisos.txt) — se ignoran restricciones parciales.
   const campoIdsFinal = nivelFinal === 'administrar' ? [] : (campoIds || []);
