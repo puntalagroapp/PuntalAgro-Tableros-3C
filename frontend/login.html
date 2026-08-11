@@ -20,6 +20,11 @@ label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bot
 label:first-child{margin-top:0}
 input{width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--sans);font-size:14px;color:var(--text)}
 input:focus{outline:none;border-color:var(--olive)}
+.pass-wrap{position:relative}
+.pass-wrap input{padding-right:40px}
+.pass-toggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;padding:6px;display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer;border-radius:6px}
+.pass-toggle:hover{color:var(--olive)}
+.pass-toggle svg{width:18px;height:18px}
 .btn{width:100%;margin-top:20px;background:var(--olive);color:#fff;border:none;border-radius:8px;padding:11px;font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;transition:background .12s}
 .btn:hover{background:#3c5429}
 .err{margin-top:14px;font-size:12.5px;color:var(--terra);min-height:16px}
@@ -41,7 +46,12 @@ input:focus{outline:none;border-color:var(--olive)}
     <label for="email">Email</label>
     <input id="email" type="email" placeholder="usuario@empresa.com" autocomplete="username" onkeydown="if(event.key==='Enter')entrar()">
     <label for="pass">Contraseña</label>
-    <input id="pass" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')entrar()">
+    <div class="pass-wrap">
+      <input id="pass" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')entrar()">
+      <button type="button" class="pass-toggle" id="pass-toggle" onclick="togglePass()" aria-label="Mostrar contraseña" tabindex="-1">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+      </button>
+    </div>
     <button class="btn" onclick="entrar()">Ingresar</button>
     <div class="err" id="err"></div>
   </div>
@@ -58,6 +68,17 @@ input:focus{outline:none;border-color:var(--olive)}
 })();
 
 var _PA_AK = 'PA_e5f208d00ad24d859032f68d253f06ac8ca3408eb6ebf4310eb5d3a94b5dbed0';
+
+var ICONO_OJO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+var ICONO_OJO_TACHADO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+function togglePass() {
+  var el = document.getElementById('pass');
+  var btn = document.getElementById('pass-toggle');
+  var mostrando = el.type === 'text';
+  el.type = mostrando ? 'password' : 'text';
+  btn.innerHTML = mostrando ? ICONO_OJO : ICONO_OJO_TACHADO;
+  btn.setAttribute('aria-label', mostrando ? 'Mostrar contraseña' : 'Ocultar contraseña');
+}
 
 function entrar() {
   var email = document.getElementById('email').value.trim();
