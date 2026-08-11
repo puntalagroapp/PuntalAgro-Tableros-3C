@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Plan de Uso del Suelo · Puntal Agro</title>
+<script>
+// Chequeo de sesión antes de pintar nada: si no hay token, redirige al login
+// de una sin llegar a mostrar el contenido de esta página.
+(function () {
+  try {
+    var s = JSON.parse(localStorage.getItem('pa_sesion_activa') || 'null');
+    if (!s || !s.token) { location.replace('login.html'); }
+  } catch (e) { location.replace('login.html'); }
+})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
