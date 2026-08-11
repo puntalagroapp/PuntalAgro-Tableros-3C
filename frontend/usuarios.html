@@ -339,7 +339,10 @@ function renderUsuarios(){
       for(var j=0;j<_permisos.length;j++){
         if(_permisos[j].usuarioId===u.id){
           var herrs=_permisos[j].herramientas||[];
-          permisosTxt+='<div style="margin-bottom:3px"><span class="bdg">'+(nombreEmp[_permisos[j].empresaId]||_permisos[j].empresaId)+'</span> '+_permisos[j].nivel+' · '+herrs.length+' herr.</div>';
+          // nivel='administrar' implica TODAS las herramientas de la empresa
+          // (se fuerza así en el backend): no tiene sentido mostrar un conteo.
+          var herrTxt=_permisos[j].nivel==='administrar' ? '' : (' · '+herrs.length+' herr.');
+          permisosTxt+='<div style="margin-bottom:3px"><span class="bdg">'+(nombreEmp[_permisos[j].empresaId]||_permisos[j].empresaId)+'</span> '+_permisos[j].nivel+herrTxt+'</div>';
         }
       }
       if(!permisosTxt) permisosTxt='<span style="color:var(--muted)">sin permisos</span>';
