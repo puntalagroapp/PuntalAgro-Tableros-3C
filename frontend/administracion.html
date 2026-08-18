@@ -120,16 +120,20 @@ function uid(){ return 'x_' + Date.now().toString(36) + Math.random().toString(3
 function findById(arr,id){ for(var i=0;i<arr.length;i++){ if(arr[i].id===id)return arr[i]; } return null; }
 function val(id){ var el=document.getElementById(id); return el?el.value.trim():''; }
 function setMsg(t){ var m=document.getElementById('msg'); if(m) m.textContent=t||''; }
-// Validación en vivo de Hectáreas totales (además del chequeo real en
-// guardarCampo() — esto es solo feedback inmediato mientras el usuario tipea).
+// Hectáreas totales: solo dígitos y un punto decimal — nunca letras, signo "-"
+// ni notación "e". El input es type="text" (no "number") justamente para tener
+// control total del caracter tipeado, en vez de depender de que el navegador
+// bloquee letras (varía según navegador/SO, y no bloquea "e" ni pegado/paste).
+// Es corrección en vivo mientras se tipea; el chequeo real sigue en guardarCampo().
 function validarHa(){
   var el=document.getElementById('k-ha');
   if(!el) return;
-  var v=el.value.trim();
-  var n=v?Number(v):null;
-  var invalido=n!=null && (isNaN(n)||n<0);
-  el.style.borderColor=invalido?'var(--terra)':'';
-  setMsg(invalido?'Las hectáreas totales no pueden ser negativas.':'');
+  var limpio=el.value.replace(/[^0-9.]/g,''); // saca cualquier letra, signo, espacio, etc.
+  var partes=limpio.split('.');
+  if(partes.length>2) limpio=partes[0]+'.'+partes.slice(1).join(''); // un solo punto decimal
+  var corregido = limpio!==el.value;
+  if(corregido) el.value=limpio;
+  setMsg(corregido?'Las hectáreas totales solo admiten números: se sacaron los caracteres inválidos.':'');
 }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function esAdminPuntal(){ return !!(CTX && CTX.usuario && CTX.usuario.rol==='admin_general'); }
@@ -209,7 +213,7 @@ function renderTree(){
                 (function(campo){
                   var kr=document.createElement('div');
                   kr.className='node-row lvl-campo'+(sel.kind==='campo'&&sel.id===campo.id?' sel':'');
-                  kr.innerHTML='<span class="tw"></span><span class="ic"><span class="dot dot-campo"></span></span><span class="lbl">'+esc(campo.nombre)+'</span><span class="cnt">'+(campo.haTotales||'')+(campo.haTotales?' ha':'')+'</span>';
+                  kr.innerHTML='<span class="tw"></span><span class="ic"><span class="dot dot-campo"></span></span><span class="lbl">'+esc(campo.nombre)+'</span><span class="cnt">'+(campo.haTotales!=null?campo.haTotales+' ha':'')+'</span>';
                   kr.onclick=function(){ seleccionar('campo',campo.id); };
                   node.appendChild(kr);
                 })(campos[kk]);
@@ -389,8 +393,8 @@ function formCampo(){
       field('Localidad','k-loc',k.localidad,true)+
       field('Partido / Depto','k-part',k.partido,true)+
       fieldProvincia(k.provincia)+
-      '<div class="fld"><label>Hectáreas totales <span class="opt">(opcional)</span></label>'+
-        '<input id="k-ha" type="number" min="0" oninput="validarHa()" value="'+esc(k.haTotales==null?'':k.haTotales)+'"></div>'+
+      '<div class="fld"><label>Hectáreas totales</label>'+
+        '<input id="k-ha" type="text" inputmode="decimal" oninput="validarHa()" value="'+esc(k.haTotales==null?'0':k.haTotales)+'"></div>'+
     '</div>'+
     '<div class="actions">'+
       '<button class="btn" id="btn-guardar" onclick="guardarCampo(\''+esc(k.empresaId||'')+'\')">Guardar</button>'+
@@ -475,7 +479,7 @@ function borrarEmpresa(){
 
 function guardarCampo(empresaId){
   if(!val('k-nombre')){ setMsg('Falta el nombre del campo.'); return; }
-  var haTotales=val('k-ha')?Number(val('k-ha')):null;
+  var haTotales=val('k-ha')?Number(val('k-ha')):0;
   if(haTotales!=null && (isNaN(haTotales) || haTotales<0)){ setMsg('Las hectáreas totales no pueden ser negativas.'); return; }
   var existente=(sel.id&&!sel._nuevoEnEmpresa)?findById(_campos,sel.id):null;
   var k={

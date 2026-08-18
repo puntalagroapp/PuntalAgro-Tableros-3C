@@ -1733,7 +1733,7 @@ app.post('/api/campos', async (req, res) => {
        ON CONFLICT (id) DO UPDATE
          SET nombre=$3, localidad=$4, partido=$5, provincia=$6, ha_totales=$7`,
       [k.id, k.empresaId, k.nombre, k.localidad||null, k.partido||null,
-       k.provincia||null, k.haTotales||null]
+       k.provincia||null, k.haTotales != null ? k.haTotales : null]
     );
     res.status(201).json(k);
   } catch (err) {
@@ -1759,7 +1759,7 @@ app.put('/api/campos/:id', async (req, res) => {
     await pool.query(
       `UPDATE campos SET nombre=$2, localidad=$3, partido=$4, provincia=$5, ha_totales=$6
        WHERE id=$1`,
-      [k.id, k.nombre, k.localidad||null, k.partido||null, k.provincia||null, k.haTotales||null]
+      [k.id, k.nombre, k.localidad||null, k.partido||null, k.provincia||null, k.haTotales != null ? k.haTotales : null]
     );
     res.json(k);
   } catch (err) {
