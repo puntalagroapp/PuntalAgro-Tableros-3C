@@ -936,7 +936,7 @@ tbody tr.lote-start:first-child td{border-top:none}
     </div>
     <div class="modal-row">
       <span class="modal-lbl">Campo:</span>
-      <select class="modal-input" id="mlCampo"></select>
+      <select class="modal-input" id="mlCampo" onchange="checkSupCampoAviso()"></select>
     </div>
     <div class="modal-row">
       <span class="modal-lbl">Ambiente:</span>
@@ -947,7 +947,7 @@ tbody tr.lote-start:first-child td{border-top:none}
       <div style="display:flex;gap:10px;flex:1">
         <div style="flex:1">
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.3px">Sup. total</div>
-          <input type="number" class="modal-input" id="mlSup" min="0" step="0.1" placeholder="0,0" style="width:100%">
+          <input type="number" class="modal-input" id="mlSup" min="0" step="0.1" placeholder="0,0" style="width:100%" oninput="checkSupCampoAviso()">
         </div>
         <div style="flex:1">
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.3px">Sup. explotable</div>
@@ -955,6 +955,7 @@ tbody tr.lote-start:first-child td{border-top:none}
         </div>
       </div>
     </div>
+    <div id="mlSupAviso" style="font-size:11px;color:var(--terra);margin:-4px 0 8px 100px;line-height:1.4;display:none"></div>
     <div style="font-size:10px;color:var(--muted);margin:-2px 0 8px 100px;line-height:1.4">La <strong>explotable</strong> es la total menos restricciones permanentes (monte, laguna). La sup neta de cada actividad se valida contra la explotable.</div>
     <div class="modal-row">
       <span class="modal-lbl">Estado:</span>
@@ -1228,7 +1229,10 @@ function cargarDesdeApi(callback) {
   CAMPOS_HA = {};
   for (var i = 0; i < camposApi.length; i++) {
     campoMap[camposApi[i].id] = camposApi[i].nombre;
-    CAMPOS_HA[camposApi[i].nombre] = camposApi[i].haTotales || 0;
+    // ha_totales es NUMERIC en Postgres y llega como string ("1225.50"): forzar a
+    // number acá, en el único lugar donde se arma CAMPOS_HA, para que sumar
+    // varios campos (totalCampo += ...) no termine concatenando strings.
+    CAMPOS_HA[camposApi[i].nombre] = Number(camposApi[i].haTotales) || 0;
   }
 
   apiGet('/api/tablero/' + encodeURIComponent(clavePlan()) + '?empresaId=' + encodeURIComponent(empresaId), function(err, planData) {
@@ -2999,8 +3003,12 @@ function renderPadron(){
   var padTotExpl = lts.reduce(function(a,b){return a+(loteExpl(b)||0);},0);
   var padHayExpl = lts.some(function(l){return loteExpl(l)!=null;});
   // Estructura = Total campo − Total lotes. Sin total de campo cargado no se estima: se
-  // muestra "—", coherente con la regla de no inventar datos.
-  var estructDesp = hayTotalCampo ? Math.max(0, totalCampo - totalLotes) : null;
+  // muestra "—", coherente con la regla de no inventar datos. Si los lotes superan al
+  // campo (dato mal cargado), NO se esconde con un 0: se muestra el excedente en rojo,
+  // es una alerta de carga, no "cero desperdicio".
+  var estructDespRaw = hayTotalCampo ? (totalCampo - totalLotes) : null;
+  var loteExcedeCampo = estructDespRaw != null && estructDespRaw < 0;
+  var estructDesp = estructDespRaw != null ? Math.max(0, estructDespRaw) : null;
   // NO explotable = Σ(física − explotable) de los lotes reales con explotable cargada.
   var noExpl = 0, hayNoExpl = false;
   for(var k=0;k<lts.length;k++){
@@ -3024,7 +3032,7 @@ function renderPadron(){
   document.getElementById('padronKpisRow').innerHTML =
     '<div class="kpi" title="Perímetro total del establecimiento. Se registra al dar de alta el campo (módulo Administración). Total campo = Total lotes + Estructura/Desperdicios."><div class="kpi-lbl">Sup. total campo</div><div class="kpi-val">'+(hayTotalCampo?fInt(totalCampo)+' ha':'—')+'</div><div class="kpi-sub">'+(hayTotalCampo?'según alta del campo':'sin cargar en Administración')+'</div></div>'
     + '<div class="kpi" title="Suma de los perímetros de los lotes. Los lotes marcados como desperdicio/estructura no se cuentan como lotes."><div class="kpi-lbl">Sup. total lotes</div><div class="kpi-val">'+fInt(totalLotes)+' ha</div><div class="kpi-sub">'+fInt(nLotes)+(nLotes===1?' lote':' lotes')+'</div></div>'
-    + '<div class="kpi kpi-libre" title="Estructura / Desperdicios = Total campo − Total lotes. Es la superficie del establecimiento que queda fuera del alambrado de los lotes (caminos, casco, montes, callejones), más los lotes marcados como desperdicio."><div class="kpi-lbl">Sup. estructura / desperdicios</div><div class="kpi-val">'+(estructDesp==null?'—':fInt(estructDesp)+' ha')+'</div><div class="kpi-sub">'+(estructDesp==null?'requiere total del campo':'total campo − lotes')+'</div></div>'
+    + '<div class="kpi kpi-libre" title="Estructura / Desperdicios = Total campo − Total lotes. Es la superficie del establecimiento que queda fuera del alambrado de los lotes (caminos, casco, montes, callejones), más los lotes marcados como desperdicio.'+(loteExcedeCampo?' ⚠ Los lotes suman más hectáreas que el campo: revisá el alta de los lotes o la sup. total del campo.':'')+'"><div class="kpi-lbl">Sup. estructura / desperdicios</div><div class="kpi-val"'+(loteExcedeCampo?' style="color:var(--terra)"':'')+'>'+(estructDesp==null?'—':(loteExcedeCampo?'⚠ ':'')+fInt(estructDesp)+' ha')+'</div><div class="kpi-sub"'+(loteExcedeCampo?' style="color:var(--terra)"':'')+'>'+(estructDesp==null?'requiere total del campo':(loteExcedeCampo?'lotes exceden el campo por '+fInt(-estructDespRaw)+' ha':'total campo − lotes'))+'</div></div>'
     + '<div class="kpi kpi-expl" title="Superficie de los lotes efectivamente trabajable, descontando las restricciones permanentes de cada lote."><div class="kpi-lbl">Sup. explotable permanente</div><div class="kpi-val">'+(padHayExpl?fInt(padTotExpl)+' ha':'—')+'</div><div class="kpi-sub">'+(padHayExpl?subExpl:'sin cargar')+'</div></div>'
     + '<div class="kpi kpi-libre" title="Desperdicio permanente DENTRO de los lotes: bajos, montes, cabeceras. Se calcula como la suma de (sup. total − sup. explotable) de cada lote. Total lotes = Explotable permanente + NO explotable."><div class="kpi-lbl">Sup. NO explotable</div><div class="kpi-val">'+(hayNoExpl?fInt(noExpl)+' ha':'—')+'</div><div class="kpi-sub">'+(hayNoExpl?'dentro de los lotes':'requiere explotable')+'</div></div>';
   // Sincronizar indicadores de orden en encabezados del padrón
@@ -3085,6 +3093,34 @@ function aplicarBloqueoExpl(bloquear){
   }
 }
 
+// Aviso (no bloqueante: nunca impide guardar) cuando la sup. total de este
+// lote, sumada a la de los demás lotes del mismo campo, supera la sup. total
+// del campo (Administración). Se recalcula en vivo mientras se edita.
+function checkSupCampoAviso(){
+  var el = document.getElementById('mlSupAviso');
+  if(!el) return;
+  var campo = document.getElementById('mlCampo').value;
+  // totalDeCampo() puede devolver un NUMERIC de Postgres serializado como string
+  // (ej. "1225.50"): forzar a number para que la comparación no concatene.
+  var campoTotal = Number(totalDeCampo(campo)) || 0;
+  var sup = parseNumAR(document.getElementById('mlSup').value);
+  if(!campo || !(campoTotal>0) || isNaN(sup)){ el.style.display='none'; return; }
+  var otros = 0;
+  for(var i=0;i<LOTES.length;i++){
+    var x = LOTES[i];
+    if(x.l===loteEditando) continue; // el que estoy editando, no contar dos veces
+    if(x.c!==campo || esLoteDesperdicio(x)) continue;
+    otros += x.s||0;
+  }
+  var total = otros + sup;
+  if(total > campoTotal + 0.01){
+    el.textContent = '⚠ Este lote + los demás lotes de '+campo+' suman '+f(total,1)+' ha, superan la sup. total del campo ('+f(campoTotal,1)+' ha).';
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
 function openLoteModal(loteName){
   if(!puedeEscribir()){ alert('No tenés permiso de carga en esta empresa. Solo podés ver el padrón.'); return; }
   var lExistente = loteName ? LOTES.find(function(x){return x.l===loteName;}) : null;
@@ -3135,6 +3171,7 @@ function openLoteModal(loteName){
     // El bloqueo se reevalúa si cambia el ambiente (DESP ⇄ productivo) dentro del modal.
     var selAmb = document.getElementById('mlAmbiente');
     if(selAmb) selAmb.onchange = function(){ aplicarBloqueoExpl(this.value === 'DESP'); };
+    checkSupCampoAviso();
     document.getElementById('modalLote').classList.add('on');
     setTimeout(function(){ document.getElementById('mlNombre').focus(); }, 60);
   };
