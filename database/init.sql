@@ -568,7 +568,7 @@ INSERT INTO categorias_insumo (id, codigo, label, base, fito, subcat, activo) VA
 INSERT INTO usos_actividad (id, codigo, label, color, activo) VALUES
     ('uso_agr', 'AGR', 'Agricultura',      '#4A6533', true),
     ('uso_gan', 'GAN', 'Ganadería',        '#C8642D', true),
-    ('uso_dob', 'DOB', 'Doble propósito',  '#A86A1F', true);
+    ('uso_dob', 'DOB', 'Doble propósito',  '#2E6E9E', true);
 
 -- Catálogo default de cultivos/usos del suelo: se copia a tipos_actividad de
 -- cada empresa nueva al darse de alta (ver sembrarCultivosDefault() en server.js).
