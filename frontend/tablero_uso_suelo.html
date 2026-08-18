@@ -1061,6 +1061,21 @@ function colorCult(sigla){ return COLORES_CULT[sigla] || COLOR_CULT_DEFAULT; }
 // Se POBLA desde el padrón (PA.demo.listarTiposActividad) en cargarCultivos().
 // El catálogo es de Maestros; el tablero lo consume en SOLO LECTURA.
 var CULTIVOS = {};
+// sigla <-> id de tipos_actividad para la empresa activa. La tabla actividades
+// guarda tipo_actividad_id (FK real); el resto del tablero trabaja con la
+// sigla (más legible). Se reconstruye en cargarCultivos().
+var TIPO_ACT_SIGLA_A_ID = {}, TIPO_ACT_ID_A_SIGLA = {};
+
+// Las 6 campañas del tablero (fijas, no dependen de qué haya en Maestros)
+// mapeadas a filas reales de la tabla global `campanias`, para poder guardar
+// actividades.campania_id (FK). Antes esto no hacía falta: el plan se guardaba
+// en un blob JSON con estas mismas claves con guion como texto libre.
+var CAMPANIA_A_ID = {
+  '22-23': 'camp_2223', '23-24': 'camp_2324', '24-25': 'camp_2425',
+  '25-26': 'camp_2526', '26-27': 'camp_2627', '27-28': 'camp_2728'
+};
+var ID_A_CAMPANIA = {};
+for (var _ck in CAMPANIA_A_ID) ID_A_CAMPANIA[CAMPANIA_A_ID[_ck]] = _ck;
 
 // Puebla CULTIVOS desde el padrón de Maestros (PA.demo.listarTiposActividad),
 // indexado por sigla, con la misma forma {sigla:{n,t,c}} que usa el resto del
@@ -1072,12 +1087,15 @@ var CULTIVOS = {};
 // - c: color local del tablero (COLORES_CULT), NO del padrón
 function cargarCultivos(){
   CULTIVOS = {};
+  TIPO_ACT_SIGLA_A_ID = {}; TIPO_ACT_ID_A_SIGLA = {};
   var usados = (typeof PA !== 'undefined' && PA.demo && CTX) ? PA.demo.listarTiposActividad(CTX.empresaActivaId) : null;
   if(!usados) return;
   for(var i=0;i<usados.length;i++){
     var ta = usados[i];
     if(ta.activo === false) continue;
     CULTIVOS[ta.sigla] = { n: ta.nombre, t: ta.actividad, c: colorCult(ta.sigla), g: !!ta.graminea, d2: !!ta.default2da };
+    TIPO_ACT_SIGLA_A_ID[ta.sigla] = ta.id;
+    TIPO_ACT_ID_A_SIGLA[ta.id] = ta.sigla;
   }
 }
 
@@ -1209,10 +1227,6 @@ function unlockRegistro(tabla, id) {
   apiUnlock(tabla, id, function () {});
 }
 
-function clavePlan() {
-  return 'plan_uso_suelo_' + (CTX ? CTX.empresaActivaId : 'sin_empresa');
-}
-
 // Lee lotes del caché (ya filtrados por permisos) + plan del tablero en DB
 // y construye el array LOTES con el formato interno del tablero.
 // Superficie total del campo (perímetro del establecimiento), por NOMBRE de
@@ -1220,11 +1234,19 @@ function clavePlan() {
 var CAMPOS_HA = {};
 function totalDeCampo(nombreCampo){ return CAMPOS_HA[nombreCampo] || 0; }
 
+// Construye LOTES a partir de tablas reales: lotes (padrón + ambiente/
+// explotable/activo/tipoOverride) y actividades (cultivo por lote y campaña).
+// Antes esto vivía en un blob JSON aparte (tabla tableros); ver
+// decision_tablas_independientes_por_tablero — no se puede sumar/filtrar por
+// SQL sobre un JSON, y un PUT de blob completo pisaba lo que hubiera cambiado
+// otro usuario en simultáneo. cargarCultivos()/cargarAmbientes() ya corrieron
+// antes de esto (boot()), así que TIPO_ACT_ID_A_SIGLA ya está poblado.
 function cargarDesdeApi(callback) {
   if (!CTX || !CTX.empresaActivaId) { if (callback) callback(); return; }
   var empresaId = CTX.empresaActivaId;
   var lotesApi  = PA.demo.listarLotes(empresaId);
   var camposApi = PA.demo.camposDeEmpresa(empresaId);
+  var actsApi   = PA.demo.listarActividades(empresaId);
   var campoMap  = {};
   CAMPOS_HA = {};
   for (var i = 0; i < camposApi.length; i++) {
@@ -1235,49 +1257,81 @@ function cargarDesdeApi(callback) {
     CAMPOS_HA[camposApi[i].nombre] = Number(camposApi[i].haTotales) || 0;
   }
 
-  apiGet('/api/tablero/' + encodeURIComponent(clavePlan()) + '?empresaId=' + encodeURIComponent(empresaId), function(err, planData) {
-    var guardado = (!err && planData) ? planData : {};
-    var lotePlan = guardado.lotes || {};
-    LOTES = [];
-    TIPO_OVERRIDE = {};
-    for (var j = 0; j < lotesApi.length; j++) {
-      var lot = lotesApi[j];
-      var pd  = lotePlan[lot.id] || {};
-      LOTES.push({
-        _id:      lot.id,
-        _campoId: lot.campoId,
-        l: lot.nombre,
-        c: campoMap[lot.campoId] || lot.campoId,
-        s: lot.ha || 0,
-        a: pd.ambiente || '',
-        // expl: superficie explotable (null/undefined = pendiente de carga, distinto de 0).
-        expl: (pd.expl != null && pd.expl !== '') ? pd.expl : null,
-        // activo: default true si no está guardado (lotes viejos sin este campo).
-        activo: pd.activo !== false,
-        p: pd.plan || {}
-      });
-      if (pd.tipoOverride) TIPO_OVERRIDE[lot.nombre] = pd.tipoOverride;
-    }
-    if (callback) callback();
-  });
+  // Actividades agrupadas por lote y campaña, en el formato interno {c,ha,seg,ten}
+  // (más _id, el id real en la tabla actividades — se usa solo para poder
+  // borrar/reemplazar filas puntuales al guardar; el resto del tablero lo ignora).
+  var actsPorLote = {};
+  for (var k = 0; k < actsApi.length; k++) {
+    var a = actsApi[k];
+    var campKey = ID_A_CAMPANIA[a.campaniaId];
+    var sigla = TIPO_ACT_ID_A_SIGLA[a.tipoActividadId];
+    if (!campKey || !sigla || !a.loteId) continue;
+    if (!actsPorLote[a.loteId]) actsPorLote[a.loteId] = {};
+    if (!actsPorLote[a.loteId][campKey]) actsPorLote[a.loteId][campKey] = [];
+    var entry = { _id: a.id, c: sigla, ha: a.ha, seg: !!a.esSegunda };
+    if (a.tenenciaId) entry.ten = a.tenenciaId;
+    actsPorLote[a.loteId][campKey].push(entry);
+  }
+
+  LOTES = [];
+  TIPO_OVERRIDE = {};
+  for (var j = 0; j < lotesApi.length; j++) {
+    var lot = lotesApi[j];
+    LOTES.push({
+      _id:      lot.id,
+      _campoId: lot.campoId,
+      l: lot.nombre,
+      c: campoMap[lot.campoId] || lot.campoId,
+      s: lot.ha || 0,
+      a: lot.ambiente || '',
+      // expl: superficie explotable (null/undefined = pendiente de carga, distinto de 0).
+      expl: (lot.explotable != null && lot.explotable !== '') ? Number(lot.explotable) : null,
+      // activo: default true si no está guardado (lotes viejos sin este campo).
+      activo: lot.activo !== false,
+      p: actsPorLote[lot.id] || {}
+    });
+    if (lot.tipoOverride) TIPO_OVERRIDE[lot.nombre] = lot.tipoOverride;
+  }
+  if (callback) callback();
 }
 
-// Persiste el plan completo (actividades + ambiente + explotable + activo + tipoOverride) en la DB.
-function guardarPlanApi() {
-  if (!CTX || !CTX.empresaActivaId) return;
-  var lotePlan = {};
-  for (var i = 0; i < LOTES.length; i++) {
-    var l = LOTES[i];
-    if (l._id) {
-      var entry = { ambiente: l.a || '', expl: (l.expl != null ? l.expl : null), activo: l.activo !== false, plan: l.p || {} };
-      if (TIPO_OVERRIDE[l.l]) entry.tipoOverride = TIPO_OVERRIDE[l.l];
-      lotePlan[l._id] = entry;
-    }
-  }
-  apiPut('/api/tablero/' + encodeURIComponent(clavePlan()),
-    { datos: { lotes: lotePlan }, empresaId: CTX.empresaActivaId },
-    function(err) { if (err) console.error('Error guardando plan:', err); }
-  );
+// Persiste los atributos propios del lote (ambiente/explotable/activo/
+// tipoOverride, además de campo/nombre/ha) en la tabla lotes.
+// Sirve tanto para alta (lote._id todavía no existe -> PA.demo.guardarLote lo
+// crea y acá se guarda el id real devuelto) como para edición.
+function guardarAtributosLote(lote) {
+  if (!CTX) return;
+  var payload = {
+    empresaId: CTX.empresaActivaId, campoId: lote._campoId || '',
+    nombre: lote.l, ha: lote.s || 0, ambiente: lote.a || '',
+    explotable: (lote.expl != null ? lote.expl : null), activo: lote.activo !== false,
+    tipoOverride: TIPO_OVERRIDE[lote.l] || ''
+  };
+  if (lote._id) payload.id = lote._id;
+  var guardado = PA.demo.guardarLote(payload);
+  lote._id = guardado.id;
+}
+
+// Reemplaza en la tabla actividades TODAS las filas de un lote+campaña por
+// lo que hay ahora en lote.p[campKey] — el equivalente fila-por-fila de lo
+// que antes era "pisar el array de esa campaña dentro del blob". idsAntes
+// son los ids reales (tabla actividades) que tenía ese lote+campaña ANTES
+// del cambio (hay que capturarlos antes de reescribir lote.p[campKey], ver
+// los call-sites de guardarActividadUnica()/borrarActividad()).
+function guardarActividadesCampania(lote, campKey, idsAntes) {
+  if (!CTX || !lote._id) return;
+  var campaniaId = CAMPANIA_A_ID[campKey];
+  if (!campaniaId) return;
+  (idsAntes || []).forEach(function (id) { PA.demo.borrarActividad(id); });
+  (lote.p[campKey] || []).forEach(function (act) {
+    var tipoActividadId = TIPO_ACT_SIGLA_A_ID[act.c];
+    if (!tipoActividadId) return;
+    PA.demo.guardarActividad({
+      empresaId: CTX.empresaActivaId, loteId: lote._id, campaniaId: campaniaId,
+      tipoActividadId: tipoActividadId, ha: act.ha, esSegunda: !!act.seg,
+      tenenciaId: act.ten || null
+    });
+  });
 }
 
 var charts = {};
@@ -1617,7 +1671,10 @@ function lotesParaTotales(){
 // Setear tipo manual de un lote (override)
 function editLoteTipo(loteName, val){
   TIPO_OVERRIDE[loteName] = val;
-  if (_esModoApi()) guardarPlanApi();
+  if (_esModoApi()) {
+    var l = LOTES.find(function(x){return x.l===loteName;});
+    if (l) guardarAtributosLote(l);
+  }
   renderAll();
 }
 
@@ -2565,13 +2622,18 @@ function controlCierreCampos(lts){
 function generarLoteDesperdicios(campo, faltante){
   if(!puedeEscribir()) return;
   var nombre = campo + ' Desperdicios y estructura';
-  var existente = LOTES.find(function(x){return x.l===nombre;});
-  if(existente){
-    existente.s = (existente.s||0) + faltante;
+  var lote = LOTES.find(function(x){return x.l===nombre;});
+  if(lote){
+    lote.s = (lote.s||0) + faltante;
   } else {
-    LOTES.push({ l:nombre, c:campo, s:faltante, a:'DESP', expl:0, activo:true, p:{}, desperdicio:true });
+    lote = { l:nombre, c:campo, s:faltante, a:'DESP', expl:0, activo:true, p:{}, desperdicio:true };
+    LOTES.push(lote);
   }
-  if (_esModoApi()) guardarPlanApi();
+  if (_esModoApi() && CTX) {
+    var cams = PA.demo.camposDeEmpresa(CTX.empresaActivaId);
+    for (var ci=0; ci<cams.length; ci++){ if (cams[ci].nombre===campo){ lote._campoId=cams[ci].id; break; } }
+    guardarAtributosLote(lote);
+  }
   renderAll();
 }
 
@@ -2928,6 +2990,10 @@ function guardarActividadUnica(){
   if(ha > tope + 0.01){ warn.textContent = 'La sup. neta ('+f(ha,1)+' ha) supera la sup. explotable ('+f(tope,1)+' ha).'; warn.style.display=''; return; }
   var nueva = { c: sig, ha: ha, seg: !!seg };
   if(ten) nueva.ten = ten;
+  // ids reales (tabla actividades) que tenía esta campaña ANTES del cambio —
+  // hay que capturarlos ahora: el .map() de abajo reconstruye objetos planos
+  // {c,ha,seg,ten} y no los conserva.
+  var idsAntes = actsDe(l, state.campania).map(function(a){ return a._id; }).filter(Boolean);
   // Reconstruir el array de la campaña respetando el orden actual
   var actual = actsOrdenadas(actsDe(l, state.campania)).map(function(a){
     var o = { c:a.c, ha:a.ha, seg:!!a.seg }; var t=actTen(a); if(t) o.ten = t; return o;
@@ -2939,7 +3005,7 @@ function guardarActividadUnica(){
   }
   l.p[state.campania] = actual;
   closeActsModal();
-  if (_esModoApi()) guardarPlanApi();
+  if (_esModoApi()) guardarActividadesCampania(l, state.campania, idsAntes);
   renderAll();
 }
 
@@ -2948,6 +3014,7 @@ function borrarActividad(loteName, idx){
   if(!puedeEscribir()){ alert('No tenés permiso de carga en esta empresa. Solo podés ver el plan.'); return; }
   var l = LOTES.find(function(x){return x.l===loteName;});
   if(!l) return;
+  var idsAntes = actsDe(l, state.campania).map(function(a){ return a._id; }).filter(Boolean);
   var actual = actsOrdenadas(actsDe(l, state.campania)).map(function(a){
     var o = { c:a.c, ha:a.ha, seg:!!a.seg }; var t=actTen(a); if(t) o.ten = t; return o;
   });
@@ -2955,7 +3022,7 @@ function borrarActividad(loteName, idx){
   if(!confirm('¿Quitar la actividad «'+actual[idx].c+'» de '+loteName+' en '+state.campania+'?')) return;
   actual.splice(idx,1);
   l.p[state.campania] = actual;
-  if (_esModoApi()) guardarPlanApi();
+  if (_esModoApi()) guardarActividadesCampania(l, state.campania, idsAntes);
   renderAll();
 }
 
@@ -3215,13 +3282,12 @@ function confirmLoteModal(){
       // Si cambió el nombre, migrar el override de tipo
       if(nombre!==l.l && TIPO_OVERRIDE[l.l]){ TIPO_OVERRIDE[nombre]=TIPO_OVERRIDE[l.l]; delete TIPO_OVERRIDE[l.l]; }
       l.l = nombre; l.c = campo; l.a = amb; l.s = sup; l.expl = expl; l.activo = activo;
-      if (_esModoApi() && CTX && l._id) {
+      if (_esModoApi() && CTX) {
         var cams = PA.demo.camposDeEmpresa(CTX.empresaActivaId);
         var cId = null;
         for (var ci = 0; ci < cams.length; ci++) { if (cams[ci].nombre === campo) { cId = cams[ci].id; break; } }
         if (cId) l._campoId = cId;
-        PA.demo.guardarLote({ id: l._id, empresaId: CTX.empresaActivaId, campoId: l._campoId || '', nombre: nombre, ha: sup });
-        guardarPlanApi();
+        guardarAtributosLote(l);
       }
     }
   } else {
@@ -3230,12 +3296,12 @@ function confirmLoteModal(){
       var cams2 = PA.demo.camposDeEmpresa(CTX.empresaActivaId);
       var cId2 = null;
       for (var cj = 0; cj < cams2.length; cj++) { if (cams2[cj].nombre === campo) { cId2 = cams2[cj].id; break; } }
-      var guardado = PA.demo.guardarLote({ empresaId: CTX.empresaActivaId, campoId: cId2 || '', nombre: nombre, ha: sup });
-      nuevoLote._id = guardado.id;
       nuevoLote._campoId = cId2;
+      LOTES.push(nuevoLote);
+      guardarAtributosLote(nuevoLote);
+    } else {
+      LOTES.push(nuevoLote);
     }
-    LOTES.push(nuevoLote);
-    if (_esModoApi()) guardarPlanApi();
   }
   closeLoteModal();
   renderAll();
@@ -3245,10 +3311,10 @@ function deleteLote(loteName){
   if(!confirm('¿Eliminar el lote "'+loteName+'"? Se borra de TODAS las campañas.')) return;
   var idx = LOTES.findIndex(function(x){return x.l===loteName;});
   if(idx>=0){
+    // Al borrar el lote, actividades se borra en cascada (FK ON DELETE CASCADE).
     if (_esModoApi() && LOTES[idx]._id) PA.demo.borrarLote(LOTES[idx]._id);
     LOTES.splice(idx,1);
     delete TIPO_OVERRIDE[loteName];
-    if (_esModoApi()) guardarPlanApi();
     renderAll();
   }
 }

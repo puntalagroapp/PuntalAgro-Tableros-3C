@@ -10,10 +10,6 @@
      POST   /api/maestros/:coleccion        Crear registro
      PUT    /api/maestros/:coleccion/:id    Actualizar registro
      DELETE /api/maestros/:coleccion/:id    Eliminar registro
-
-     GET    /api/tablero/:clave             Obtener blob de tablero (JSONB)
-     PUT    /api/tablero/:clave             Guardar/reemplazar blob de tablero
-     PATCH  /api/json-patch                 Parche granular de campo JSONB
    ============================================================================= */
 
 const express = require('express');
@@ -409,21 +405,23 @@ app.get('/api/maestros-empresa/:empresaId', async (req, res) => {
       pool.query('SELECT datos FROM ambientes       WHERE empresa_id = $1', [empresaId]),
       pool.query(
         filtraCampos
-          ? `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha) AS datos
+          ? `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha,
+                                       'ambiente',ambiente,'explotable',explotable,'activo',activo,'tipoOverride',tipo_override) AS datos
                FROM lotes WHERE empresa_id = $1 AND campo_id = ANY($2::text[])`
-          : `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha) AS datos
+          : `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha,
+                                       'ambiente',ambiente,'explotable',explotable,'activo',activo,'tipoOverride',tipo_override) AS datos
                FROM lotes WHERE empresa_id = $1`,
         filtraCampos ? [empresaId, campoIds] : [empresaId]
       ),
       pool.query(
         filtraCampos
           ? `SELECT jsonb_build_object('id',a.id,'empresaId',a.empresa_id,'loteId',a.lote_id,'campaniaId',a.campania_id,
-                                       'tipoActividadId',a.tipo_actividad_id,'ha',a.ha,'esSegunda',a.es_segunda) AS datos
+                                       'tipoActividadId',a.tipo_actividad_id,'ha',a.ha,'esSegunda',a.es_segunda,'tenenciaId',a.tenencia_id) AS datos
                FROM actividades a
                JOIN lotes l ON l.id = a.lote_id
               WHERE a.empresa_id = $1 AND l.campo_id = ANY($2::text[])`
           : `SELECT jsonb_build_object('id',id,'empresaId',empresa_id,'loteId',lote_id,'campaniaId',campania_id,
-                                       'tipoActividadId',tipo_actividad_id,'ha',ha,'esSegunda',es_segunda) AS datos
+                                       'tipoActividadId',tipo_actividad_id,'ha',ha,'esSegunda',es_segunda,'tenenciaId',tenencia_id) AS datos
                FROM actividades WHERE empresa_id = $1`,
         filtraCampos ? [empresaId, campoIds] : [empresaId]
       ),
@@ -618,9 +616,11 @@ app.get('/api/maestros/:coleccion', async (req, res) => {
       if (cfg.tabla === 'lotes') {
         const r = await pool.query(
           filtraCampos
-            ? `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha) AS datos
+            ? `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha,
+                                         'ambiente',ambiente,'explotable',explotable,'activo',activo,'tipoOverride',tipo_override) AS datos
                  FROM lotes WHERE empresa_id = $1 AND campo_id = ANY($2::text[]) ORDER BY nombre`
-            : `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha) AS datos
+            : `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha,
+                                         'ambiente',ambiente,'explotable',explotable,'activo',activo,'tipoOverride',tipo_override) AS datos
                  FROM lotes WHERE empresa_id = $1 ORDER BY nombre`,
           filtraCampos ? [empresaId, campoIds] : [empresaId]
         );
@@ -629,12 +629,12 @@ app.get('/api/maestros/:coleccion', async (req, res) => {
         const r = await pool.query(
           filtraCampos
             ? `SELECT jsonb_build_object('id',a.id,'empresaId',a.empresa_id,'loteId',a.lote_id,'campaniaId',a.campania_id,
-                                         'tipoActividadId',a.tipo_actividad_id,'ha',a.ha,'esSegunda',a.es_segunda) AS datos
+                                         'tipoActividadId',a.tipo_actividad_id,'ha',a.ha,'esSegunda',a.es_segunda,'tenenciaId',a.tenencia_id) AS datos
                  FROM actividades a
                  JOIN lotes l ON l.id = a.lote_id
                 WHERE a.empresa_id = $1 AND l.campo_id = ANY($2::text[])`
             : `SELECT jsonb_build_object('id',id,'empresaId',empresa_id,'loteId',lote_id,'campaniaId',campania_id,
-                                         'tipoActividadId',tipo_actividad_id,'ha',ha,'esSegunda',es_segunda) AS datos
+                                         'tipoActividadId',tipo_actividad_id,'ha',ha,'esSegunda',es_segunda,'tenenciaId',tenencia_id) AS datos
                  FROM actividades WHERE empresa_id = $1`,
           filtraCampos ? [empresaId, campoIds] : [empresaId]
         );
@@ -725,19 +725,21 @@ app.post('/api/maestros/:coleccion', async (req, res) => {
       }
       if (cfg.tabla === 'lotes') {
         await pool.query(
-          `INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha)
-           VALUES ($1, $2, $3, $4, $5)
-           ON CONFLICT (id) DO UPDATE SET campo_id=$2, nombre=$4, ha=$5`,
-          [obj.id, obj.campoId || null, obj.empresaId, obj.nombre || null, obj.ha || null]
+          `INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha, ambiente, explotable, activo, tipo_override)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           ON CONFLICT (id) DO UPDATE
+             SET campo_id=$2, nombre=$4, ha=$5, ambiente=$6, explotable=$7, activo=$8, tipo_override=$9`,
+          [obj.id, obj.campoId || null, obj.empresaId, obj.nombre || null, obj.ha != null ? obj.ha : null,
+           obj.ambiente || null, obj.explotable != null ? obj.explotable : null, obj.activo !== false, obj.tipoOverride || null]
         );
       } else if (cfg.tabla === 'actividades') {
         await pool.query(
-          `INSERT INTO actividades (id, empresa_id, lote_id, campania_id, tipo_actividad_id, ha, es_segunda)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `INSERT INTO actividades (id, empresa_id, lote_id, campania_id, tipo_actividad_id, ha, es_segunda, tenencia_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            ON CONFLICT (id, empresa_id) DO UPDATE
-             SET lote_id=$3, campania_id=$4, tipo_actividad_id=$5, ha=$6, es_segunda=$7`,
+             SET lote_id=$3, campania_id=$4, tipo_actividad_id=$5, ha=$6, es_segunda=$7, tenencia_id=$8`,
           [obj.id, obj.empresaId, obj.loteId || null, obj.campaniaId || null,
-           obj.tipoActividadId || null, obj.ha || null, obj.esSegunda || false]
+           obj.tipoActividadId || null, obj.ha != null ? obj.ha : null, obj.esSegunda || false, obj.tenenciaId || null]
         );
       } else {
         // Validación de duplicados para insumos: empresa + nombre (case-insensitive) + tipo
@@ -810,15 +812,16 @@ app.put('/api/maestros/:coleccion/:id', async (req, res) => {
     if (cfg.porEmpresa) {
       if (cfg.tabla === 'lotes') {
         await pool.query(
-          `UPDATE lotes SET campo_id=$2, nombre=$3, ha=$4 WHERE id=$1`,
-          [obj.id, obj.campoId || null, obj.nombre || null, obj.ha || null]
+          `UPDATE lotes SET campo_id=$2, nombre=$3, ha=$4, ambiente=$5, explotable=$6, activo=$7, tipo_override=$8 WHERE id=$1`,
+          [obj.id, obj.campoId || null, obj.nombre || null, obj.ha != null ? obj.ha : null,
+           obj.ambiente || null, obj.explotable != null ? obj.explotable : null, obj.activo !== false, obj.tipoOverride || null]
         );
       } else if (cfg.tabla === 'actividades') {
         await pool.query(
-          `UPDATE actividades SET lote_id=$3, campania_id=$4, tipo_actividad_id=$5, ha=$6, es_segunda=$7
+          `UPDATE actividades SET lote_id=$3, campania_id=$4, tipo_actividad_id=$5, ha=$6, es_segunda=$7, tenencia_id=$8
             WHERE id=$1 AND empresa_id=$2`,
           [obj.id, obj.empresaId, obj.loteId || null, obj.campaniaId || null,
-           obj.tipoActividadId || null, obj.ha || null, obj.esSegunda || false]
+           obj.tipoActividadId || null, obj.ha != null ? obj.ha : null, obj.esSegunda || false, obj.tenenciaId || null]
         );
       } else {
         // Validación de duplicados para insumos en actualización
@@ -1881,88 +1884,6 @@ app.post('/api/herramientas/:id/pdf', async (req, res) => {
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// GET  /api/tablero/:clave   — Obtener blob JSON de un tablero
-// PUT  /api/tablero/:clave   — Guardar/reemplazar blob JSON de un tablero
-// ─────────────────────────────────────────────────────────────────────────────
-app.get('/api/tablero/:clave', async (req, res) => {
-  try {
-    const sesion = await obtenerSesion(req);
-    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
-
-    const empresaId = req.query.empresaId;
-    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
-    const permiso = await obtenerPermiso(req, empresaId);
-    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
-
-    const r = await pool.query(
-      'SELECT data_json FROM tableros WHERE nombre_clave = $1',
-      [req.params.clave]
-    );
-    if (!r.rows.length) return res.json({});
-    res.json(r.rows[0].data_json);
-  } catch (err) {
-    console.error('/api/tablero GET error:', err);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
-app.put('/api/tablero/:clave', async (req, res) => {
-  const { datos, empresaId, ...resto } = req.body || {};
-  const payload = datos !== undefined ? datos : resto;
-  try {
-    const sesion = await obtenerSesion(req);
-    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
-
-    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
-    const permiso = await obtenerPermiso(req, empresaId);
-    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
-    if (!puedeEscribirMaestroEmpresa(sesion, permiso)) return res.status(403).json({ error: 'Sin permiso' });
-
-    await pool.query(
-      `INSERT INTO tableros (nombre_clave, data_json, updated_at)
-       VALUES ($1, $2::jsonb, NOW())
-       ON CONFLICT (nombre_clave) DO UPDATE
-         SET data_json = $2::jsonb, updated_at = NOW()`,
-      [req.params.clave, JSON.stringify(payload)]
-    );
-    res.json({ status: 'ok' });
-  } catch (err) {
-    console.error('/api/tablero PUT error:', err);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PATCH /api/json-patch  — Parche granular JSONB (compatibilidad con legacy)
-// Body: { claveRaiz, ruta, valor }
-// Ejemplo de ruta: "espacios.0.state.ots.3.estado"
-// ─────────────────────────────────────────────────────────────────────────────
-app.patch('/api/json-patch', async (req, res) => {
-  const { claveRaiz, ruta, valor, empresaId } = req.body;
-  try {
-    const sesion = await obtenerSesion(req);
-    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
-
-    if (!claveRaiz || !ruta) return res.status(400).json({ error: 'Faltan campos: claveRaiz, ruta' });
-    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
-    const permiso = await obtenerPermiso(req, empresaId);
-    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
-
-    const postgresPath = ruta.split('.');
-    await pool.query(
-      `UPDATE tableros
-          SET data_json  = jsonb_set(data_json, $1::text[], $2::jsonb, true),
-              updated_at = NOW()
-        WHERE nombre_clave = $3`,
-      [postgresPath, JSON.stringify(valor), claveRaiz]
-    );
-    res.json({ status: 'ok' });
-  } catch (err) {
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

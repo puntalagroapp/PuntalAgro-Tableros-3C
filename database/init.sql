@@ -180,11 +180,18 @@ CREATE TABLE campos (
 CREATE UNIQUE INDEX uq_campos_nombre_empresa ON campos (empresa_id, trim(lower(nombre)));
 
 CREATE TABLE lotes (
-    id         TEXT PRIMARY KEY,
-    campo_id   TEXT REFERENCES campos(id) ON DELETE CASCADE,
-    empresa_id TEXT NOT NULL REFERENCES empresas(id),
-    nombre     TEXT,
-    ha         NUMERIC(10,2)
+    id            TEXT PRIMARY KEY,
+    campo_id      TEXT REFERENCES campos(id) ON DELETE CASCADE,
+    empresa_id    TEXT NOT NULL REFERENCES empresas(id),
+    nombre        TEXT,
+    ha            NUMERIC(10,2),
+    -- Atributos propios del Plan de Uso del Suelo (tablero_uso_suelo.html).
+    -- Antes vivían en un blob JSON aparte (tabla tableros); se traen acá para
+    -- poder validar/consultar por SQL (ver decision_tablas_independientes_por_tablero).
+    ambiente      TEXT,                          -- código de ambientes.datos->>'codigo'
+    explotable    NUMERIC(10,2),                 -- NULL = pendiente de carga (no es 0)
+    activo        BOOLEAN NOT NULL DEFAULT true,
+    tipo_override TEXT                           -- 'AGR'/'GAN' manual; NULL = usar el sugerido
 );
 -- Único por empresa (no por campo): así lo valida hoy el frontend
 -- (tablero_uso_suelo.html compara contra TODOS los lotes de la empresa).
@@ -354,6 +361,7 @@ CREATE TABLE actividades (
     tipo_actividad_id TEXT,
     ha                NUMERIC(10,2),
     es_segunda        BOOLEAN NOT NULL DEFAULT false,
+    tenencia_id       TEXT REFERENCES tenencias(id),  -- opcional (tablero_uso_suelo.html)
     PRIMARY KEY (id, empresa_id),
     FOREIGN KEY (tipo_actividad_id, empresa_id) REFERENCES tipos_actividad(id, empresa_id) ON DELETE RESTRICT
 );
@@ -441,17 +449,6 @@ CREATE TABLE config_operativa (
     tc_mensual  JSONB NOT NULL DEFAULT '{}',
     tc_apertura NUMERIC(12,2) DEFAULT 0,
     tc_cierre   NUMERIC(12,2) DEFAULT 0
-);
-
--- ─────────────────────────────────────────────────────────────────────────────
--- SECCIÓN 6: TABLEROS (JSON blob — compatibilidad con tableros legacy)
--- ─────────────────────────────────────────────────────────────────────────────
-
-CREATE TABLE tableros (
-    id            SERIAL PRIMARY KEY,
-    nombre_clave  TEXT NOT NULL UNIQUE,
-    data_json     JSONB NOT NULL DEFAULT '{}',
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ─────────────────────────────────────────────────────────────────────────────

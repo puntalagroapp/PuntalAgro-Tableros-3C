@@ -930,33 +930,6 @@
     guardarCampania: function (c) { return cacheGuardar(K_CAMPANIAS, 'campanias', c, 'camp'); },
     borrarCampania:  function (id) { cacheBorrar(K_CAMPANIAS, 'campanias', id); },
 
-    // ── TABLERO COMPLETO (blob JSON para tableros con objeto root propio) ─────
-    sincronizarTableroCompleto: function (claveRaiz, estructuraCompleta) {
-      // Siempre escribe en localStorage: en local es la fuente de verdad,
-      // en producción es caché de sesión para que loadRoot() lo encuentre
-      // en el próximo acceso sin esperar respuesta async.
-      try { localStorage.setItem(claveRaiz, JSON.stringify(estructuraCompleta)); } catch (e) {}
-      if (usaApi()) {
-        apiXHR('PUT', '/api/tablero/' + encodeURIComponent(claveRaiz),
-          { datos: estructuraCompleta }, function (err) {
-            if (err) console.error('PA: error sincronizando tablero:', err.msg || err);
-          }
-        );
-      }
-    },
-
-    cargarTableroCompleto: function (claveRaiz, callback) {
-      if (!usaApi()) {
-        var datos = null;
-        try { var s = localStorage.getItem(claveRaiz); datos = s ? JSON.parse(s) : null; } catch (e) {}
-        if (callback) callback(null, datos);
-      } else {
-        apiXHR('GET', '/api/tablero/' + encodeURIComponent(claveRaiz), null, function (err, data) {
-          if (callback) callback(err, data);
-        });
-      }
-    },
-
     // ── USUARIOS ─────────────────────────────────────────────────────────────
     listarUsuarios: function () { return cacheGet(K_USUARIOS, []); },
     usuariosVisibles: function () {
