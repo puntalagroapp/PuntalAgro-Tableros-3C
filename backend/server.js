@@ -1903,6 +1903,7 @@ app.get('/api/ordenes-trabajo', async (req, res) => {
     const params = [empresaId];
     let sql = `SELECT id, num, campania_id AS "campaniaId", fecha, labor_tipo AS "laborTipo",
                       tercero_id AS "contratistaId", obs, estado, estado_fact AS "estadoFact",
+                      tarifa, tarifa_moneda AS "tarifaMoneda", monto_facturado AS "montoFacturado",
                       plantilla, destinos
                  FROM ordenes_trabajo WHERE empresa_id = $1`;
     if (req.query.campaniaId) { params.push(req.query.campaniaId); sql += ` AND campania_id = $${params.length}`; }
@@ -1938,10 +1939,12 @@ app.post('/api/ordenes-trabajo', async (req, res) => {
     const num = numRes.rows[0].num;
     const id = o.id || ('ot_' + Date.now());
     await client.query(
-      `INSERT INTO ordenes_trabajo (id, empresa_id, num, campania_id, fecha, labor_tipo, tercero_id, obs, estado, plantilla, destinos)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      `INSERT INTO ordenes_trabajo (id, empresa_id, num, campania_id, fecha, labor_tipo, tercero_id, obs, estado,
+                                    tarifa, tarifa_moneda, monto_facturado, plantilla, destinos)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
       [id, empresaId, num, o.campaniaId || null, o.fecha || null, o.laborTipo || null,
        o.contratistaId || null, o.obs || null, o.estado || 'Pendiente',
+       o.tarifa || null, o.tarifaMoneda || 'ARS', o.montoFacturado || 0,
        JSON.stringify(o.plantilla || []), JSON.stringify(o.destinos || [])]
     );
     await client.query('COMMIT');
@@ -1970,10 +1973,12 @@ app.put('/api/ordenes-trabajo/:id', async (req, res) => {
     await pool.query(
       `UPDATE ordenes_trabajo
           SET campania_id=$3, fecha=$4, labor_tipo=$5, tercero_id=$6, obs=$7,
-              estado=$8, estado_fact=$9, plantilla=$10, destinos=$11
+              estado=$8, estado_fact=$9, tarifa=$10, tarifa_moneda=$11, monto_facturado=$12,
+              plantilla=$13, destinos=$14
         WHERE id=$1 AND empresa_id=$2`,
       [req.params.id, empresaId, o.campaniaId || null, o.fecha || null, o.laborTipo || null,
        o.contratistaId || null, o.obs || null, o.estado || 'Pendiente', o.estadoFact || 'Sin facturar',
+       o.tarifa || null, o.tarifaMoneda || 'ARS', o.montoFacturado || 0,
        JSON.stringify(o.plantilla || []), JSON.stringify(o.destinos || [])]
     );
     res.json({ ...o, id: req.params.id, empresaId });

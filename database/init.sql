@@ -383,6 +383,8 @@ CREATE TABLE ordenes_trabajo (
     subactividad TEXT,
     tercero_id   TEXT,
     tarifa       NUMERIC(12,2),
+    tarifa_moneda    TEXT NOT NULL DEFAULT 'ARS',
+    monto_facturado  NUMERIC(12,2) NOT NULL DEFAULT 0,
     obs          TEXT,
     estado       TEXT NOT NULL DEFAULT 'Pendiente'
                      CHECK (estado IN ('Pendiente','Parcial','Aplicada','Cancelada')),

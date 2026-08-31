@@ -950,6 +950,7 @@ function _otPayload(o){
   return { empresaId:CTX.empresaActivaId, campaniaId:o.campaniaId||null, fecha:o.fecha||null,
     laborTipo:o.laborTipo||null, contratistaId:o.contratistaId||null, obs:o.obs||null,
     estado:o.estado||'Pendiente', estadoFact:o.estadoFact||'Sin facturar',
+    tarifa:o.tarifa||null, tarifaMoneda:o.tarifaMoneda||'ARS', montoFacturado:o.montoFacturado||0,
     plantilla:o.plantilla||[], destinos:o.destinos||[] };
 }
 function guardarOTApi(o, callback){
@@ -3631,12 +3632,14 @@ function toggleAllContrGrp(){
 function updateContrTarifa(otId, val){
   var o=getOtById(otId); if(!o) return;
   o.tarifa=Number(val)||0;
-  save(); renderContratistas();
+  if(_esModoApi()) guardarOTApi(o); else save();
+  renderContratistas();
 }
 function updateContrTarifaMon(otId, val){
   var o=getOtById(otId); if(!o) return;
   o.tarifaMoneda=(val==='USD'?'USD':'ARS');
-  save(); renderContratistas();
+  if(_esModoApi()) guardarOTApi(o); else save();
+  renderContratistas();
 }
 // Tarifa de la OT expresada en ARS (convierte si está cargada en USD, con el TC de la fecha de la OT)
 function tarifaARSDeOt(o){
@@ -3653,7 +3656,8 @@ function updateContrEstado(otId, val){
   o.estadoFact=val;
   if(val==='Facturado'){ o.montoFacturado=otHaAplicada(o)*tarifaARSDeOt(o); }
   else if(val==='Sin facturar'){ o.montoFacturado=0; }
-  save(); renderContratistas();
+  if(_esModoApi()) guardarOTApi(o); else save();
+  renderContratistas();
 }
 function openMontoModal(otId){
   var o=getOtById(otId); if(!o) return;
@@ -3693,7 +3697,8 @@ function saveMontoModal(otId, importe){
   o.montoFacturado=v;
   // Si el parcial alcanza/supera el importe total, pasa a "Facturado"
   if(importe>0 && v>=importe){ o.estadoFact='Facturado'; o.montoFacturado=importe; }
-  save(); closeModal(); renderContratistas();
+  if(_esModoApi()) guardarOTApi(o); else save();
+  closeModal(); renderContratistas();
 }
 function getOtById(id){ for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===id) return state.ots[i]; return null; }
 
@@ -4065,19 +4070,30 @@ function renderMaestros(){
     aplicarSoloLecturaMaestros(curMTab);
   }
 }
+// Contratistas son terceros con rol 'contratista' (ver donde se arma state.contratistas):
+// con contexto, se administran en Maestros. Antes esta pestaña los mostraba editables acá
+// mismo, pero el guardado nunca llegaba al backend (save() no persiste en modo API) —
+// el usuario tipeaba un cambio, parecía tomarlo, y se perdía al recargar.
 function renderMContratistas(){
+  var ro = !!state.catalogosReadOnly;
   var rows='';
   for(var i=0;i<state.contratistas.length;i++){
     var x=state.contratistas[i];
-    rows+='<tr>'+
-      '<td><input value="'+esc(x.nombre)+'" onchange="state.contratistas['+i+'].nombre=this.value;save()" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px"></td>'+
-      '<td><button class="btn btn-sm btn-danger" onclick="delContratista(\''+x.id+'\')">✕</button></td>'+
-      '</tr>';
+    rows += ro
+      ? '<tr><td style="padding:6px 8px">'+esc(x.nombre)+'</td></tr>'
+      : '<tr>'+
+          '<td><input value="'+esc(x.nombre)+'" onchange="state.contratistas['+i+'].nombre=this.value;save()" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px"></td>'+
+          '<td><button class="btn btn-sm btn-danger" onclick="delContratista(\''+x.id+'\')">✕</button></td>'+
+        '</tr>';
   }
+  var head = ro
+    ? '<div class="chd"><span class="ct-lg">Contratistas</span><span class="bdg" style="background:#E8EDF2;color:#475569">Solo lectura</span></div>'+
+      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Los contratistas se administran en Maestros (nivel empresa), como terceros con rol "contratista". La tarifa y la facturación se cargan en la sección Contratistas de este tablero.</p>'
+    : '<div class="chd"><span class="ct-lg">Contratistas</span><button class="btn btn-sm btn-primary" onclick="addContratista()">+ Nuevo contratista</button></div>'+
+      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Listado de contratistas elegibles en las OT.</p>';
   byId('maestrosCard').innerHTML=
-    '<div class="chd"><span class="ct-lg">Contratistas</span><button class="btn btn-sm btn-primary" onclick="addContratista()">+ Nuevo contratista</button></div>'+
-    '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Listado de contratistas elegibles en las OT. La tarifa y la facturación se gestionarán en la sección Contratistas y Labores (próximamente).</p>'+
-    '<div class="tw"><table><thead><tr><th>Nombre</th><th></th></tr></thead><tbody>'+(rows||'<tr><td colspan="2" class="empty">Sin contratistas. Cargá el primero.</td></tr>')+'</tbody></table></div>';
+    head+
+    '<div class="tw"><table><thead><tr><th>Nombre</th>'+(ro?'':'<th></th>')+'</tr></thead><tbody>'+(rows||'<tr><td colspan="'+(ro?1:2)+'" class="empty">Sin contratistas.</td></tr>')+'</tbody></table></div>';
 }
 function addContratista(){ if(bloqueadoSiReadOnly('contratistas'))return; state.contratistas.push({id:uid(),nombre:'Nuevo contratista'}); save(); renderMContratistas(); }
 function delContratista(id){
@@ -4315,25 +4331,37 @@ function delInsumo(id){
   state.insumos=state.insumos.filter(function(x){ return x.id!==id; });
   save(); renderMInsumos(); renderStock();
 }
+// Con contexto, los campos se administran en Administración (ver bloqueadoSiReadOnly).
+// Antes esta pestaña los mostraba editables acá mismo sin persistir nunca (mismo
+// problema que Contratistas/Lotes) — se corrige con el mismo criterio de solo lectura
+// que ya usan Insumos/Depósitos/Actividades/Labores.
 function renderMCampos(){
+  var ro = !!state.catalogosReadOnly;
   var rows='';
   for(var i=0;i<state.campos.length;i++){
     var x=state.campos[i];
     var nLotes=0, nDeps=0;
     for(var j=0;j<state.lotes.length;j++) if(state.lotes[j].campoId===x.id) nLotes++;
     for(var k=0;k<state.depositos.length;k++) if(state.depositos[k].campoId===x.id) nDeps++;
-    rows+='<tr>'+
-      '<td><input value="'+esc(x.nombre)+'" oninput="state.campos['+i+'].nombre=this.value;save()" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px"></td>'+
-      '<td><input value="'+esc(x.localidad||'')+'" oninput="state.campos['+i+'].localidad=this.value;save()" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px"></td>'+
-      '<td class="num">'+nLotes+'</td>'+
-      '<td class="num">'+nDeps+'</td>'+
-      '<td><button class="btn btn-sm btn-danger" onclick="delCampo(\''+x.id+'\')">✕</button></td>'+
-      '</tr>';
+    rows += ro
+      ? '<tr><td style="padding:6px 8px">'+esc(x.nombre)+'</td><td style="padding:6px 8px">'+esc(x.localidad||'')+'</td>'+
+          '<td class="num">'+nLotes+'</td><td class="num">'+nDeps+'</td></tr>'
+      : '<tr>'+
+          '<td><input value="'+esc(x.nombre)+'" oninput="state.campos['+i+'].nombre=this.value;save()" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px"></td>'+
+          '<td><input value="'+esc(x.localidad||'')+'" oninput="state.campos['+i+'].localidad=this.value;save()" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px"></td>'+
+          '<td class="num">'+nLotes+'</td>'+
+          '<td class="num">'+nDeps+'</td>'+
+          '<td><button class="btn btn-sm btn-danger" onclick="delCampo(\''+x.id+'\')">✕</button></td>'+
+        '</tr>';
   }
+  var head = ro
+    ? '<div class="chd"><span class="ct-lg">Campos</span><span class="bdg" style="background:#E8EDF2;color:#475569">Solo lectura</span></div>'+
+      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Los campos se administran en Administración (nivel cliente). Acá se muestran para asignarlos a lotes y depósitos.</p>'
+    : '<div class="chd"><span class="ct-lg">Campos</span><button class="btn btn-sm btn-primary" onclick="addCampo()">+ Nuevo campo</button></div>'+
+      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Los campos son las unidades operativas dentro del cliente. Cada lote pertenece a un campo. Los depósitos pueden ser de un campo o generales del cliente.</p>';
   byId('maestrosCard').innerHTML=
-    '<div class="chd"><span class="ct-lg">Campos</span><button class="btn btn-sm btn-primary" onclick="addCampo()">+ Nuevo campo</button></div>'+
-    '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Los campos son las unidades operativas dentro del cliente. Cada lote pertenece a un campo. Los depósitos pueden ser de un campo o generales del cliente.</p>'+
-    '<div class="tw"><table><thead><tr><th>Nombre</th><th>Localidad</th><th class="num">Lotes</th><th class="num">Depósitos</th><th></th></tr></thead><tbody>'+(rows||'<tr><td colspan="5" class="empty">Sin campos.</td></tr>')+'</tbody></table></div>';
+    head+
+    '<div class="tw"><table><thead><tr><th>Nombre</th><th>Localidad</th><th class="num">Lotes</th><th class="num">Depósitos</th>'+(ro?'':'<th></th>')+'</tr></thead><tbody>'+(rows||'<tr><td colspan="'+(ro?4:5)+'" class="empty">Sin campos.</td></tr>')+'</tbody></table></div>';
 }
 function addCampo(){
   if(bloqueadoSiReadOnly('campos'))return;
@@ -4364,7 +4392,14 @@ function loteSortArrow(key){
   if(loteSort.key!==key) return '<span style="opacity:.25">↕</span>';
   return loteSort.dir===1 ? '▲' : '▼';
 }
+// Con contexto, el padrón de lotes (nombre/ha/campo) se administra en Plan de Uso
+// del Suelo (ver bloqueadoSiReadOnly). Antes esta pestaña lo mostraba editable acá
+// mismo sin persistir nunca (mismo problema que Campos/Contratistas). La asociación
+// de actividades por lote (para filtrar el desplegable al crear una OT) no tiene hoy
+// una tabla propia en el backend, así que sigue siendo local-únicamente: se puede
+// ver pero no editar acá hasta que tenga un lugar real donde persistir.
 function renderMLotes(){
+  var ro = !!state.catalogosReadOnly;
   var rows='';
   var dir=loteSort.dir;
   var sorted=state.lotes.slice().sort(function(a,b){
@@ -4381,13 +4416,24 @@ function renderMLotes(){
     var x=sorted[i];
     var realIdx=state.lotes.indexOf(x);
     if(!x.actividades) x.actividades=[];
+    var chips='';
+    for(var c=0;c<x.actividades.length;c++){
+      chips += ro
+        ? '<span class="ms-chip">'+esc(x.actividades[c])+'</span>'
+        : '<span class="ms-chip">'+esc(x.actividades[c])+' <span class="ms-chip-x" onclick="removeLoteAct('+realIdx+','+c+')">×</span></span>';
+    }
+    if(ro){
+      rows+='<tr>'+
+        '<td style="padding:6px 8px">'+esc(getCampoNombre(x.campoId))+'</td>'+
+        '<td style="padding:6px 8px">'+esc(x.nombre)+'</td>'+
+        '<td class="num">'+f(x.ha||0,2)+'</td>'+
+        '<td style="min-width:280px"><div class="ms">'+(chips||'<span style="color:var(--muted);font-size:11px">—</span>')+'</div></td>'+
+        '</tr>';
+      continue;
+    }
     var optsCampo='<option value="">— Seleccionar —</option>';
     for(var ca=0;ca<state.campos.length;ca++){
       optsCampo+='<option value="'+state.campos[ca].id+'"'+(state.campos[ca].id===x.campoId?' selected':'')+'>'+esc(state.campos[ca].nombre)+'</option>';
-    }
-    var chips='';
-    for(var c=0;c<x.actividades.length;c++){
-      chips+='<span class="ms-chip">'+esc(x.actividades[c])+' <span class="ms-chip-x" onclick="removeLoteAct('+realIdx+','+c+')">×</span></span>';
     }
     var opts='<option value="">+ Asociar actividad</option>';
     for(var a=0;a<state.actividades.length;a++){
@@ -4408,16 +4454,20 @@ function renderMLotes(){
   }
   var totHa=0; for(var k=0;k<state.lotes.length;k++) totHa+=Number(state.lotes[k].ha)||0;
   var addBtnDisabled = state.campos.length===0 ? 'disabled title="Creá un campo primero"' : '';
+  var head = ro
+    ? '<div class="chd"><span class="ct-lg">Lotes</span><span class="bdg" style="background:#E8EDF2;color:#475569">Solo lectura</span></div>'+
+      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">El padrón de lotes (nombre, hectáreas, campo) se administra en Plan de Uso del Suelo. Acá se muestran para asociarles actividades y usarlos en las OT. Tocá un encabezado para ordenar.</p>'
+    : '<div class="chd"><span class="ct-lg">Lotes</span><button class="btn btn-sm btn-primary" '+addBtnDisabled+' onclick="addLote()">+ Nuevo lote</button></div>'+
+      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Cada lote pertenece a un campo. Asociá las actividades que se realizan en cada lote esta campaña; en la OT solo se mostrarán las actividades asociadas al lote elegido. Tocá un encabezado para ordenar.</p>';
   byId('maestrosCard').innerHTML=
-    '<div class="chd"><span class="ct-lg">Lotes</span><button class="btn btn-sm btn-primary" '+addBtnDisabled+' onclick="addLote()">+ Nuevo lote</button></div>'+
-    '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Cada lote pertenece a un campo. Asociá las actividades que se realizan en cada lote esta campaña; en la OT solo se mostrarán las actividades asociadas al lote elegido. Tocá un encabezado para ordenar.</p>'+
+    head+
     '<div class="tw"><table><thead><tr>'+
       '<th class="th-sort" onclick="setLoteSort(\'campo\')">Campo '+loteSortArrow('campo')+'</th>'+
       '<th class="th-sort" onclick="setLoteSort(\'nombre\')">Nombre '+loteSortArrow('nombre')+'</th>'+
       '<th class="num th-sort" onclick="setLoteSort(\'ha\')">Hectáreas '+loteSortArrow('ha')+'</th>'+
-      '<th>Actividades asociadas</th><th></th>'+
-    '</tr></thead><tbody>'+(rows||'<tr><td colspan="5" class="empty">Sin lotes.</td></tr>')+
-    '<tr class="row-total"><td></td><td class="tdname"><strong>Total</strong></td><td class="num"><strong>'+f(totHa,2)+' ha</strong></td><td></td><td></td></tr>'+
+      '<th>Actividades asociadas</th>'+(ro?'':'<th></th>')+
+    '</tr></thead><tbody>'+(rows||'<tr><td colspan="'+(ro?4:5)+'" class="empty">Sin lotes.</td></tr>')+
+    '<tr class="row-total"><td></td><td class="tdname"><strong>Total</strong></td><td class="num"><strong>'+f(totHa,2)+' ha</strong></td><td></td>'+(ro?'':'<td></td>')+'</tr>'+
     '</tbody></table></div>';
 }
 function addLote(){
