@@ -1008,13 +1008,33 @@ function limpiarComprobantesHuerfanosApi(idsAntes, callback){
   huerfanos.forEach(function(id){ eliminarComprobanteApi(id, function(){ if(--pend<=0 && callback) callback(); }); });
 }
 
+// tc_usd/tc_apertura/tc_cierre: escalares simples de la empresa (config_operativa).
+// El TC mensual NO va acá — es guardarTCMesApi()/borrarTCMesApi(), fila por
+// fila en tipo_cambio_mensual, para que dos usuarios cargando meses distintos
+// en simultáneo no se pisen (ver init.sql).
 function guardarConfigOperativaApi(callback){
   if (!_esModoApi() || !CTX) { if(callback) callback(); return; }
-  apiPut('/api/config-operativa', { empresaId:CTX.empresaActivaId, tcUSD:state.tcUSD, tcMensual:state.tcMensual,
+  apiPut('/api/config-operativa', { empresaId:CTX.empresaActivaId, tcUSD:state.tcUSD,
     tcApertura:state.tcApertura, tcCierre:state.tcCierre }, function(err){
     if(err) console.error('Error guardando config operativa:', err);
     if(callback) callback();
   });
+}
+function guardarTCMesApi(ym, valor, callback){
+  if (!_esModoApi() || !CTX) { if(callback) callback(); return; }
+  apiPut('/api/config-operativa/tc-mensual/'+encodeURIComponent(ym),
+    { empresaId:CTX.empresaActivaId, valor:valor }, function(err){
+      if(err) console.error('Error guardando TC del mes '+ym+':', err);
+      if(callback) callback();
+    });
+}
+function borrarTCMesApi(ym, callback){
+  if (!_esModoApi() || !CTX) { if(callback) callback(); return; }
+  apiDelete('/api/config-operativa/tc-mensual/'+encodeURIComponent(ym)+'?empresaId='+encodeURIComponent(CTX.empresaActivaId),
+    function(err){
+      if(err) console.error('Error borrando TC del mes '+ym+':', err);
+      if(callback) callback();
+    });
 }
 
 // Insumos: la identidad (nombre/tipo/etc.) es de solo lectura acá; los campos
@@ -4098,15 +4118,20 @@ function mesesCampania(){
 function updateTCMes(ym,val){
   if(!state.tcMensual) state.tcMensual={};
   var v=Number(val)||0;
-  if(v>0) state.tcMensual[ym]=v; else delete state.tcMensual[ym];
-  save();
+  if(v>0){
+    state.tcMensual[ym]=v;
+    if(_esModoApi()) guardarTCMesApi(ym, v); else save();
+  } else {
+    delete state.tcMensual[ym];
+    if(_esModoApi()) borrarTCMesApi(ym); else save();
+  }
 }
 function updateTCEspecial(campo,val){
   var v=Number(val)||0;
   if(campo==='apertura') state.tcApertura=v;
   else if(campo==='cierre') state.tcCierre=v;
   else if(campo==='global'){ state.tcUSD = v>0?v:1000; }
-  save();
+  if(_esModoApi()) guardarConfigOperativaApi(); else save();
 }
 function renderMTC(){
   var ac=aniosCampania();

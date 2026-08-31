@@ -2140,7 +2140,12 @@ app.delete('/api/comprobantes/:id', async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIG OPERATIVA (tipo de cambio por empresa, tablero_insumos_ot)
-// Config de un solo "dueño" por empresa — bajo riesgo de pisado, sin lock.
+// tc_usd/tc_apertura/tc_cierre: 3 escalares, un solo "dueño" por empresa —
+// bajo riesgo de pisado, sin lock. El tipo de cambio MENSUAL vive aparte, en
+// tipo_cambio_mensual (una fila por empresa+mes): antes era un único JSONB
+// que se reescribía entero en cada guardado, y con varios usuarios cargando
+// meses distintos en simultáneo, guardar pisaba en silencio lo que acababa
+// de cargar otro. Guardar un mes ahora es un UPDATE de esa fila puntual.
 // ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/config-operativa', async (req, res) => {
   try {
@@ -2151,12 +2156,21 @@ app.get('/api/config-operativa', async (req, res) => {
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
 
-    const r = await pool.query(
-      `SELECT tc_usd AS "tcUSD", tc_mensual AS "tcMensual", tc_apertura AS "tcApertura", tc_cierre AS "tcCierre"
-         FROM config_operativa WHERE empresa_id = $1`,
-      [empresaId]
-    );
-    res.json(r.rows[0] || { tcUSD: 1000, tcMensual: {}, tcApertura: 0, tcCierre: 0 });
+    const [rConfig, rMensual] = await Promise.all([
+      pool.query(
+        `SELECT tc_usd AS "tcUSD", tc_apertura AS "tcApertura", tc_cierre AS "tcCierre"
+           FROM config_operativa WHERE empresa_id = $1`,
+        [empresaId]
+      ),
+      pool.query(
+        `SELECT anio_mes AS "anioMes", valor FROM tipo_cambio_mensual WHERE empresa_id = $1`,
+        [empresaId]
+      ),
+    ]);
+    const base = rConfig.rows[0] || { tcUSD: 1000, tcApertura: 0, tcCierre: 0 };
+    const tcMensual = {};
+    rMensual.rows.forEach(r => { tcMensual[r.anioMes] = Number(r.valor); });
+    res.json({ ...base, tcMensual });
   } catch (err) {
     console.error('/api/config-operativa GET error:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -2174,14 +2188,61 @@ app.put('/api/config-operativa', async (req, res) => {
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
 
     await pool.query(
-      `INSERT INTO config_operativa (empresa_id, tc_usd, tc_mensual, tc_apertura, tc_cierre)
-       VALUES ($1,$2,$3,$4,$5)
-       ON CONFLICT (empresa_id) DO UPDATE SET tc_usd=$2, tc_mensual=$3, tc_apertura=$4, tc_cierre=$5`,
-      [empresaId, c.tcUSD || 1000, JSON.stringify(c.tcMensual || {}), c.tcApertura || 0, c.tcCierre || 0]
+      `INSERT INTO config_operativa (empresa_id, tc_usd, tc_apertura, tc_cierre)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (empresa_id) DO UPDATE SET tc_usd=$2, tc_apertura=$3, tc_cierre=$4`,
+      [empresaId, c.tcUSD || 1000, c.tcApertura || 0, c.tcCierre || 0]
     );
     res.json({ status: 'ok' });
   } catch (err) {
     console.error('/api/config-operativa PUT error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Alta/edición del TC de UN mes puntual — nunca toca los demás meses.
+app.put('/api/config-operativa/tc-mensual/:anioMes', async (req, res) => {
+  const empresaId = (req.body || {}).empresaId;
+  const valor = (req.body || {}).valor;
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    if (valor == null || isNaN(Number(valor)) || Number(valor) <= 0) {
+      return res.status(400).json({ error: 'Falta un valor numérico positivo' });
+    }
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+
+    await pool.query(
+      `INSERT INTO tipo_cambio_mensual (empresa_id, anio_mes, valor)
+       VALUES ($1,$2,$3)
+       ON CONFLICT (empresa_id, anio_mes) DO UPDATE SET valor = $3`,
+      [empresaId, req.params.anioMes, Number(valor)]
+    );
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('/api/config-operativa/tc-mensual PUT error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.delete('/api/config-operativa/tc-mensual/:anioMes', async (req, res) => {
+  const empresaId = req.query.empresaId;
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+
+    await pool.query(
+      'DELETE FROM tipo_cambio_mensual WHERE empresa_id = $1 AND anio_mes = $2',
+      [empresaId, req.params.anioMes]
+    );
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('/api/config-operativa/tc-mensual DELETE error:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });

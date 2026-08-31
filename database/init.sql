@@ -446,10 +446,22 @@ CREATE INDEX idx_movimientos_comprobante ON movimientos(comprobante_id, empresa_
 CREATE TABLE config_operativa (
     empresa_id  TEXT PRIMARY KEY REFERENCES empresas(id) ON DELETE CASCADE,
     tc_usd      NUMERIC(12,2) DEFAULT 1000,
-    tc_mensual  JSONB NOT NULL DEFAULT '{}',
     tc_apertura NUMERIC(12,2) DEFAULT 0,
     tc_cierre   NUMERIC(12,2) DEFAULT 0
 );
+
+-- Tipo de cambio mensual (uno por empresa y mes). Antes era un único JSONB
+-- (config_operativa.tc_mensual) que se reescribía entero en cada guardado:
+-- con varios usuarios en simultáneo, guardar el TC de un mes podía pisar en
+-- silencio el de otro mes que acababa de cargar otro usuario. Cada mes es
+-- ahora su propia fila — guardar uno no toca los demás.
+CREATE TABLE tipo_cambio_mensual (
+    empresa_id TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    anio_mes   TEXT NOT NULL,  -- 'YYYY-MM'
+    valor      NUMERIC(12,2) NOT NULL,
+    PRIMARY KEY (empresa_id, anio_mes)
+);
+CREATE INDEX idx_tc_mensual_empresa ON tipo_cambio_mensual(empresa_id);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECCIÓN 7: DATOS INICIALES (SEED)
