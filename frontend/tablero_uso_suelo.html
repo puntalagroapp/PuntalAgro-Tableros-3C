@@ -2169,6 +2169,9 @@ function setView(v, btn){
   // "Mostrar historia" solo tiene sentido en el Plan de uso
   document.getElementById('btnHistGlobal').style.display = (v==='plan') ? '' : 'none';
   renderAll();
+  // Cambia el alto de la barra sticky (KPIs/filtros aparecen o desaparecen
+  // según la vista) y cuál .scroll-y está activo: recalcular.
+  if(typeof ajustarLayout === 'function') ajustarLayout();
 }
 
 // Cambia la tabla activa del módulo Maestros
@@ -2177,6 +2180,7 @@ function setMaestrosTab(tab, btn){
   document.querySelectorAll('.subnav-btn').forEach(function(b){b.classList.remove('active');});
   btn.classList.add('active');
   renderMaestros();
+  if(typeof ajustarLayout === 'function') ajustarLayout();
 }
 
 function setEstadoSel(value){
@@ -4918,9 +4922,38 @@ function ajustarStickyTop(){
   var st = document.querySelector('.sticky-top');
   if(h && st){ st.style.top = h.offsetHeight + 'px'; }
 }
-ajustarStickyTop();
-window.addEventListener('resize', ajustarStickyTop);
-window.addEventListener('load', ajustarStickyTop);
+
+// Calcula el alto disponible debajo de todo lo que ya ocupa la pantalla (header +
+// barra sticky + título/avisos de la tarjeta) y se lo asigna al cuadro de scroll
+// de la tabla activa. Objetivo: que la PÁGINA nunca necesite scrollear — todo el
+// scroll queda contenido adentro de la tabla, así no puede pasar que una fila
+// se vea por encima de la barra "MÓDULO:" (dos scrolls superpuestos al mismo
+// tiempo — el de la página y el de la tabla — es lo que generaba el glitch).
+function ajustarScrollY(){
+  // OJO: el límite inferior tiene que salir de valores independientes del alto
+  // que le estamos por asignar a .scroll-y (window.innerHeight y el alto propio
+  // del footer) — no de la posición actual del footer, que depende de ESE alto
+  // y generaría un cálculo circular (cada corrida movería el resultado).
+  // 32px cubre el padding del .card (14px) más el margen entre secciones.
+  var footer = document.querySelector('footer');
+  var footerH = footer ? footer.offsetHeight : 0;
+  var activos = document.querySelectorAll('.view.active .scroll-y');
+  for(var i=0;i<activos.length;i++){
+    var el = activos[i];
+    if(el.offsetParent === null) continue; // oculto (ej. pestaña de Maestros no elegida)
+    var rect = el.getBoundingClientRect();
+    var disponible = window.innerHeight - rect.top - footerH - 32;
+    el.style.maxHeight = Math.max(220, disponible) + 'px';
+  }
+}
+function ajustarLayout(){
+  window.scrollTo(0,0);
+  ajustarStickyTop();
+  ajustarScrollY();
+}
+ajustarLayout();
+window.addEventListener('resize', ajustarLayout);
+window.addEventListener('load', ajustarLayout);
 </script>
 </body>
 </html>
