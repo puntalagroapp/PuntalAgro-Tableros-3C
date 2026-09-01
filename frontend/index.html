@@ -80,9 +80,6 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
 .acc-cnt.vacio{color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0;font-style:italic}
 .acc-b{border-top-color:var(--terra)}.acc-b .acc-ico{stroke:var(--terra)}.acc-b .acc-cnt{color:var(--terra)}
 .acc-c{border-top-color:var(--ochre)}.acc-c .acc-ico{stroke:var(--ochre)}.acc-c .acc-cnt{color:var(--ochre)}
-.volver{background:none;border:none;padding:0;margin-bottom:14px;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px}
-.volver:hover{color:var(--terra)}
-.volver svg{width:13px;height:13px;stroke:currentColor;stroke-width:2.2;fill:none}
 @media (max-width:768px){.grid,.home-grid{grid-template-columns:1fr}.logo-title{font-size:18px}}
 
 /* Números tabulares: alinea las columnas numéricas de las tablas.
@@ -104,6 +101,7 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
   <div class="h-right">
     <span class="h-user" id="huser">—</span>
     <select class="h-emp" id="hemp" onchange="cambiarEmpresa(this.value)"></select>
+    <button class="h-out" id="h-volver" style="display:none" onclick="irA('home')">← Volver al inicio</button>
     <button class="h-out" onclick="salir()">Salir</button>
   </div>
 </header>
@@ -127,14 +125,14 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
       <button class="acc acc-b" onclick="irA('ges')">
         <svg class="acc-ico" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
         <div class="acc-tit">Herramientas de Gestión</div>
-        <div class="acc-txt">Planificación y registro de la operación: uso del suelo, siembra, insumos, labores, ganadería y maestros.</div>
+        <div class="acc-txt">Planificación y registro de la operación: uso del suelo, siembra, insumos, labores, ganadería y catálogos maestros.</div>
         <div class="acc-cnt" id="cnt-ges"></div>
       </button>
 
       <button class="acc acc-c" id="acc-adm" style="display:none" onclick="irA('adm')">
         <svg class="acc-ico" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="18" cy="7" r="2"/><path d="M16.5 13c2.5.5 4.5 2.6 4.5 5"/></svg>
         <div class="acc-tit">Administración</div>
-        <div class="acc-txt">Estructura de clientes, empresas y campos, catálogos maestros, y gestión de usuarios, roles y permisos de acceso.</div>
+        <div class="acc-txt">Estructura de clientes, empresas y campos, y gestión de usuarios, roles y permisos de acceso.</div>
         <div class="acc-cnt" id="cnt-adm"></div>
       </button>
 
@@ -143,7 +141,6 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
 
   <!-- ============ TABLEROS DE DECISIÓN ============ -->
   <div class="view sec" id="view-dec">
-    <button class="volver" onclick="irA('home')"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Volver al inicio</button>
     <div class="block-title">Tableros de Decisión<span class="ln" style="background:var(--olive)"></span></div>
 
     <div class="subsec first">Propios</div>
@@ -195,7 +192,6 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
 
   <!-- ============ HERRAMIENTAS DE GESTIÓN ============ -->
   <div class="view sec" id="view-ges">
-    <button class="volver" onclick="irA('home')"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Volver al inicio</button>
     <div class="block-title">Herramientas de Gestión<span class="ln" style="background:var(--terra)"></span></div>
     <div class="grid" id="grid-gestion" style="margin-top:14px">
 
@@ -259,7 +255,6 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
 
   <!-- ============ ADMINISTRACIÓN ============ -->
   <div class="view sec" id="view-adm">
-    <button class="volver" onclick="irA('home')"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Volver al inicio</button>
     <div class="block-title">Administración<span class="ln" style="background:var(--ochre)"></span></div>
     <div class="grid" style="margin-top:14px">
 
@@ -331,6 +326,8 @@ function mostrar(v){
     var el = document.getElementById('view-'+VISTAS[i]);
     if (el) { el.className = (VISTAS[i] === v) ? 'view on sec' : 'view sec'; }
   }
+  var hv = document.getElementById('h-volver');
+  if (hv) hv.style.display = (v === 'home') ? 'none' : '';
   window.scrollTo(0,0);
 }
 
