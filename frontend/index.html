@@ -16,7 +16,7 @@
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#F0F2F5;--card:#fff;--border:#E4E8EE;--text:#0F1923;--muted:#7A8899;--olive:#4A6533;--ochre:#A86A1F;--terra:#C8642D;--radius:12px;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;--sans:'DM Sans',sans-serif;}
+:root{--bg:#F0F2F5;--card:#fff;--border:#E4E8EE;--text:#0F1923;--muted:#7A8899;--olive:#4A6533;--ochre:#A86A1F;--terra:#C8642D;--radius:12px;--mono:'DM Sans',sans-serif;--sans:'DM Sans',sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15px;min-height:100vh;display:flex;flex-direction:column}
 .topbar{height:4px;background:var(--olive)}
@@ -60,11 +60,34 @@ main{padding:0;display:flex;flex-direction:column;flex:1}
 .t-gra{border-left-color:#4A6533}.t-var{border-left-color:#A86A1F}.t-ins{border-left-color:#C8642D}
 .t-sue{border-left-color:#7A8B3F}.t-sie{border-left-color:#5E7A2C}.t-hac{border-left-color:#A85A2C}
 .t-lab{border-left-color:#8E5A18}.t-fit{border-left-color:#6B7E2E}.t-ext{border-left-color:#B8AFA2}
+.t-est{border-left-color:#4A6533}.t-usu{border-left-color:#A86A1F}.t-mae{border-left-color:#C8642D}
 .tag-gra{background:#EEF3E8;color:#3A5128}.tag-var{background:#FBF1E0;color:#7A4E16}.tag-ins{background:#FBEDE3;color:#9A4A20}
 .tag-sue{background:#F2F5E8;color:#4F5C28}.tag-sie{background:#EBF1DF;color:#3F5520}.tag-hac{background:#FBEAD9;color:#8A4520}
 .tag-lab{background:#F8EDD9;color:#6E4612}.tag-fit{background:#EFF1E0;color:#4A5520}.tag-ext{background:#EEF0F3;color:#475569}
 footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--card);font-size:11px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
-@media (max-width:768px){.grid{grid-template-columns:1fr}.logo-title{font-size:18px}}
+
+/* ---------- portada: 3 accesos ---------- */
+.view{display:none}
+.view.on{display:block}
+.home-lead{font-size:12.5px;color:var(--muted);margin:2px 0 18px}
+.home-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.acc{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);border-top:4px solid var(--olive);padding:22px 20px 18px;text-align:left;width:100%;font-family:var(--sans);color:inherit;cursor:pointer;display:flex;flex-direction:column;gap:9px;box-shadow:0 1px 3px rgba(15,25,35,.04);transition:box-shadow .12s,transform .12s}
+.acc:hover{box-shadow:0 6px 20px rgba(15,25,35,.10);transform:translateY(-2px)}
+.acc-ico{width:34px;height:34px;stroke-width:1.6;fill:none;stroke:var(--olive)}
+.acc-tit{font-size:17px;font-weight:700;letter-spacing:-.3px}
+.acc-txt{font-size:12.5px;color:var(--muted);line-height:1.5;flex:1}
+.acc-cnt{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--olive)}
+.acc-cnt.vacio{color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0;font-style:italic}
+.acc-b{border-top-color:var(--terra)}.acc-b .acc-ico{stroke:var(--terra)}.acc-b .acc-cnt{color:var(--terra)}
+.acc-c{border-top-color:var(--ochre)}.acc-c .acc-ico{stroke:var(--ochre)}.acc-c .acc-cnt{color:var(--ochre)}
+.volver{background:none;border:none;padding:0;margin-bottom:14px;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px}
+.volver:hover{color:var(--terra)}
+.volver svg{width:13px;height:13px;stroke:currentColor;stroke-width:2.2;fill:none}
+@media (max-width:768px){.grid,.home-grid{grid-template-columns:1fr}.logo-title{font-size:18px}}
+
+/* Números tabulares: alinea las columnas numéricas de las tablas.
+   Criterio unificado con maestros.html y tablero_uso_suelo.html. */
+table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -87,7 +110,40 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
 
 <main>
 
-  <div class="sec">
+  <!-- ============ PORTADA ============ -->
+  <div class="view on sec" id="view-home">
+    <div class="block-title">Inicio<span class="ln" style="background:var(--olive)"></span></div>
+    <div class="home-lead">Elegí por dónde querés entrar.</div>
+
+    <div class="home-grid">
+
+      <button class="acc acc-a" onclick="irA('dec')">
+        <svg class="acc-ico" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
+        <div class="acc-tit">Tableros de Decisión</div>
+        <div class="acc-txt">Precios, contexto económico y relaciones de referencia para decidir. Incluye tableros propios y fuentes externas.</div>
+        <div class="acc-cnt" id="cnt-dec"></div>
+      </button>
+
+      <button class="acc acc-b" onclick="irA('ges')">
+        <svg class="acc-ico" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+        <div class="acc-tit">Herramientas de Gestión</div>
+        <div class="acc-txt">Planificación y registro de la operación: uso del suelo, siembra, insumos, labores, ganadería y maestros.</div>
+        <div class="acc-cnt" id="cnt-ges"></div>
+      </button>
+
+      <button class="acc acc-c" id="acc-adm" style="display:none" onclick="irA('adm')">
+        <svg class="acc-ico" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="18" cy="7" r="2"/><path d="M16.5 13c2.5.5 4.5 2.6 4.5 5"/></svg>
+        <div class="acc-tit">Administración</div>
+        <div class="acc-txt">Estructura de clientes, empresas y campos, catálogos maestros, y gestión de usuarios, roles y permisos de acceso.</div>
+        <div class="acc-cnt" id="cnt-adm"></div>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ============ TABLEROS DE DECISIÓN ============ -->
+  <div class="view sec" id="view-dec">
+    <button class="volver" onclick="irA('home')"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Volver al inicio</button>
     <div class="block-title">Tableros de Decisión<span class="ln" style="background:var(--olive)"></span></div>
 
     <div class="subsec first">Propios</div>
@@ -95,7 +151,7 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
 
       <div class="tool t-gra" data-tool="tablero_agro">
         <a class="tool-main" href="tablero_agro.html">
-          <span class="tool-name">Tablero Comercial Agropecuario</span>
+          <span class="tool-name">Tablero Comercial Agrícola</span>
           <span class="tool-right"><span class="tool-tag tag-gra">Comercial</span><svg class="tool-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
         </a>
         <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
@@ -133,13 +189,13 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
     <div class="empty" id="empty-dec-propios" style="display:none">No tenés tableros de decisión habilitados para esta empresa.</div>
 
     <div class="subsec">Externos</div>
-    <div class="grid" id="grid-externos"></div>
+    <div class="grid" id="grid-dec-externos"></div>
     <div class="empty" id="empty-externos" style="display:none">No hay herramientas externas disponibles.</div>
   </div>
 
-  <div class="sec-divisor"></div>
-
-  <div class="sec">
+  <!-- ============ HERRAMIENTAS DE GESTIÓN ============ -->
+  <div class="view sec" id="view-ges">
+    <button class="volver" onclick="irA('home')"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Volver al inicio</button>
     <div class="block-title">Herramientas de Gestión<span class="ln" style="background:var(--terra)"></span></div>
     <div class="grid" id="grid-gestion" style="margin-top:14px">
 
@@ -188,14 +244,23 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
         <div class="tool-detail">Existencias de hacienda por negocio, rodeo y categoría. Movimientos, conciliación de stock y seguimiento de cabezas y kilos.</div>
       </div>
 
+      <div class="tool t-mae" id="card-maestros" style="display:none">
+        <a class="tool-main" href="maestros.html">
+          <span class="tool-name">Maestros / Padrones</span>
+          <span class="tool-right"><span class="tool-tag tag-ins">Configuración</span><svg class="tool-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </a>
+        <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
+        <div class="tool-detail">Catálogos base que consumen los demás módulos: proveedores y clientes, choferes, depósitos y acopios, labores, cultivos, especies y unidades.</div>
+      </div>
+
     </div>
     <div class="empty" id="empty-gestion" style="display:none">No tenés herramientas de gestión habilitadas para esta empresa.</div>
   </div>
 
-  <div class="sec-divisor"></div>
-
-  <div class="sec">
-    <div class="block-title">Administración<span class="ln" style="background:var(--olive)"></span></div>
+  <!-- ============ ADMINISTRACIÓN ============ -->
+  <div class="view sec" id="view-adm">
+    <button class="volver" onclick="irA('home')"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Volver al inicio</button>
+    <div class="block-title">Administración<span class="ln" style="background:var(--ochre)"></span></div>
     <div class="grid" style="margin-top:14px">
 
       <div class="tool t-est" id="card-estructura-clientes" style="display:none">
@@ -205,15 +270,6 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
         </a>
         <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
         <div class="tool-detail">Alta y edición de la estructura Cliente → Empresa → Campo, base sobre la que se reparten los permisos de cada usuario.</div>
-      </div>
-
-      <div class="tool t-mae" id="card-maestros" style="display:none">
-        <a class="tool-main" href="maestros.html">
-          <span class="tool-name">Maestros / Padrones</span>
-          <span class="tool-right"><span class="tool-tag tag-ins">Configuración</span><svg class="tool-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-        </a>
-        <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
-        <div class="tool-detail">Catálogos base que consumen los demás módulos: proveedores y clientes, choferes, depósitos y acopios, labores, cultivos, especies y unidades.</div>
       </div>
 
       <div class="tool t-usu" id="card-usuarios-permisos" style="display:none">
@@ -247,6 +303,42 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
 
 <script src="js/api.js"></script>
 <script>
+/* ================== navegación entre vistas ==================
+   Portada con 3 accesos + una vista por bloque. Sin recarga: se
+   muestra/oculta con la clase .on y se sincroniza con el hash para
+   que el botón Atrás del navegador funcione. */
+var VISTAS = ['home','dec','ges','adm'];
+
+// Se recalcula en cada aplicarCtx() — a diferencia del standalone del
+// cliente (que solo chequea admin_general/admin_cliente), acá tiene que
+// coincidir con la MISMA regla granular que decide cada tarjeta de
+// Administración (ver aplicarCtx): un 'usuario' nivel=administrar de su
+// empresa también entra, aunque no vea Estructura de Clientes.
+var puedeAdminGlobal = false;
+
+function irA(v){
+  if (v !== 'home' && location.hash !== '#'+v) { location.hash = v; return; }
+  if (v === 'home' && location.hash) { location.hash = ''; return; }
+  mostrar(v);
+}
+
+function mostrar(v){
+  var ok = false, i;
+  for (i=0;i<VISTAS.length;i++) if (VISTAS[i] === v) ok = true;
+  if (!ok) v = 'home';
+  if (v === 'adm' && !puedeAdminGlobal) v = 'home';
+  for (i=0;i<VISTAS.length;i++){
+    var el = document.getElementById('view-'+VISTAS[i]);
+    if (el) { el.className = (VISTAS[i] === v) ? 'view on sec' : 'view sec'; }
+  }
+  window.scrollTo(0,0);
+}
+
+function desdeHash(){
+  var h = location.hash ? location.hash.replace('#','') : 'home';
+  mostrar(h);
+}
+
 function tog(btn) { btn.classList.toggle('open'); btn.nextElementSibling.classList.toggle('open'); }
 
 function esc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -261,7 +353,7 @@ function vigenteHerramienta(h) {
 }
 
 function renderExternos(lista) {
-  var grid = document.getElementById('grid-externos'); if (!grid) return;
+  var grid = document.getElementById('grid-dec-externos'); if (!grid) return;
   var visibles = (lista||[]).filter(function (h) {
     return h.tipo === 'externa' && h.activa !== false && vigenteHerramienta(h);
   }).sort(function (a, b) { return (a.orden||0) - (b.orden||0); });
@@ -283,6 +375,8 @@ function renderExternos(lista) {
     grid.appendChild(div);
   }
   document.getElementById('empty-externos').style.display = visibles.length ? 'none' : 'block';
+  // La portada ya puede estar pintada (o no): recontar si aplicarCtx ya corrió.
+  if (window.CTX_APLICADO) actualizarContadorDecision();
 }
 
 function cargarExternos() {
@@ -305,9 +399,12 @@ function puedeVer(herramientaId, permiso) {
   return false;
 }
 
-function filtrarGrupo(gridId, emptyId, permiso) {
+// extra = cantidad de tarjetas del grid que no se filtran por data-tool (ej.
+// Maestros, que se rige por su propio permiso — ver puedeVerMaestros) pero sí
+// cuentan para saber si el grupo está vacío y para el contador de la portada.
+function filtrarGrupo(gridId, emptyId, permiso, extra) {
   var grid = document.getElementById(gridId);
-  if (!grid) return;
+  if (!grid) return 0;
   var cards = grid.querySelectorAll('.tool[data-tool]');
   var visibles = 0;
   for (var c = 0; c < cards.length; c++) {
@@ -315,7 +412,32 @@ function filtrarGrupo(gridId, emptyId, permiso) {
     if (puedeVer(id, permiso)) { cards[c].style.display = ''; visibles++; }
     else { cards[c].style.display = 'none'; }
   }
-  document.getElementById(emptyId).style.display = visibles ? 'none' : 'block';
+  var tot = visibles + (extra||0);
+  document.getElementById(emptyId).style.display = tot ? 'none' : 'block';
+  return tot;
+}
+
+function contarVisibles(gridId) {
+  var grid = document.getElementById(gridId);
+  if (!grid) return 0;
+  return grid.querySelectorAll('.tool').length;
+}
+
+function ponerCnt(id, n, sing, plur, extra) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  if (n === 0 && !extra) { el.className = 'acc-cnt vacio'; el.textContent = 'Sin herramientas habilitadas'; return; }
+  el.className = 'acc-cnt';
+  el.textContent = n + ' ' + (n === 1 ? sing : plur) + (extra ? ' · ' + extra : '');
+}
+
+// El contador de Decisión depende de dos cargas asincrónicas (contexto +
+// herramientas externas) que pueden terminar en cualquier orden — se
+// recalcula cada vez que termina cualquiera de las dos.
+var _ultimoNDec = 0;
+function actualizarContadorDecision() {
+  var nExt = contarVisibles('grid-dec-externos');
+  ponerCnt('cnt-dec', _ultimoNDec, 'tablero propio', 'tableros propios', nExt + ' externos');
 }
 
 function aplicarCtx(ctx) {
@@ -332,9 +454,6 @@ function aplicarCtx(ctx) {
     sel.appendChild(op);
   }
 
-  filtrarGrupo('grid-dec-propios', 'empty-dec-propios', ctx.permiso);
-  filtrarGrupo('grid-gestion',     'empty-gestion',     ctx.permiso);
-
   // Administración: cada tarjeta según lo que el rol/nivel realmente puede hacer,
   // no simplemente "está logueado". Un 'usuario' (aunque sea nivel='administrar'
   // en su empresa) no crea Clientes/Empresas/Campos — esa pantalla lo rebota
@@ -345,8 +464,11 @@ function aplicarCtx(ctx) {
   var esAdminUsuarios = esAdminEstructura || (ctx.usuario.rol === 'usuario' && !!ctx.empresaActivaId && nivel === 'administrar');
   // Maestros es de solo lectura para nivel='ver'/'cargar' y editable para
   // 'administrar' — pero visible para cualquiera que tenga al menos una
-  // empresa asignada (sin eso, no hay nada que ver).
+  // empresa asignada (sin eso, no hay nada que ver). Vive dentro de
+  // Herramientas de Gestión (mismo lugar que en el standalone del cliente),
+  // no en Administración.
   var puedeVerMaestros = esAdminEstructura || !!ctx.empresaActivaId;
+  var esHerrExt = ctx.usuario.rol === 'admin_general';
 
   var cardEstructura = document.getElementById('card-estructura-clientes');
   if (cardEstructura) cardEstructura.style.display = esAdminEstructura ? '' : 'none';
@@ -355,11 +477,27 @@ function aplicarCtx(ctx) {
   var cardUsuarios = document.getElementById('card-usuarios-permisos');
   if (cardUsuarios) cardUsuarios.style.display = esAdminUsuarios ? '' : 'none';
   var cardHerrExt = document.getElementById('card-herramientas-externas');
-  if (cardHerrExt) cardHerrExt.style.display = (ctx.usuario.rol === 'admin_general') ? '' : 'none';
+  if (cardHerrExt) cardHerrExt.style.display = esHerrExt ? '' : 'none';
 
-  var visiblesAdmin = esAdminEstructura || puedeVerMaestros || esAdminUsuarios || ctx.usuario.rol === 'admin_general';
+  var visiblesAdmin = esAdminEstructura || esAdminUsuarios || esHerrExt;
   var emptyAdmin = document.getElementById('empty-admin');
   if (emptyAdmin) emptyAdmin.style.display = visiblesAdmin ? 'none' : 'block';
+
+  // Acceso "Administración" de la portada: visible si hay AL MENOS una de las
+  // 3 tarjetas de arriba (Maestros no cuenta acá — ya vive en Gestión).
+  puedeAdminGlobal = visiblesAdmin;
+  var accAdm = document.getElementById('acc-adm');
+  if (accAdm) accAdm.style.display = puedeAdminGlobal ? '' : 'none';
+  if (!puedeAdminGlobal && location.hash === '#adm') { location.hash = ''; }
+  var nAdm = (esAdminEstructura?1:0) + (esAdminUsuarios?1:0) + (esHerrExt?1:0);
+  ponerCnt('cnt-adm', nAdm, 'módulo', 'módulos', '');
+
+  // Contadores de Decisión y Gestión de la portada.
+  _ultimoNDec = filtrarGrupo('grid-dec-propios', 'empty-dec-propios', ctx.permiso);
+  var nGes = filtrarGrupo('grid-gestion', 'empty-gestion', ctx.permiso, puedeVerMaestros ? 1 : 0);
+  ponerCnt('cnt-ges', nGes, 'herramienta disponible', 'herramientas disponibles', '');
+  window.CTX_APLICADO = true;
+  actualizarContadorDecision();
 
   document.getElementById('fts2').textContent = new Date().toLocaleString('es-AR');
 }
@@ -379,12 +517,16 @@ function salir() {
   });
 }
 
+if (window.addEventListener) window.addEventListener('hashchange', desdeHash, false);
+else window.attachEvent('onhashchange', desdeHash);
+
 (function () {
   // El chequeo de token ya se hizo en <head>; acá solo queda validar contra
   // el servidor (token vencido/inválido igual redirige).
   apiGet('/api/context', function (err, ctx) {
     if (err) { localStorage.removeItem('pa_sesion_activa'); location.href = 'login.html'; return; }
     aplicarCtx(ctx);
+    desdeHash();
     cargarExternos();
   });
 })();
