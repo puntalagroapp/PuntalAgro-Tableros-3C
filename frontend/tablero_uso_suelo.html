@@ -25,7 +25,7 @@
 body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15px;min-height:100vh}
 /* Alineación tabular para todos los números (KPIs, tablas, celdas mono) */
 tbody td, .kpi-val, .kpi-sub, .tdcampo, .cult-sig, .cult-ro, .amb-code, .lote-meta{font-variant-numeric:tabular-nums}
-header{background:var(--card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:41}
 .logo{display:flex;align-items:center;gap:10px}
 .logo img{height:42px;width:auto;object-fit:contain}
 .logo-title{font-size:17px;font-weight:600;letter-spacing:-.3px}
@@ -125,7 +125,7 @@ td.editable.exceeded{color:#991B1B;box-shadow:inset 0 0 0 1px #FCA5A5;background
 
 .row-agr{background:transparent}
 .row-gan{background:transparent}
-.scroll-y{max-height:600px;overflow-y:auto}
+.scroll-y{max-height:600px;overflow-y:auto;overscroll-behavior:contain}
 .cw{position:relative;width:100%;height:260px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
