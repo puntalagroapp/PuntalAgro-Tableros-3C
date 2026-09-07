@@ -76,6 +76,36 @@ function loginRateLimitExcedido(ip) {
 // Sirve el frontend de forma estática
 app.use(express.static(path.join(__dirname, '../frontend')));
 
+// ── Tableros de decisión propios: fallback si todavía no se publicó ────────
+// El cliente publica cada tablero (Comercial Agrícola, Evolución de
+// Variables, etc.) subiendo su index.html por SFTP a una carpeta fija
+// (frontend/tableros-decision/<carpeta>/). Si esa carpeta no tiene
+// index.html todavía (recién creada, o una transferencia que quedó a medias)
+// express.static no encuentra nada y, sin esto, Express devolvería un 404
+// crudo sin estilo. Solo se llega hasta acá cuando el archivo NO existe: si
+// existe, express.static ya lo sirvió arriba y esta ruta nunca corre.
+app.get(/^\/tableros-decision\/([a-z0-9-]+)\/?$/, (req, res) => {
+  res.status(404).send(
+    '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">' +
+    '<title>Tablero no disponible · Puntal Agro</title>' +
+    '<style>' +
+    'body{margin:0;font-family:"DM Sans",sans-serif;background:#F0F2F5;color:#0F1923;' +
+    'min-height:100vh;display:flex;align-items:center;justify-content:center}' +
+    '.card{background:#fff;border:1px solid #E4E8EE;border-radius:12px;padding:32px 36px;' +
+    'max-width:420px;text-align:center;box-shadow:0 1px 3px rgba(15,25,35,.04)}' +
+    'h1{font-size:17px;margin:0 0 8px}' +
+    'p{font-size:13px;color:#7A8899;line-height:1.5;margin:0 0 20px}' +
+    'a{font-size:12px;font-weight:600;color:#4A6533;text-decoration:none}' +
+    'a:hover{color:#C8642D}' +
+    '</style></head><body>' +
+    '<div class="card">' +
+    '<h1>Este tablero todavía no fue publicado</h1>' +
+    '<p>El contenido de este tablero de decisión está pendiente de carga. Volvé a intentarlo más tarde.</p>' +
+    '<a href="/index.html#dec">← Volver a Tableros de Decisión</a>' +
+    '</div></body></html>'
+  );
+});
+
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 // ── PDFs de herramientas externas (subidos por admin_general) ──────────────
