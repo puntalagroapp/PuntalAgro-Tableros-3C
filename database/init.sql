@@ -931,7 +931,6 @@ INSERT INTO tipos_actividad (id, empresa_id, datos) VALUES
 INSERT INTO ambientes (id, empresa_id, datos) VALUES
     ('amb_a1', 'e_don_eduardo', '{"id": "amb_a1", "tipo": "AGR", "activo": true, "codigo": "A1", "empresaId": "e_don_eduardo", "descripcion": "Rotación agrícola larga con PP (10 x 4)"}'),
     ('amb_a2', 'e_don_eduardo', '{"id": "amb_a2", "tipo": "AGR", "activo": true, "codigo": "A2", "empresaId": "e_don_eduardo", "descripcion": "Rotación agrícola corta con PP (4 x 4)"}'),
-    ('amb_desp', 'e_don_eduardo', '{"id": "amb_desp", "tipo": "GAN", "activo": true, "codigo": "DESP", "empresaId": "e_don_eduardo", "descripcion": "Desperdicios"}'),
     ('amb_fap', 'e_don_eduardo', '{"id": "amb_fap", "tipo": "AGR", "activo": true, "codigo": "FAP", "empresaId": "e_don_eduardo", "descripcion": "Franco alto potencial"}'),
     ('amb_fap_lar', 'e_don_eduardo', '{"id": "amb_fap_lar", "tipo": "AGR", "activo": true, "codigo": "FAP-LAR", "empresaId": "e_don_eduardo", "descripcion": "Franco alto potencial c/Lomas arenosas"}'),
     ('amb_fap_rh', 'e_don_eduardo', '{"id": "amb_fap_rh", "tipo": "AGR", "activo": true, "codigo": "FAP-RH", "empresaId": "e_don_eduardo", "descripcion": "Franco alto potencial c/RH"}'),
@@ -986,7 +985,6 @@ INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha, ambiente, explotable, a
     ('lt_deduardo_ec_dp2_3_laguna', 'c_ec_deduardo', 'e_don_eduardo', 'EC DP2-3 laguna', 26, 'G6', 26, true, NULL),
     ('lt_deduardo_ec_dp3_cn', 'c_ec_deduardo', 'e_don_eduardo', 'EC DP3 CN', 66, 'G4', 66, true, NULL),
     ('lt_deduardo_ec_dp3_cn1', 'c_ec_deduardo', 'e_don_eduardo', 'EC DP3 CN1', 5, 'G1', 5, true, NULL),
-    ('lt_deduardo_ec_desperdicios', 'c_ec_deduardo', 'e_don_eduardo', 'EC Desperdicios', 46, 'DESP', 46, true, NULL),
     ('lt_deduardo_em_18', 'c_em_deduardo', 'e_don_eduardo', 'EM 18', 44, 'A1', 44, true, NULL),
     ('lt_deduardo_em_19', 'c_em_deduardo', 'e_don_eduardo', 'EM 19', 46, 'A1', 46, true, NULL),
     ('lt_deduardo_em_20', 'c_em_deduardo', 'e_don_eduardo', 'EM 20', 38, 'A1', 38, true, NULL),
@@ -1032,7 +1030,6 @@ INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha, ambiente, explotable, a
     ('lt_deduardo_em_73_cn', 'c_em_deduardo', 'e_don_eduardo', 'EM 73 CN', 5, 'G3', 5, true, NULL),
     ('lt_deduardo_em_73_laguna', 'c_em_deduardo', 'e_don_eduardo', 'EM 73 laguna', 25, 'G6', 25, true, NULL),
     ('lt_deduardo_em_73a', 'c_em_deduardo', 'e_don_eduardo', 'EM 73A', 20, 'G1', 20, true, NULL),
-    ('lt_deduardo_em_desperdicios', 'c_em_deduardo', 'e_don_eduardo', 'EM Desperdicios', 35, 'DESP', 35, true, NULL),
     ('lt_deduardo_lm_1', 'c_lm_deduardo', 'e_don_eduardo', 'LM 1', 64, 'A1', 64, true, NULL),
     ('lt_deduardo_lm_1_cn_n', 'c_lm_deduardo', 'e_don_eduardo', 'LM 1 CN N', 15.3, 'G3', 15.3, true, NULL),
     ('lt_deduardo_lm_1_cni_s', 'c_lm_deduardo', 'e_don_eduardo', 'LM 1 CNI S', 5.8, 'G6', 5.8, true, NULL),
@@ -1054,7 +1051,6 @@ INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha, ambiente, explotable, a
     ('lt_deduardo_lm_7_9', 'c_lm_deduardo', 'e_don_eduardo', 'LM 7-9', 39.6, 'A1', 39.6, true, NULL),
     ('lt_deduardo_lm_8_n', 'c_lm_deduardo', 'e_don_eduardo', 'LM 8 N', 6.6, 'A1', 6.6, true, NULL),
     ('lt_deduardo_lm_8_s', 'c_lm_deduardo', 'e_don_eduardo', 'LM 8 S', 12.3, 'A2', 12.3, true, NULL),
-    ('lt_deduardo_lm_desperdicios', 'c_lm_deduardo', 'e_don_eduardo', 'LM Desperdicios', 9.9, 'DESP', 9.9, true, NULL),
     ('lt_deduardo_lr_1', 'c_lr_deduardo', 'e_don_eduardo', 'LR 1', 117, 'G5', 117, true, NULL),
     ('lt_deduardo_lr_10a', 'c_lr_deduardo', 'e_don_eduardo', 'LR 10A', 7, 'A2', 7, true, NULL),
     ('lt_deduardo_lr_10b', 'c_lr_deduardo', 'e_don_eduardo', 'LR 10B', 15, 'A2', 15, true, NULL),
@@ -1091,7 +1087,6 @@ INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha, ambiente, explotable, a
     ('lt_deduardo_lr_6_7_cn', 'c_lr_deduardo', 'e_don_eduardo', 'LR 6/7 CN', 75, 'G4', 75, true, NULL),
     ('lt_deduardo_lr_8', 'c_lr_deduardo', 'e_don_eduardo', 'LR 8', 7, 'A1', 7, true, NULL),
     ('lt_deduardo_lr_9', 'c_lr_deduardo', 'e_don_eduardo', 'LR 9', 41, 'A1', 41, true, NULL),
-    ('lt_deduardo_lr_desperdicios', 'c_lr_deduardo', 'e_don_eduardo', 'LR Desperdicios', 39, 'DESP', 39, true, NULL),
     ('lt_deduardo_lr_monte_casco', 'c_lr_deduardo', 'e_don_eduardo', 'LR Monte casco', 5, 'A2', 5, true, NULL);
 
 -- Plan de uso del suelo (867 filas: cultivo por lote y campaña, 22/23 a 27/28)
