@@ -234,7 +234,7 @@ async function obtenerSesion(req) {
   if (!token) return null;
   try {
     const r = await pool.query(
-      `SELECT u.id, u.nombre, u.email, u.rol, u.cliente_id, u.herramientas_internas, s.empresa_id_activa
+      `SELECT u.id, u.nombre, u.email, u.rol, u.cliente_id, u.herramientas_internas, u.usuario_interno, s.empresa_id_activa
          FROM sesiones s
          JOIN usuarios u ON u.id = s.usuario_id
         WHERE s.token = $1
@@ -593,7 +593,7 @@ app.get('/api/context', async (req, res) => {
     }
 
     res.json({
-      usuario: { id: sesion.id, nombre: sesion.nombre, email: sesion.email, rol: sesion.rol, clienteId: sesion.cliente_id || null, herramientasInternas: sesion.herramientas_internas === true },
+      usuario: { id: sesion.id, nombre: sesion.nombre, email: sesion.email, rol: sesion.rol, clienteId: sesion.cliente_id || null, herramientasInternas: sesion.herramientas_internas === true, usuarioInterno: sesion.usuario_interno === true },
       empresaActivaId:      empresaId,
       empresasDisponibles:  lista,
       permiso,
@@ -1065,13 +1065,13 @@ app.get('/api/usuarios', async (req, res) => {
   try {
     if (sesion.rol === 'admin_general') {
       return res.json((await pool.query(
-        'SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo, herramientas_internas AS "herramientasInternas" FROM usuarios ORDER BY nombre'
+        'SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo, herramientas_internas AS "herramientasInternas", usuario_interno AS "usuarioInterno" FROM usuarios ORDER BY nombre'
       )).rows);
     }
     if (sesion.rol === 'admin_cliente') {
       // Solo 'usuario' de su cliente: ya no gestiona otros admin_cliente (docs/Roles y permisos.txt).
       return res.json((await pool.query(
-        `SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo, herramientas_internas AS "herramientasInternas"
+        `SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo, herramientas_internas AS "herramientasInternas", usuario_interno AS "usuarioInterno"
            FROM usuarios WHERE cliente_id = $1 AND rol = 'usuario' ORDER BY nombre`,
         [sesion.cliente_id]
       )).rows);
@@ -1084,7 +1084,7 @@ app.get('/api/usuarios', async (req, res) => {
     const empresas = await empresasQueAdministraUsuario(sesion.id);
     if (!empresas.length) return res.status(403).json({ error: 'Sin permiso' });
     const r = await pool.query(
-      `SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo, herramientas_internas AS "herramientasInternas"
+      `SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo, herramientas_internas AS "herramientasInternas", usuario_interno AS "usuarioInterno"
          FROM usuarios WHERE cliente_id = $1 AND rol = 'usuario' ORDER BY nombre`,
       [sesion.cliente_id]
     );
@@ -1115,19 +1115,22 @@ app.post('/api/usuarios', async (req, res) => {
   if (rol !== 'admin_general' && !clienteId) {
     return res.status(400).json({ error: 'Los usuarios con rol usuario o admin_cliente necesitan un cliente asociado' });
   }
-  // Herramientas Puntal: solo admin_general lo otorga, igual que al editar.
-  const herramientasInternas = sesion.rol === 'admin_general' && !!(req.body || {}).herramientasInternas;
+  // Herramientas Puntal / Usuario interno: solo admin_general los otorga, igual que al editar.
+  // Herramientas Puntal requiere ser Usuario interno: nunca puede quedar en
+  // true si usuarioInterno no lo está (se valida acá, no solo en la UI).
+  const usuarioInterno = sesion.rol === 'admin_general' && !!(req.body || {}).usuarioInterno;
+  const herramientasInternas = sesion.rol === 'admin_general' && !!(req.body || {}).herramientasInternas && usuarioInterno;
   try {
     const hash = password ? await hashearPassword(password) : null;
     await pool.query(
-      `INSERT INTO usuarios (id, nombre, email, rol, cliente_id, activo, password_hash, herramientas_internas)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO usuarios (id, nombre, email, rol, cliente_id, activo, password_hash, herramientas_internas, usuario_interno)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (id) DO UPDATE SET nombre=$2, email=$3, rol=$4, cliente_id=$5, activo=$6,
          password_hash = CASE WHEN $7::text IS NULL THEN usuarios.password_hash ELSE $7::text END,
-         herramientas_internas=$8`,
-      [id, nombre, email, rol, clienteId, activo !== false, hash, herramientasInternas]
+         herramientas_internas=$8, usuario_interno=$9`,
+      [id, nombre, email, rol, clienteId, activo !== false, hash, herramientasInternas, usuarioInterno]
     );
-    res.status(201).json({ ...req.body, rol, clienteId, email, herramientasInternas });
+    res.status(201).json({ ...req.body, rol, clienteId, email, herramientasInternas, usuarioInterno });
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
@@ -1184,14 +1187,22 @@ app.put('/api/usuarios/:id', async (req, res) => {
   const herramientasInternas = (sesion.rol === 'admin_general' && typeof (req.body || {}).herramientasInternas === 'boolean')
     ? req.body.herramientasInternas
     : null;
+  const usuarioInterno = (sesion.rol === 'admin_general' && typeof (req.body || {}).usuarioInterno === 'boolean')
+    ? req.body.usuarioInterno
+    : null;
   try {
     const hash = password ? await hashearPassword(password) : null;
     await pool.query(
+      // Herramientas Puntal requiere Usuario interno: el valor final de
+      // herramientas_internas se combina con el valor final (nuevo o
+      // existente) de usuario_interno, nunca puede quedar en true solo.
       `UPDATE usuarios SET nombre=$2, email=$3, rol=$4, cliente_id=$5, activo=$6,
          password_hash = CASE WHEN $7::text IS NULL THEN password_hash ELSE $7::text END,
-         herramientas_internas = CASE WHEN $8::boolean IS NULL THEN herramientas_internas ELSE $8::boolean END
+         herramientas_internas = (CASE WHEN $8::boolean IS NULL THEN herramientas_internas ELSE $8::boolean END)
+                                  AND (CASE WHEN $9::boolean IS NULL THEN usuario_interno ELSE $9::boolean END),
+         usuario_interno = CASE WHEN $9::boolean IS NULL THEN usuario_interno ELSE $9::boolean END
        WHERE id=$1`,
-      [req.params.id, nombre, email, rol, clienteId, activo !== false, hash, herramientasInternas]
+      [req.params.id, nombre, email, rol, clienteId, activo !== false, hash, herramientasInternas, usuarioInterno]
     );
     res.json({ ...req.body, id: req.params.id, rol, clienteId, email });
   } catch (err) {

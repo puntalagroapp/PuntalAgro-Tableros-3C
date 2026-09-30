@@ -96,6 +96,10 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
       <div class="fld" id="fld-activo" style="display:none"><label>Estado</label>
         <select id="u-activo"><option value="1">Activo</option><option value="0">Inactivo</option></select>
       </div>
+      <div class="fld" id="fld-usuario-interno" style="display:none">
+        <label>&nbsp;</label>
+        <label class="chk" style="height:34px"><input type="checkbox" id="u-usuario-interno" onchange="onCambioUsuarioInterno()"> Usuario interno (integrante de Puntal)</label>
+      </div>
       <div class="fld" id="fld-herramientas-internas" style="display:none">
         <label>&nbsp;</label>
         <label class="chk" style="height:34px"><input type="checkbox" id="u-herramientas-internas"> Acceso a herramientas puntal</label>
@@ -105,7 +109,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
     </div>
     <p class="sub" id="hint-admin-cliente" style="display:none;margin-top:10px">Un <strong>admin_cliente</strong> administra automáticamente todas las empresas del cliente asociado — no hace falta asignarle permisos por empresa más abajo.</p>
     <p class="sub" id="hint-usuario-admin" style="display:none;margin-top:10px">Este usuario queda asociado a tu cliente. Después asignale acceso a alguna de las empresas que administrás, más abajo.</p>
-    <p class="sub" id="hint-herramientas-internas" style="display:none;margin-top:10px">Acceso a la biblioteca interna del equipo Puntal (inicio → "Herramientas Puntal"). No depende de la empresa ni del rol de este usuario.</p>
+    <p class="sub" id="hint-herramientas-internas" style="display:none;margin-top:10px">Acceso a la biblioteca interna del equipo Puntal (inicio → "Herramientas Puntal"). No depende de la empresa ni del rol de este usuario, pero requiere que sea Usuario interno.</p>
   </div>
 
   <div class="panel">
@@ -228,6 +232,16 @@ function actualizarCampoCliente(){
   if(hint) hint.style.display=esAdminCliente?'':'none';
   var hintUsu=document.getElementById('hint-usuario-admin');
   if(hintUsu) hintUsu.style.display=(CTX && CTX.usuario.rol==='usuario')?'':'none';
+}
+
+// Herramientas Puntal requiere ser Usuario interno: sin esto tildado no se
+// puede ni tildar ni guardar el acceso a la biblioteca (se refuerza también
+// en el backend, ver PUT/POST /api/usuarios — esto es solo la UI).
+function onCambioUsuarioInterno(){
+  var esInterno=document.getElementById('u-usuario-interno').checked;
+  var cbHerrInt=document.getElementById('u-herramientas-internas');
+  cbHerrInt.disabled=!esInterno;
+  if(!esInterno) cbHerrInt.checked=false;
 }
 
 // Empresas donde YO tengo nivel='administrar' (solo aplica si mi propio rol es
@@ -366,6 +380,7 @@ function renderUsuarios(){
       if(!permisosTxt) permisosTxt='<span style="color:var(--muted)">sin permisos</span>';
     }
     if(u.herramientasInternas) permisosTxt+='<div><span class="bdg">Herramientas Puntal</span></div>';
+    if(u.usuarioInterno) permisosTxt+='<div><span class="bdg">Usuario interno</span></div>';
     var esUnoMismo=!!(CTX && CTX.usuario && CTX.usuario.id===u.id);
     // admin_cliente nunca puede gestionarse a sí mismo (puedeSobreUsuario lo
     // rechaza en el backend; en la práctica ni siquiera se ve a sí mismo en
@@ -598,6 +613,9 @@ function crearUsuario(){
   if(document.getElementById('fld-herramientas-internas').style.display!=='none'){
     u.herramientasInternas=document.getElementById('u-herramientas-internas').checked;
   }
+  if(document.getElementById('fld-usuario-interno').style.display!=='none'){
+    u.usuarioInterno=document.getElementById('u-usuario-interno').checked;
+  }
   apiPost('/api/usuarios',u,function(err){
     if(err){ alert(err.error||'Error al crear usuario.'); return; }
     limpiarFormUsuario();
@@ -640,6 +658,13 @@ function editarUsuario(id){
     document.getElementById('fld-herramientas-internas').style.display=puedeVerHerrInt?'':'none';
     document.getElementById('hint-herramientas-internas').style.display=puedeVerHerrInt?'':'none';
     if(puedeVerHerrInt) document.getElementById('u-herramientas-internas').checked=!!u.herramientasInternas;
+    // Usuario interno: mismo criterio (solo admin_general lo ve/otorga), pero
+    // es un dato distinto — clasifica a la persona, no le da acceso a nada.
+    // Es requisito de Herramientas Puntal (ver onCambioUsuarioInterno): sin
+    // esto tildado, no se puede tildar ni guardar el acceso a la biblioteca.
+    document.getElementById('fld-usuario-interno').style.display=puedeVerHerrInt?'':'none';
+    if(puedeVerHerrInt) document.getElementById('u-usuario-interno').checked=!!u.usuarioInterno;
+    if(puedeVerHerrInt) onCambioUsuarioInterno();
     document.getElementById('lbl-pass').textContent=esAutoedicion?'Nueva contraseña':'Nueva contraseña (opcional)';
     document.getElementById('btn-guardar-usuario').textContent='Guardar cambios';
     document.getElementById('btn-cancelar-edicion').style.display='';
@@ -667,6 +692,9 @@ function actualizarUsuario(){
     // siquiera ofreció el control (ver backend: si no viene, no lo toca).
     if(document.getElementById('fld-herramientas-internas').style.display!=='none'){
       body.herramientasInternas=document.getElementById('u-herramientas-internas').checked;
+    }
+    if(document.getElementById('fld-usuario-interno').style.display!=='none'){
+      body.usuarioInterno=document.getElementById('u-usuario-interno').checked;
     }
   }
   apiPut('/api/usuarios/'+encodeURIComponent(editandoUsuarioId),body,function(err){
@@ -697,6 +725,9 @@ function limpiarFormUsuario(){
   document.getElementById('fld-herramientas-internas').style.display=puedeVerHerrInt?'':'none';
   document.getElementById('hint-herramientas-internas').style.display=puedeVerHerrInt?'':'none';
   document.getElementById('u-herramientas-internas').checked=false;
+  document.getElementById('fld-usuario-interno').style.display=puedeVerHerrInt?'':'none';
+  document.getElementById('u-usuario-interno').checked=false;
+  if(puedeVerHerrInt) onCambioUsuarioInterno();
   document.getElementById('fld-nombre').style.display='';
   document.getElementById('fld-email').style.display='';
   document.getElementById('fld-rol').style.display='';

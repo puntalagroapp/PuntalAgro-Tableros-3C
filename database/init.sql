@@ -223,7 +223,13 @@ CREATE TABLE usuarios (
     -- del equipo Puntal). No depende de empresa, a diferencia del resto de los
     -- permisos: es una propiedad del usuario en sí. admin_general la ve siempre,
     -- tenga o no este flag en true (ver /api/context y puedePuntal en index.html).
-    herramientas_internas BOOLEAN NOT NULL DEFAULT false
+    -- Requiere usuario_interno=true: nunca puede quedar en true si usuario_interno
+    -- es false (se fuerza en el backend, ver POST/PUT /api/usuarios en server.js).
+    herramientas_internas BOOLEAN NOT NULL DEFAULT false,
+    -- ¿Es un integrante de Puntal Agro (la empresa dueña del proyecto)? Dato
+    -- de clasificación del usuario, independiente de su rol. Es requisito de
+    -- herramientas_internas (ver arriba).
+    usuario_interno BOOLEAN NOT NULL DEFAULT false
 );
 -- trim(lower(...)) porque /api/auth/login busca así (email.trim().toLowerCase());
 -- server.js normaliza el email antes de guardar para que siempre coincidan.
