@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Herramientas internas · Puntal Agro</title>
+<script>
+// Chequeo de sesión antes de pintar nada: si no hay token, redirige al login
+// de una sin llegar a mostrar el contenido de esta página.
+(function () {
+  try {
+    var s = JSON.parse(localStorage.getItem('pa_sesion_activa') || 'null');
+    if (!s || !s.token) { location.replace('login.html'); }
+  } catch (e) { location.replace('login.html'); }
+})();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F0F2F5;--card:#fff;--border:#E4E8EE;--text:#0F1923;--muted:#7A8899;--olive:#4A6533;--ochre:#A86A1F;--terra:#C8642D;--pun:#2F4220;--radius:12px;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15px;min-height:100vh;display:flex;flex-direction:column}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px}.logo img{height:42px;width:auto;object-fit:contain}.logo-title{font-size:17px;font-weight:600;letter-spacing:-.3px}.logo-sub{font-size:11px;color:var(--muted)}
+.h-actions{display:flex;gap:8px}
+.lnk{font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:20px;padding:5px 12px;cursor:pointer;text-decoration:none}
+.lnk:hover{color:var(--pun);border-color:var(--pun)}
+.intro{padding:20px 24px 0;max-width:1000px;width:100%;margin:0 auto}
+.intro h1{font-size:20px;font-weight:600;letter-spacing:-.3px}
+.intro p{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.5}
+main{padding:18px 24px 24px;display:flex;flex-direction:column;gap:18px;flex:1;max-width:1000px;width:100%;margin:0 auto}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.panel h2{font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.fld{display:flex;flex-direction:column;gap:4px}
+.fld.full{grid-column:1/-1}
+.fld label{font-size:11px;font-weight:600;color:var(--muted)}
+.fld .opt{font-weight:400;text-transform:none;color:var(--muted)}
+.fld input,.fld textarea,.fld select{border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-family:var(--sans);font-size:13px;width:100%}
+.fld textarea{resize:vertical;min-height:60px}
+.fld input:focus,.fld textarea:focus,.fld select:focus{outline:none;border-color:var(--pun)}
+.modo-row{display:flex;gap:16px;align-items:center}
+.modo-row label{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:400;cursor:pointer}
+.archivo-actual{font-size:12px;color:var(--muted)}
+.archivo-actual a{color:var(--pun);cursor:pointer}
+.btn{background:var(--pun);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer}
+.btn:hover{background:#233318}
+.btn-out{background:var(--card);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:9px 14px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer}
+.btn-out:hover{border-color:var(--pun);color:var(--pun)}
+.btn-sm{font-size:11px;padding:5px 9px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;margin-right:4px}
+.btn-sm:hover{color:var(--pun);border-color:var(--pun)}
+.btn-sm.del:hover{color:var(--terra);border-color:var(--terra)}
+.actions-row{display:flex;gap:8px;align-items:center;margin-top:14px}
+.msg{font-size:11px;color:var(--terra)}
+.bdg{font-size:10px;font-family:var(--mono);padding:2px 7px;border-radius:10px;background:var(--bg);border:1px solid var(--border)}
+.ord-arrows{display:inline-flex;flex-direction:column;margin-right:6px;vertical-align:middle}
+.ord-btn{border:none;background:none;cursor:pointer;color:var(--muted);font-size:9px;line-height:1;padding:1px}
+.ord-btn:hover{color:var(--pun)}
+.ord-btn:disabled{opacity:.3;cursor:default}
+.empty{font-size:12.5px;color:var(--muted);padding:10px 0}
+.note{font-size:11px;color:var(--muted);background:#EEF0E7;border:1px solid #D8DEC8;border-radius:8px;padding:10px 12px;line-height:1.5}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <img src="logo-iso.png" alt="Puntal Agro">
+    <div>
+      <div class="logo-title">Herramientas internas</div>
+      <div class="logo-sub">Puntal Agro · Administración</div>
+    </div>
+  </div>
+  <div class="h-actions">
+    <a class="lnk" href="index.html#adm">← Menú</a>
+  </div>
+</header>
+
+<div class="intro">
+  <h1>Herramientas internas</h1>
+  <p>Archivos y links del equipo Puntal ("Herramientas Puntal" del inicio). A diferencia de las herramientas externas, solo las ve quien tenga el permiso "Herramientas Puntal" habilitado en Usuarios y permisos.</p>
+</div>
+
+<main>
+  <div class="note">Es una lista global, pero de acceso restringido: la ve solo quien tenga el permiso "Herramientas Puntal" (o sea admin_general). Solo el administrador general puede crear, editar o borrar estas herramientas.</div>
+
+  <div class="panel">
+    <h2 id="form-title">Nueva herramienta interna</h2>
+    <div class="grid2">
+      <div class="fld"><label>Nombre</label><input id="hi-nombre" maxlength="120" placeholder="Ej: Protocolo de siembra"></div>
+      <div class="fld full"><label>Descripción</label><textarea id="hi-desc" maxlength="400"></textarea></div>
+
+      <div class="fld full">
+        <label>Link o archivo</label>
+        <div class="modo-row">
+          <label><input type="radio" name="hi-modo" value="link" checked onchange="toggleModoHerrInt()"> Link</label>
+          <label><input type="radio" name="hi-modo" value="archivo" onchange="toggleModoHerrInt()"> Subir archivo</label>
+        </div>
+      </div>
+      <div class="fld full" id="fld-hi-url"><label>URL</label><input id="hi-url" type="url" placeholder="https://..."></div>
+      <div class="fld full" id="fld-hi-archivo" style="display:none">
+        <label>Archivo <span class="opt">(PDF, Word o Excel · máx. 15MB)</span></label>
+        <input id="hi-archivo" type="file" accept="application/pdf,.pdf,.doc,.docx,.xls,.xlsx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+        <div class="archivo-actual" id="hi-archivo-actual"></div>
+      </div>
+
+      <div class="fld"><label>Vigente desde <span class="opt">(opcional)</span></label><input id="hi-desde" type="date"></div>
+      <div class="fld"><label>Vigente hasta <span class="opt">(opcional)</span></label><input id="hi-hasta" type="date"></div>
+    </div>
+    <div class="actions-row">
+      <button class="btn" onclick="guardarHerrInt()">Guardar</button>
+      <button class="btn-out" onclick="nuevaHerrInt()">Nueva</button>
+      <button class="btn-sm del" id="btn-borrar-herrint" style="display:none" onclick="borrarHerrIntActual()">Eliminar</button>
+      <span class="msg" id="hi-msg"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Herramientas internas cargadas</h2>
+    <table id="tbl-herrint">
+      <thead><tr><th>Orden</th><th>Nombre</th><th>Vigencia</th><th>Tipo</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="empty" id="empty-herrint" style="display:none">No hay herramientas internas cargadas todavía.</div>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script>
+var CTX = null;
+var _herrInt = [];
+var editId = null;
+
+function uid(){ return 'x_' + Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function findById(id){ for(var i=0;i<_herrInt.length;i++){ if(_herrInt[i].id===id) return _herrInt[i]; } return null; }
+function esArchivoPropio(url){ return !!url && url.indexOf('interno:')===0; }
+
+function recargarTodo(cb){
+  apiGet('/api/herramientas', function(err, lista){
+    _herrInt = (lista||[]).filter(function(h){ return h.tipo==='interna'; });
+    if(cb) cb();
+  });
+}
+
+function fmtFecha(f){
+  if(!f) return '';
+  var p=String(f).slice(0,10).split('-'); if(p.length!==3) return f;
+  return p[2]+'/'+p[1]+'/'+p[0];
+}
+
+// Abre (en pestaña nueva) un archivo interno: pide un link de un solo uso —
+// un <a href> directo no serviría, el archivo no vive en una ruta pública.
+function abrirArchivoInterno(id){
+  apiGet('/api/herramientas/'+encodeURIComponent(id)+'/archivo-url', function(err, resp){
+    if(err){ alert(err.error||'No se pudo abrir el archivo.'); return; }
+    window.open(resp.url, '_blank', 'noopener');
+  });
+}
+
+function renderTabla(){
+  var lista=_herrInt.slice().sort(function(a,b){ return (a.orden||0)-(b.orden||0); });
+  var tb=document.querySelector('#tbl-herrint tbody'); tb.innerHTML='';
+  for(var i=0;i<lista.length;i++){(function(h,idx){
+    var vig = (h.vigenciaDesde||h.vigenciaHasta)
+      ? (fmtFecha(h.vigenciaDesde)||'…')+' – '+(fmtFecha(h.vigenciaHasta)||'…')
+      : '<span style="color:var(--muted)">sin límite</span>';
+    var tipo = esArchivoPropio(h.url) ? '<span class="bdg">Archivo</span>' : '<span class="bdg">Link</span>';
+    var arribaDis=idx===0?' disabled':'';
+    var abajoDis=idx===lista.length-1?' disabled':'';
+    var flechas='<span class="ord-arrows">'+
+      '<button class="ord-btn" title="Subir"'+arribaDis+' onclick="moverHerrInt('+idx+',-1)">▲</button>'+
+      '<button class="ord-btn" title="Bajar"'+abajoDis+' onclick="moverHerrInt('+idx+',1)">▼</button></span>';
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+flechas+(h.orden!=null?h.orden:'—')+'</td>'+
+      '<td><strong>'+esc(h.nombre)+'</strong></td>'+
+      '<td>'+vig+'</td>'+
+      '<td>'+tipo+'</td>'+
+      '<td><button class="btn-sm" onclick="editarHerrInt(\''+esc(h.id)+'\')">Editar</button>'+
+      '<button class="btn-sm del" onclick="borrarHerrInt(\''+esc(h.id)+'\')">Borrar</button></td>';
+    tb.appendChild(tr);
+  })(lista[i],i);}
+  document.getElementById('empty-herrint').style.display=lista.length?'none':'block';
+  document.getElementById('tbl-herrint').style.display=lista.length?'':'none';
+}
+
+function moverHerrInt(idx,dir){
+  var lista=_herrInt.slice().sort(function(a,b){ return (a.orden||0)-(b.orden||0); });
+  var j=idx+dir; if(j<0||j>=lista.length) return;
+  var tmp=lista[idx]; lista[idx]=lista[j]; lista[j]=tmp;
+  var pend=lista.length;
+  for(var k=0;k<lista.length;k++){
+    lista[k].orden=k+1;
+    apiPut('/api/herramientas/'+encodeURIComponent(lista[k].id),lista[k],function(){ if(--pend<=0) recargarTodo(renderTabla); });
+  }
+}
+
+function toggleModoHerrInt(){
+  var modo=document.querySelector('input[name="hi-modo"]:checked').value;
+  document.getElementById('fld-hi-url').style.display = modo==='link' ? '' : 'none';
+  document.getElementById('fld-hi-archivo').style.display = modo==='archivo' ? '' : 'none';
+}
+
+function liberarLockHerrInt(){ if(editId){ apiUnlock('herramientas',editId,function(){}); } }
+
+function nuevaHerrInt(){
+  liberarLockHerrInt();
+  editId=null;
+  document.getElementById('form-title').textContent='Nueva herramienta interna';
+  document.getElementById('hi-nombre').value='';
+  document.getElementById('hi-desc').value='';
+  document.getElementById('hi-url').value='';
+  document.getElementById('hi-archivo').value='';
+  document.getElementById('hi-archivo-actual').textContent='';
+  document.getElementById('hi-desde').value='';
+  document.getElementById('hi-hasta').value='';
+  document.querySelector('input[name="hi-modo"][value="link"]').checked=true;
+  toggleModoHerrInt();
+  document.getElementById('btn-borrar-herrint').style.display='none';
+  document.getElementById('hi-msg').textContent='';
+}
+
+function editarHerrInt(id){
+  var h=findById(id); if(!h) return;
+  liberarLockHerrInt();
+  apiLock('herramientas',id,null,function(errLock){
+    if(errLock){ document.getElementById('hi-msg').textContent=errLock.error||'No se pudo tomar este registro.'; return; }
+    editId=id;
+    document.getElementById('form-title').textContent='Editar herramienta interna';
+    document.getElementById('hi-nombre').value=h.nombre||'';
+    document.getElementById('hi-desc').value=h.descripcion||'';
+    document.getElementById('hi-desde').value=h.vigenciaDesde?String(h.vigenciaDesde).slice(0,10):'';
+    document.getElementById('hi-hasta').value=h.vigenciaHasta?String(h.vigenciaHasta).slice(0,10):'';
+    document.getElementById('hi-archivo').value='';
+    if(esArchivoPropio(h.url)){
+      document.querySelector('input[name="hi-modo"][value="archivo"]').checked=true;
+      document.getElementById('hi-archivo-actual').innerHTML='Archivo actual: <a onclick="abrirArchivoInterno(\''+esc(h.id)+'\')">'+esc(h.archivoNombre||'archivo')+'</a> (elegí uno nuevo para reemplazarlo)';
+      document.getElementById('hi-url').value='';
+    } else {
+      document.querySelector('input[name="hi-modo"][value="link"]').checked=true;
+      document.getElementById('hi-url').value=h.url||'';
+      document.getElementById('hi-archivo-actual').textContent='';
+    }
+    toggleModoHerrInt();
+    document.getElementById('btn-borrar-herrint').style.display='';
+    document.getElementById('hi-msg').textContent='';
+    window.scrollTo(0,0);
+  });
+}
+
+function guardarHerrInt(){
+  var msg=document.getElementById('hi-msg'); msg.textContent='';
+  var nombre=document.getElementById('hi-nombre').value.trim();
+  if(!nombre){ msg.textContent='Falta el nombre.'; return; }
+  var modo=document.querySelector('input[name="hi-modo"]:checked').value;
+  var urlInput=document.getElementById('hi-url').value.trim();
+  var fileInput=document.getElementById('hi-archivo');
+  var archivo=fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+  var existente=editId?findById(editId):null;
+
+  var url, archivoNombre;
+  if(modo==='link'){
+    if(!urlInput){ msg.textContent='Falta la URL.'; return; }
+    url=urlInput; archivoNombre=null;
+  } else {
+    if(!archivo && !(existente && esArchivoPropio(existente.url))){ msg.textContent='Subí un archivo.'; return; }
+    // Si hay archivo nuevo, el upload define la url/nombre reales; si no, se
+    // conservan los que ya tenía (nunca se pisan con null).
+    url = archivo ? '' : existente.url;
+    archivoNombre = archivo ? null : existente.archivoNombre;
+  }
+
+  var desde=document.getElementById('hi-desde').value||null;
+  var hasta=document.getElementById('hi-hasta').value||null;
+  if(desde && hasta && desde>hasta){ msg.textContent='"Vigente desde" no puede ser posterior a "vigente hasta".'; return; }
+
+  var obj={
+    id: editId||uid(),
+    nombre: nombre,
+    descripcion: document.getElementById('hi-desc').value.trim()||null,
+    tipo: 'interna',
+    url: url,
+    archivoNombre: archivoNombre,
+    vigenciaDesde: desde,
+    vigenciaHasta: hasta,
+    orden: existente ? (existente.orden||0) : (_herrInt.length+1),
+    activa: true,
+    asignable: false
+  };
+  var isNew=!editId;
+  var cb=function(err){
+    if(err){ msg.textContent=err.error||'Error al guardar.'; return; }
+    var idGuardado=obj.id;
+    if(archivo){
+      apiUpload('/api/herramientas/'+encodeURIComponent(idGuardado)+'/archivo', archivo, 'archivo', function(err2){
+        if(err2){ msg.textContent=err2.error||'Se guardó, pero falló la subida del archivo.'; recargarTodo(renderTabla); return; }
+        liberarLockHerrInt(); editId=null;
+        recargarTodo(function(){ renderTabla(); nuevaHerrInt(); });
+      });
+    } else {
+      liberarLockHerrInt(); editId=null;
+      recargarTodo(function(){ renderTabla(); nuevaHerrInt(); });
+    }
+  };
+  if(isNew) apiPost('/api/herramientas',obj,cb);
+  else apiPut('/api/herramientas/'+encodeURIComponent(editId),obj,cb);
+}
+
+function borrarHerrInt(id){
+  if(!confirm('¿Borrar esta herramienta interna?')) return;
+  apiDelete('/api/herramientas/'+encodeURIComponent(id),function(err){
+    if(err){ alert(err.error||'Error al borrar.'); return; }
+    if(editId===id){ editId=null; nuevaHerrInt(); }
+    recargarTodo(renderTabla);
+  });
+}
+function borrarHerrIntActual(){ if(editId) borrarHerrInt(editId); }
+
+(function(){
+  // El chequeo de token ya se hizo en <head>; acá solo queda validar contra
+  // el servidor (token vencido/inválido igual redirige).
+  apiGet('/api/context',function(err,ctx){
+    if(err){ location.href='login.html'; return; }
+    CTX=ctx;
+    if(ctx.usuario.rol!=='admin_general'){ location.href='index.html'; return; }
+    recargarTodo(function(){ renderTabla(); toggleModoHerrInt(); });
+  });
+})();
+</script>
+
+</body>
+</html>

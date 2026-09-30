@@ -41,8 +41,6 @@ main{padding:0;display:flex;flex-direction:column;flex:1}
 .subsec{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:14px 2px 9px}
 .subsec.first{margin-top:14px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
-.tool-off .tool-main{cursor:default}.tool-off .tool-main:hover{background:none}
-.tag-prox{background:#EEF0F2;color:var(--muted)}
 .empty{font-size:13px;color:var(--muted);padding:8px 4px;font-style:italic}
 .tool{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);border-left:3px solid transparent;overflow:hidden;transition:box-shadow .12s;box-shadow:0 1px 3px rgba(15,25,35,.04)}
 .tool:hover{box-shadow:0 4px 14px rgba(15,25,35,.09)}
@@ -264,63 +262,11 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
   </div>
 
   <!-- ============ HERRAMIENTAS PUNTAL ============
-       Etapa actual: sección visible solo para admin_general (ver puedePuntal).
-       Tarjetas SIN data-tool: se ven todas dentro de la sección.
-       Etapa futura (filtro por permiso): agregar data-tool a cada tarjeta,
-       dar de alta las herramientas en pa-core y usar filtrarGrupo. -->
+       Visible para admin_general (la administra) o quien tenga el permiso
+       herramientas_internas habilitado (ver puedePuntal, usuarios.html). -->
   <div class="view sec" id="view-pun">
-        <div class="block-title">Herramientas Puntal<span class="ln" style="background:var(--pun)"></span></div>
-    <div class="grid" id="grid-pun-secciones" style="margin-top:14px">
-
-      <div class="tool t-cal tool-off">
-        <div class="tool-main">
-          <span class="tool-name">Agricultura</span>
-          <span class="tool-right"><span class="tool-tag tag-prox">Próximamente</span></span>
-        </div>
-        <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
-        <div class="tool-detail">Herramientas Puntal para la gestión agrícola.</div>
-      </div>
-
-      <div class="tool t-cal tool-off">
-        <div class="tool-main">
-          <span class="tool-name">Ganadería</span>
-          <span class="tool-right"><span class="tool-tag tag-prox">Próximamente</span></span>
-        </div>
-        <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
-        <div class="tool-detail">Herramientas Puntal para la gestión ganadera.</div>
-      </div>
-
-      <div class="tool t-cal tool-off">
-        <div class="tool-main">
-          <span class="tool-name">Ambiente</span>
-          <span class="tool-right"><span class="tool-tag tag-prox">Próximamente</span></span>
-        </div>
-        <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
-        <div class="tool-detail">Herramientas Puntal de gestión ambiental.</div>
-      </div>
-
-      <div class="tool t-cal tool-off">
-        <div class="tool-main">
-          <span class="tool-name">Empresa</span>
-          <span class="tool-right"><span class="tool-tag tag-prox">Próximamente</span></span>
-        </div>
-        <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
-        <div class="tool-detail">Herramientas Puntal para la gestión de la empresa.</div>
-      </div>
-
-      <div class="tool t-cal tool-off">
-        <div class="tool-main">
-          <span class="tool-name">Consulta</span>
-          <span class="tool-right"><span class="tool-tag tag-prox">Próximamente</span></span>
-        </div>
-        <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
-        <div class="tool-detail">Material y herramientas de consulta de Puntal.</div>
-      </div>
-
-    </div>
-
-    <div class="subsec">Disponible ahora</div>
-    <div class="grid" id="grid-puntal">
+    <div class="block-title">Herramientas Puntal<span class="ln" style="background:var(--pun)"></span></div>
+    <div class="grid" id="grid-puntal" style="margin-top:14px">
 
       <div class="tool t-cal">
         <a class="tool-main" href="calendario_actividades.html">
@@ -330,6 +276,9 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
         <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
         <div class="tool-detail">Guía de tareas según los protocolos de Puntal: qué hacer cada mes, por rol y actividad, y con qué herramienta.</div>
       </div>
+
+      <!-- Archivos/links de tipo='interna', cargados desde herramientas-internas.html -->
+      <div id="grid-puntal-archivos" style="display:contents"></div>
 
     </div>
   </div>
@@ -364,6 +313,15 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
         </a>
         <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
         <div class="tool-detail">Calculadoras, informes en PDF y links externos que se muestran en el inicio bajo "Externos".</div>
+      </div>
+
+      <div class="tool t-usu" id="card-herramientas-internas" style="display:none">
+        <a class="tool-main" href="herramientas-internas.html">
+          <span class="tool-name">Herramientas Internas</span>
+          <span class="tool-right"><span class="tool-tag tag-ins">Configuración</span><svg class="tool-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </a>
+        <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
+        <div class="tool-detail">Archivos y links del equipo Puntal que se muestran en "Herramientas Puntal", visibles solo para quien tenga ese permiso habilitado en Usuarios y permisos.</div>
       </div>
 
     </div>
@@ -464,6 +422,48 @@ function cargarExternos() {
   apiGet('/api/herramientas', function (err, lista) {
     if (err) return;
     renderExternos(lista);
+    renderInternas(lista);
+  });
+}
+
+// "Herramientas Puntal": misma lógica que renderExternos, pero tipo='interna'.
+// El backend ya filtra estas filas por permiso (herramientas_internas/admin_general)
+// antes de que lleguen acá — si no tenés el permiso, `lista` ni las trae.
+function renderInternas(lista) {
+  var grid = document.getElementById('grid-puntal-archivos'); if (!grid) return;
+  var visibles = (lista||[]).filter(function (h) {
+    return h.tipo === 'interna' && h.activa !== false && vigenteHerramienta(h);
+  }).sort(function (a, b) { return (a.orden||0) - (b.orden||0); });
+
+  grid.innerHTML = '';
+  for (var i = 0; i < visibles.length; i++) {
+    var h = visibles[i];
+    var esArchivo = h.url && h.url.indexOf('interno:') === 0;
+    var link = esArchivo
+      ? '<a class="tool-main" href="javascript:void(0)" onclick="abrirArchivoInterno(\'' + esc(h.id) + '\')">'
+      : '<a class="tool-main" href="' + esc(h.url) + '" target="_blank" rel="noopener">';
+    var div = document.createElement('div');
+    div.className = 'tool t-cal';
+    div.innerHTML =
+      link +
+        '<span class="tool-name">' + esc(h.nombre) + '</span>' +
+        '<span class="tool-right"><span class="tool-tag tag-cal">' + (esArchivo ? 'Archivo' : 'Link') + '</span>' +
+        '<svg class="tool-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>' +
+      '</a>' +
+      '<button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>' +
+      '<div class="tool-detail">' + esc(h.descripcion||'') + '</div>';
+    grid.appendChild(div);
+  }
+  if (window.CTX_APLICADO) actualizarContadorPuntal();
+}
+
+// Abre (en pestaña nueva) un archivo de Herramientas Puntal: pide un link de
+// un solo uso — el archivo no vive en una ruta pública, un <a href> directo
+// no alcanzaría (y no debe: cualquiera con la URL podría bajarlo sin permiso).
+function abrirArchivoInterno(id) {
+  apiGet('/api/herramientas/' + encodeURIComponent(id) + '/archivo-url', function (err, resp) {
+    if (err) { alert(err.error || 'No se pudo abrir el archivo.'); return; }
+    window.open(resp.url, '_blank', 'noopener');
   });
 }
 
@@ -521,6 +521,16 @@ function actualizarContadorDecision() {
   ponerCnt('cnt-dec', _ultimoNDec, 'tablero propio', 'tableros propios', nExt + ' externos');
 }
 
+// Mismo patrón para Herramientas Puntal: grid-puntal (estático, ej. Calendario)
+// + grid-puntal-archivos (tipo='interna', carga asincrónica aparte).
+var _ultimoNPunFijo = 0;
+function actualizarContadorPuntal() {
+  var cPun = document.getElementById('cnt-pun'); if (!cPun) return;
+  var n = _ultimoNPunFijo + contarVisibles('grid-puntal-archivos');
+  if (n) { cPun.className = 'acc-cnt'; cPun.textContent = n + (n === 1 ? ' herramienta' : ' herramientas'); }
+  else { cPun.className = 'acc-cnt vacio'; cPun.textContent = 'Sin herramientas habilitadas'; }
+}
+
 function aplicarCtx(ctx) {
   var nivel = ctx.permiso ? ctx.permiso.nivel : 'usuario';
   document.getElementById('huser').innerHTML = '<strong>' + ctx.usuario.nombre + '</strong> · ' + nivel;
@@ -559,6 +569,8 @@ function aplicarCtx(ctx) {
   if (cardUsuarios) cardUsuarios.style.display = esAdminUsuarios ? '' : 'none';
   var cardHerrExt = document.getElementById('card-herramientas-externas');
   if (cardHerrExt) cardHerrExt.style.display = esHerrExt ? '' : 'none';
+  var cardHerrInt = document.getElementById('card-herramientas-internas');
+  if (cardHerrInt) cardHerrInt.style.display = esHerrExt ? '' : 'none';
 
   var visiblesAdmin = esAdminEstructura || esAdminUsuarios || esHerrExt;
   var emptyAdmin = document.getElementById('empty-admin');
@@ -570,17 +582,14 @@ function aplicarCtx(ctx) {
   var accAdm = document.getElementById('acc-adm');
   if (accAdm) accAdm.style.display = puedeAdminGlobal ? '' : 'none';
   if (!puedeAdminGlobal && location.hash === '#adm') { location.hash = ''; }
-  // Acceso Herramientas Puntal: solo admin_general (etapa actual).
-  puedePuntal = ctx.usuario.rol === 'admin_general';
+  // Acceso Herramientas Puntal: admin_general (las administra) o quien tenga
+  // el permiso herramientas_internas habilitado (ver Usuarios y permisos).
+  puedePuntal = ctx.usuario.rol === 'admin_general' || ctx.usuario.herramientasInternas === true;
   var accPun = document.getElementById('acc-pun');
   if (accPun) accPun.style.display = puedePuntal ? '' : 'none';
   if (!puedePuntal && location.hash === '#pun') { location.hash = ''; }
-  var nPun = contarVisibles('grid-puntal');
-  var cPun = document.getElementById('cnt-pun');
-  if (cPun) {
-    if (nPun) { cPun.className = 'acc-cnt'; cPun.textContent = nPun + (nPun === 1 ? ' herramienta' : ' herramientas'); }
-    else { cPun.className = 'acc-cnt vacio'; cPun.textContent = 'Próximamente'; }
-  }
+  _ultimoNPunFijo = contarVisibles('grid-puntal');
+  actualizarContadorPuntal();
   var nAdm = (esAdminEstructura?1:0) + (esAdminUsuarios?1:0) + (esHerrExt?1:0);
   ponerCnt('cnt-adm', nAdm, 'módulo', 'módulos', '');
 

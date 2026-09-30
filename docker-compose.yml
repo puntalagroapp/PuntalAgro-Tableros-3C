@@ -25,6 +25,7 @@ services:
       - ./backend:/usr/src/app
       - /usr/src/app/node_modules
       - ./frontend:/usr/src/frontend
+      - ./uploads-internos:/usr/src/uploads-internos
     depends_on:
       - base_datos
 

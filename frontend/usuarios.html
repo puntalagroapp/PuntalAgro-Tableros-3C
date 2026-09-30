@@ -37,6 +37,8 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
 .fld label{font-size:11px;font-weight:600;color:var(--muted)}
 .fld input,.fld select{border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-family:var(--sans);font-size:13px;min-width:160px}
 .fld input:focus,.fld select:focus{outline:none;border-color:var(--olive)}
+.chk{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:400;color:var(--text)}
+.chk input[type=checkbox]{min-width:0;width:auto;padding:0}
 .btn{background:var(--olive);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer}
 .btn:hover{background:#3c5429}
 .btn-sm{font-size:11px;padding:5px 9px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer}
@@ -94,11 +96,16 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
       <div class="fld" id="fld-activo" style="display:none"><label>Estado</label>
         <select id="u-activo"><option value="1">Activo</option><option value="0">Inactivo</option></select>
       </div>
+      <div class="fld" id="fld-herramientas-internas" style="display:none">
+        <label>&nbsp;</label>
+        <label class="chk" style="height:34px"><input type="checkbox" id="u-herramientas-internas"> Acceso a herramientas puntal</label>
+      </div>
       <button class="btn" id="btn-guardar-usuario" onclick="guardarUsuario()">Crear usuario</button>
       <button class="btn-sm" id="btn-cancelar-edicion" style="display:none" onclick="cancelarEdicionUsuario()">Cancelar</button>
     </div>
     <p class="sub" id="hint-admin-cliente" style="display:none;margin-top:10px">Un <strong>admin_cliente</strong> administra automáticamente todas las empresas del cliente asociado — no hace falta asignarle permisos por empresa más abajo.</p>
     <p class="sub" id="hint-usuario-admin" style="display:none;margin-top:10px">Este usuario queda asociado a tu cliente. Después asignale acceso a alguna de las empresas que administrás, más abajo.</p>
+    <p class="sub" id="hint-herramientas-internas" style="display:none;margin-top:10px">Acceso a la biblioteca interna del equipo Puntal (inicio → "Herramientas Puntal"). No depende de la empresa ni del rol de este usuario.</p>
   </div>
 
   <div class="panel">
@@ -122,6 +129,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
       </div>
     </div>
     <p class="sub" id="hint-nivel-administrar" style="display:none;margin-top:2px">Nivel <strong>administrar</strong> da acceso a todos los campos y todas las herramientas de la empresa — no se pueden restringir.</p>
+
     <div class="fld" style="margin-top:14px"><label>Campos habilitados</label>
       <label class="chk" style="margin:2px 0 6px"><input type="checkbox" id="p-todos-campos" checked onchange="toggleTodosCampos()"> Todos los campos de la empresa</label>
       <div class="checklist" id="p-campos"></div>
@@ -357,6 +365,7 @@ function renderUsuarios(){
       }
       if(!permisosTxt) permisosTxt='<span style="color:var(--muted)">sin permisos</span>';
     }
+    if(u.herramientasInternas) permisosTxt+='<div><span class="bdg">Herramientas Puntal</span></div>';
     var esUnoMismo=!!(CTX && CTX.usuario && CTX.usuario.id===u.id);
     // admin_cliente nunca puede gestionarse a sí mismo (puedeSobreUsuario lo
     // rechaza en el backend; en la práctica ni siquiera se ve a sí mismo en
@@ -586,6 +595,9 @@ function crearUsuario(){
   var pass=document.getElementById('u-pass').value;
   if(!pass){ alert('Completá una contraseña inicial.'); return; }
   var u={id:uid(),nombre:datos.nombre,email:datos.email,password:pass,rol:datos.rol,clienteId:datos.clienteId,activo:true};
+  if(document.getElementById('fld-herramientas-internas').style.display!=='none'){
+    u.herramientasInternas=document.getElementById('u-herramientas-internas').checked;
+  }
   apiPost('/api/usuarios',u,function(err){
     if(err){ alert(err.error||'Error al crear usuario.'); return; }
     limpiarFormUsuario();
@@ -620,6 +632,14 @@ function editarUsuario(id){
     document.getElementById('fld-email').style.display=esAutoedicion?'none':'';
     document.getElementById('fld-rol').style.display=esAutoedicion?'none':'';
     document.getElementById('fld-activo').style.display=esAutoedicion?'none':'';
+    // Herramientas Puntal: no es por empresa ni por rol, es un permiso propio
+    // del usuario — pero solo admin_general lo otorga (es quien administra ese
+    // contenido), así que ni se muestra para los demás. Se pide tanto al crear
+    // como al editar (ver limpiarFormUsuario para el modo alta).
+    var puedeVerHerrInt=CTX && CTX.usuario.rol==='admin_general' && !esAutoedicion;
+    document.getElementById('fld-herramientas-internas').style.display=puedeVerHerrInt?'':'none';
+    document.getElementById('hint-herramientas-internas').style.display=puedeVerHerrInt?'':'none';
+    if(puedeVerHerrInt) document.getElementById('u-herramientas-internas').checked=!!u.herramientasInternas;
     document.getElementById('lbl-pass').textContent=esAutoedicion?'Nueva contraseña':'Nueva contraseña (opcional)';
     document.getElementById('btn-guardar-usuario').textContent='Guardar cambios';
     document.getElementById('btn-cancelar-edicion').style.display='';
@@ -642,6 +662,12 @@ function actualizarUsuario(){
     var activo=document.getElementById('u-activo').value==='1';
     body={nombre:datos.nombre,email:datos.email,rol:datos.rol,clienteId:datos.clienteId,activo:activo};
     if(pass) body.password=pass;
+    // Solo se manda si el campo está visible (admin_general editando a otro
+    // usuario) — así nunca se pisa el valor existente por un PUT que ni
+    // siquiera ofreció el control (ver backend: si no viene, no lo toca).
+    if(document.getElementById('fld-herramientas-internas').style.display!=='none'){
+      body.herramientasInternas=document.getElementById('u-herramientas-internas').checked;
+    }
   }
   apiPut('/api/usuarios/'+encodeURIComponent(editandoUsuarioId),body,function(err){
     if(err){ alert(err.error||'Error al guardar los cambios.'); return; }
@@ -665,6 +691,12 @@ function limpiarFormUsuario(){
   document.getElementById('u-pass').value='';
   document.getElementById('lbl-pass').textContent='Contraseña';
   document.getElementById('fld-activo').style.display='none';
+  // Herramientas Puntal: a diferencia de Estado, sí se pide en el alta (no
+  // solo al editar) — un usuario nuevo puede necesitarlo desde el día uno.
+  var puedeVerHerrInt=CTX && CTX.usuario.rol==='admin_general';
+  document.getElementById('fld-herramientas-internas').style.display=puedeVerHerrInt?'':'none';
+  document.getElementById('hint-herramientas-internas').style.display=puedeVerHerrInt?'':'none';
+  document.getElementById('u-herramientas-internas').checked=false;
   document.getElementById('fld-nombre').style.display='';
   document.getElementById('fld-email').style.display='';
   document.getElementById('fld-rol').style.display='';
@@ -744,7 +776,7 @@ function borrarPermisoActual(){
       }
       poblarFiltrosUsuarios();
       renderUsuarios();
-      renderRoles();
+      limpiarFormUsuario(); // deja el form de alta en su estado inicial correcto (incluye renderRoles())
       precargar();
     });
   });

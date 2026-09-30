@@ -133,6 +133,66 @@ function borrarPdfHerramientaSiPropio(urlAnterior) {
   fs.unlink(path.join(HERRAMIENTAS_UPLOADS_DIR, archivo), function () {});
 }
 
+// ── Archivos de herramientas internas (tipo='interna', "Herramientas Puntal") ──
+// A diferencia de HERRAMIENTAS_UPLOADS_DIR (externas: públicas, serán servidas
+// tal cual por express.static), esta carpeta vive FUERA de frontend/ a
+// propósito: nadie puede descargarla pisando la URL a mano. Solo se llega al
+// archivo real vía /api/herramientas/:id/archivo-url + /archivo, que chequean
+// sesión y el permiso herramientas_internas antes de entregar nada.
+const HERRAMIENTAS_INTERNAS_DIR = path.join(__dirname, '../uploads-internos/herramientas');
+fs.mkdirSync(HERRAMIENTAS_INTERNAS_DIR, { recursive: true });
+
+const EXT_INTERNA_POR_MIME = {
+  'application/pdf': '.pdf',
+  'application/msword': '.doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/vnd.ms-excel': '.xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+};
+
+const uploadArchivoInterno = multer({
+  storage: multer.diskStorage({
+    // mkdirSync de nuevo acá (no solo al arrancar el server): esta carpeta vive
+    // en un volumen Docker aparte (uploads-internos/) que puede llegar vacío
+    // en un deploy nuevo, así que se re-crea sola si hace falta en vez de
+    // fallar con ENOENT en el primer archivo que alguien suba.
+    destination: function (req, file, cb) {
+      fs.mkdirSync(HERRAMIENTAS_INTERNAS_DIR, { recursive: true });
+      cb(null, HERRAMIENTAS_INTERNAS_DIR);
+    },
+    filename: function (req, file, cb) {
+      const ext = EXT_INTERNA_POR_MIME[file.mimetype] || path.extname(file.originalname || '').slice(0, 10);
+      cb(null, req.params.id + '_' + Date.now() + ext);
+    }
+  }),
+  fileFilter: function (req, file, cb) {
+    if (!EXT_INTERNA_POR_MIME[file.mimetype]) return cb(new Error('Formato no admitido (PDF, Word o Excel)'));
+    cb(null, true);
+  },
+  limits: { fileSize: 15 * 1024 * 1024 } // 15MB
+}).single('archivo');
+
+function borrarArchivoInternoSiPropio(urlAnterior) {
+  if (!urlAnterior || urlAnterior.indexOf('interno:') !== 0) return;
+  const archivo = path.basename(urlAnterior.slice('interno:'.length));
+  fs.unlink(path.join(HERRAMIENTAS_INTERNAS_DIR, archivo), function () {});
+}
+
+// Tokens de un solo uso para abrir un archivo interno desde un <a>/window.open
+// (no puede llevar el header Authorization). Vida corta y de un solo uso: se
+// piden recién al hacer clic, ya habiendo pasado el chequeo de permiso.
+const _tokensArchivoInterno = new Map(); // token -> { herramientaId, expira }
+function mintTokenArchivoInterno(herramientaId) {
+  const token = crypto.randomBytes(24).toString('hex');
+  _tokensArchivoInterno.set(token, { herramientaId: herramientaId, expira: Date.now() + 30000 });
+  return token;
+}
+function consumirTokenArchivoInterno(token, herramientaId) {
+  const entry = _tokensArchivoInterno.get(token);
+  _tokensArchivoInterno.delete(token);
+  return !!entry && entry.herramientaId === herramientaId && entry.expira > Date.now();
+}
+
 const UNIQUE_ERROR_MESSAGES = {
   'uq_clientes_nombre':                'Ya existe un cliente con ese nombre',
   'uq_clientes_cuit':                  'Ya existe un cliente con ese CUIT',
@@ -174,7 +234,7 @@ async function obtenerSesion(req) {
   if (!token) return null;
   try {
     const r = await pool.query(
-      `SELECT u.id, u.nombre, u.email, u.rol, u.cliente_id, s.empresa_id_activa
+      `SELECT u.id, u.nombre, u.email, u.rol, u.cliente_id, u.herramientas_internas, s.empresa_id_activa
          FROM sesiones s
          JOIN usuarios u ON u.id = s.usuario_id
         WHERE s.token = $1
@@ -533,7 +593,7 @@ app.get('/api/context', async (req, res) => {
     }
 
     res.json({
-      usuario: { id: sesion.id, nombre: sesion.nombre, email: sesion.email, rol: sesion.rol, clienteId: sesion.cliente_id || null },
+      usuario: { id: sesion.id, nombre: sesion.nombre, email: sesion.email, rol: sesion.rol, clienteId: sesion.cliente_id || null, herramientasInternas: sesion.herramientas_internas === true },
       empresaActivaId:      empresaId,
       empresasDisponibles:  lista,
       permiso,
@@ -1005,13 +1065,13 @@ app.get('/api/usuarios', async (req, res) => {
   try {
     if (sesion.rol === 'admin_general') {
       return res.json((await pool.query(
-        'SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo FROM usuarios ORDER BY nombre'
+        'SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo, herramientas_internas AS "herramientasInternas" FROM usuarios ORDER BY nombre'
       )).rows);
     }
     if (sesion.rol === 'admin_cliente') {
       // Solo 'usuario' de su cliente: ya no gestiona otros admin_cliente (docs/Roles y permisos.txt).
       return res.json((await pool.query(
-        `SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo
+        `SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo, herramientas_internas AS "herramientasInternas"
            FROM usuarios WHERE cliente_id = $1 AND rol = 'usuario' ORDER BY nombre`,
         [sesion.cliente_id]
       )).rows);
@@ -1024,7 +1084,7 @@ app.get('/api/usuarios', async (req, res) => {
     const empresas = await empresasQueAdministraUsuario(sesion.id);
     if (!empresas.length) return res.status(403).json({ error: 'Sin permiso' });
     const r = await pool.query(
-      `SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo
+      `SELECT id, nombre, email, rol, cliente_id AS "clienteId", activo, herramientas_internas AS "herramientasInternas"
          FROM usuarios WHERE cliente_id = $1 AND rol = 'usuario' ORDER BY nombre`,
       [sesion.cliente_id]
     );
@@ -1055,16 +1115,19 @@ app.post('/api/usuarios', async (req, res) => {
   if (rol !== 'admin_general' && !clienteId) {
     return res.status(400).json({ error: 'Los usuarios con rol usuario o admin_cliente necesitan un cliente asociado' });
   }
+  // Herramientas Puntal: solo admin_general lo otorga, igual que al editar.
+  const herramientasInternas = sesion.rol === 'admin_general' && !!(req.body || {}).herramientasInternas;
   try {
     const hash = password ? await hashearPassword(password) : null;
     await pool.query(
-      `INSERT INTO usuarios (id, nombre, email, rol, cliente_id, activo, password_hash)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO usuarios (id, nombre, email, rol, cliente_id, activo, password_hash, herramientas_internas)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (id) DO UPDATE SET nombre=$2, email=$3, rol=$4, cliente_id=$5, activo=$6,
-         password_hash = CASE WHEN $7::text IS NULL THEN usuarios.password_hash ELSE $7::text END`,
-      [id, nombre, email, rol, clienteId, activo !== false, hash]
+         password_hash = CASE WHEN $7::text IS NULL THEN usuarios.password_hash ELSE $7::text END,
+         herramientas_internas=$8`,
+      [id, nombre, email, rol, clienteId, activo !== false, hash, herramientasInternas]
     );
-    res.status(201).json({ ...req.body, rol, clienteId, email });
+    res.status(201).json({ ...req.body, rol, clienteId, email, herramientasInternas });
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
@@ -1114,13 +1177,21 @@ app.put('/api/usuarios/:id', async (req, res) => {
   if (rol !== 'admin_general' && !clienteId) {
     return res.status(400).json({ error: 'Los usuarios con rol usuario o admin_cliente necesitan un cliente asociado' });
   }
+  // Herramientas Puntal: solo admin_general lo otorga, y solo si el frontend
+  // mandó el campo (el formulario lo omite si quien edita no es admin_general
+  // o si ni se mostró el control) — si no vino, la fila CASE deja el valor
+  // actual sin tocar, en vez de asumir "false" y desactivarlo por accidente.
+  const herramientasInternas = (sesion.rol === 'admin_general' && typeof (req.body || {}).herramientasInternas === 'boolean')
+    ? req.body.herramientasInternas
+    : null;
   try {
     const hash = password ? await hashearPassword(password) : null;
     await pool.query(
       `UPDATE usuarios SET nombre=$2, email=$3, rol=$4, cliente_id=$5, activo=$6,
-         password_hash = CASE WHEN $7::text IS NULL THEN password_hash ELSE $7::text END
+         password_hash = CASE WHEN $7::text IS NULL THEN password_hash ELSE $7::text END,
+         herramientas_internas = CASE WHEN $8::boolean IS NULL THEN herramientas_internas ELSE $8::boolean END
        WHERE id=$1`,
-      [req.params.id, nombre, email, rol, clienteId, activo !== false, hash]
+      [req.params.id, nombre, email, rol, clienteId, activo !== false, hash, herramientasInternas]
     );
     res.json({ ...req.body, id: req.params.id, rol, clienteId, email });
   } catch (err) {
@@ -1827,11 +1898,17 @@ app.get('/api/herramientas', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
   try {
+    // tipo='interna' (Herramientas Puntal) solo se lista si el usuario tiene el
+    // permiso — admin_general siempre lo tiene, es quien las administra.
+    const puedeInternas = sesion.rol === 'admin_general' || sesion.herramientas_internas === true;
     const r = await pool.query(
       `SELECT id, nombre, descripcion, tipo, url, dominio, fuente,
               vigencia_desde AS "vigenciaDesde", vigencia_hasta AS "vigenciaHasta",
-              orden, activa, asignable
-         FROM herramientas ORDER BY orden, nombre`
+              orden, activa, asignable, archivo_nombre AS "archivoNombre"
+         FROM herramientas
+        WHERE tipo <> 'interna' OR $1
+        ORDER BY orden, nombre`,
+      [puedeInternas]
     );
     res.json(r.rows);
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
@@ -1845,14 +1922,14 @@ app.post('/api/herramientas', async (req, res) => {
   if (!h.id || !h.nombre) return res.status(400).json({ error: 'Faltan id o nombre' });
   try {
     await pool.query(
-      `INSERT INTO herramientas (id, nombre, descripcion, tipo, url, dominio, fuente, vigencia_desde, vigencia_hasta, orden, activa, asignable)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      `INSERT INTO herramientas (id, nombre, descripcion, tipo, url, dominio, fuente, vigencia_desde, vigencia_hasta, orden, activa, asignable, archivo_nombre)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        ON CONFLICT (id) DO UPDATE
          SET nombre=$2, descripcion=$3, tipo=$4, url=$5, dominio=$6, fuente=$7,
-             vigencia_desde=$8, vigencia_hasta=$9, orden=$10, activa=$11, asignable=$12`,
+             vigencia_desde=$8, vigencia_hasta=$9, orden=$10, activa=$11, asignable=$12, archivo_nombre=$13`,
       [h.id, h.nombre, h.descripcion||null, h.tipo||'propia', h.url||null, h.dominio||null,
        h.fuente||null, h.vigenciaDesde||null, h.vigenciaHasta||null, h.orden||0,
-       h.activa !== false, h.asignable !== false]
+       h.activa !== false, h.asignable !== false, h.archivoNombre||null]
     );
     res.status(201).json(h);
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
@@ -1866,11 +1943,11 @@ app.put('/api/herramientas/:id', async (req, res) => {
   try {
     await pool.query(
       `UPDATE herramientas SET nombre=$2, descripcion=$3, tipo=$4, url=$5, dominio=$6, fuente=$7,
-              vigencia_desde=$8, vigencia_hasta=$9, orden=$10, activa=$11, asignable=$12
+              vigencia_desde=$8, vigencia_hasta=$9, orden=$10, activa=$11, asignable=$12, archivo_nombre=$13
        WHERE id=$1`,
       [h.id, h.nombre, h.descripcion||null, h.tipo||'propia', h.url||null, h.dominio||null,
        h.fuente||null, h.vigenciaDesde||null, h.vigenciaHasta||null, h.orden||0,
-       h.activa !== false, h.asignable !== false]
+       h.activa !== false, h.asignable !== false, h.archivoNombre||null]
     );
     res.json(h);
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
@@ -1883,7 +1960,10 @@ app.delete('/api/herramientas/:id', async (req, res) => {
   try {
     const actual = await pool.query('SELECT url FROM herramientas WHERE id=$1', [req.params.id]);
     await pool.query('DELETE FROM herramientas WHERE id=$1', [req.params.id]);
-    if (actual.rows.length) borrarPdfHerramientaSiPropio(actual.rows[0].url);
+    if (actual.rows.length) {
+      borrarPdfHerramientaSiPropio(actual.rows[0].url);
+      borrarArchivoInternoSiPropio(actual.rows[0].url);
+    }
     res.json({ status: 'ok' });
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
@@ -1914,6 +1994,85 @@ app.post('/api/herramientas/:id/pdf', async (req, res) => {
       res.status(500).json({ error: 'Error interno del servidor' });
     }
   });
+});
+
+// Subida de archivo para una herramienta interna (tipo='interna', "Herramientas
+// Puntal"). A diferencia de /pdf, el archivo NO queda en una ruta pública: se
+// guarda fuera de frontend/ y `url` pasa a valer 'interno:<archivo_en_disco>',
+// que no es servible directo por express.static. Solo admin_general sube.
+app.post('/api/herramientas/:id/archivo', async (req, res) => {
+  const sesion = await obtenerSesion(req);
+  if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+  if (sesion.rol !== 'admin_general') return res.status(403).json({ error: 'Sin permiso' });
+
+  uploadArchivoInterno(req, res, async function (err) {
+    if (err) return res.status(400).json({ error: err.message || 'Error al subir el archivo' });
+    if (!req.file) return res.status(400).json({ error: 'Falta el archivo' });
+    try {
+      const actual = await pool.query('SELECT url FROM herramientas WHERE id = $1', [req.params.id]);
+      if (!actual.rows.length) {
+        fs.unlink(req.file.path, function () {});
+        return res.status(404).json({ error: 'Herramienta no encontrada' });
+      }
+      const nuevaUrl = 'interno:' + req.file.filename;
+      await pool.query(
+        'UPDATE herramientas SET url = $2, archivo_nombre = $3 WHERE id = $1',
+        [req.params.id, nuevaUrl, req.file.originalname || req.file.filename]
+      );
+      borrarArchivoInternoSiPropio(actual.rows[0].url);
+      res.json({ id: req.params.id, url: nuevaUrl, archivoNombre: req.file.originalname || req.file.filename });
+    } catch (e) {
+      console.error('POST /api/herramientas/:id/archivo error:', e);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  });
+});
+
+// Paso 1 para ver/descargar un archivo interno: valida sesión + permiso
+// herramientas_internas (o admin_general) y devuelve un link de un solo uso, de
+// vida corta, para no tener que mandar el archivo real con el Authorization
+// header (un <a>/window.open no lo manda).
+app.get('/api/herramientas/:id/archivo-url', async (req, res) => {
+  const sesion = await obtenerSesion(req);
+  if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+  const puedeInternas = sesion.rol === 'admin_general' || sesion.herramientas_internas === true;
+  if (!puedeInternas) return res.status(403).json({ error: 'Sin permiso' });
+  try {
+    const r = await pool.query("SELECT url FROM herramientas WHERE id = $1 AND tipo = 'interna'", [req.params.id]);
+    if (!r.rows.length || !r.rows[0].url || r.rows[0].url.indexOf('interno:') !== 0) {
+      return res.status(404).json({ error: 'Archivo no encontrado' });
+    }
+    const token = mintTokenArchivoInterno(req.params.id);
+    res.json({ url: '/api/herramientas/' + encodeURIComponent(req.params.id) + '/archivo?t=' + token });
+  } catch (e) {
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Paso 2: entrega el archivo real, solo con un token recién emitido por el
+// endpoint de arriba (de un solo uso, vence a los 30s). Sin sesión: el token
+// ya implica que el permiso se chequeó al pedirlo.
+app.get('/api/herramientas/:id/archivo', async (req, res) => {
+  const token = String(req.query.t || '');
+  if (!consumirTokenArchivoInterno(token, req.params.id)) {
+    return res.status(403).json({ error: 'Link vencido, volvé a intentarlo' });
+  }
+  try {
+    const r = await pool.query(
+      "SELECT url, archivo_nombre AS \"archivoNombre\" FROM herramientas WHERE id = $1 AND tipo = 'interna'",
+      [req.params.id]
+    );
+    if (!r.rows.length || !r.rows[0].url || r.rows[0].url.indexOf('interno:') !== 0) {
+      return res.status(404).json({ error: 'Archivo no encontrado' });
+    }
+    const archivo = path.basename(r.rows[0].url.slice('interno:'.length));
+    const rutaAbs = path.join(HERRAMIENTAS_INTERNAS_DIR, archivo);
+    res.download(rutaAbs, r.rows[0].archivoNombre || archivo, function (err) {
+      if (err && !res.headersSent) res.status(404).json({ error: 'Archivo no encontrado' });
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

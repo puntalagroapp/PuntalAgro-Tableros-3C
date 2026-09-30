@@ -63,18 +63,27 @@ CREATE TABLE herramientas (
     id             TEXT PRIMARY KEY,
     nombre         TEXT NOT NULL,
     descripcion    TEXT,
-    tipo           TEXT NOT NULL DEFAULT 'propia' CHECK (tipo IN ('propia','externa')),
+    tipo           TEXT NOT NULL DEFAULT 'propia' CHECK (tipo IN ('propia','externa','interna')),
     url            TEXT,
     dominio        TEXT,
-    -- Solo usadas por tipo='externa': fuente (texto libre, ej. "Simpleza",
+    -- Solo usadas por tipo='externa'/'interna': fuente (texto libre, ej. "Simpleza",
     -- "CREA"), rango de vigencia para mostrar/ocultar en el inicio (NULL =
     -- sin límite en ese extremo), y orden de aparición en la grilla.
+    -- tipo='interna': archivo/link del equipo Puntal, visible solo para quien
+    -- tenga usuarios.herramientas_internas=true (o sea admin_general). Si es un
+    -- archivo subido (no un link), url guarda 'interno:<nombre_de_archivo>' —
+    -- nunca una ruta estática servible directo, se descarga vía
+    -- /api/herramientas/:id/archivo-url (ver server.js) para no exponerlo sin
+    -- chequear el permiso.
     fuente         TEXT,
     vigencia_desde DATE,
     vigencia_hasta DATE,
     orden          INTEGER NOT NULL DEFAULT 0,
     activa         BOOLEAN NOT NULL DEFAULT true,
-    asignable      BOOLEAN NOT NULL DEFAULT true
+    asignable      BOOLEAN NOT NULL DEFAULT true,
+    -- Solo tipo='interna' con archivo subido: nombre original del archivo (el
+    -- que ve el usuario al descargar). El nombre en disco es solo id+timestamp.
+    archivo_nombre TEXT
 );
 
 -- Categorías de insumo (global, confirmado por el cliente 2026-07-21 — ver
@@ -209,7 +218,12 @@ CREATE TABLE usuarios (
     rol           TEXT NOT NULL DEFAULT 'usuario'
                       CHECK (rol IN ('admin_general','admin_cliente','usuario')),
     cliente_id    TEXT REFERENCES clientes(id),
-    activo        BOOLEAN NOT NULL DEFAULT true
+    activo        BOOLEAN NOT NULL DEFAULT true,
+    -- Acceso a la sección "Herramientas Puntal" del inicio (herramientas internas
+    -- del equipo Puntal). No depende de empresa, a diferencia del resto de los
+    -- permisos: es una propiedad del usuario en sí. admin_general la ve siempre,
+    -- tenga o no este flag en true (ver /api/context y puedePuntal en index.html).
+    herramientas_internas BOOLEAN NOT NULL DEFAULT false
 );
 -- trim(lower(...)) porque /api/auth/login busca así (email.trim().toLowerCase());
 -- server.js normaliza el email antes de guardar para que siempre coincidan.
