@@ -1,4 +1,4 @@
--- Migración 004: marca qué usuarios son empleados de Puntal Agro.
+-- Migración 004: marca qué usuarios son integrantes de Puntal Agro.
 --
 -- Dato informativo/de clasificación, independiente del rol y de
 -- herramientas_internas (ver comentario en init.sql). Aditivo: no borra ni
