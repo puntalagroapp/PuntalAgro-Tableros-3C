@@ -1901,6 +1901,68 @@ app.delete('/api/campos/:id', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CRUD: /api/grupos-herramientas
+// "Carpetas" para herramientas, un solo nivel (no contienen otros grupos).
+// Por ahora solo las usa Herramientas Puntal (tipo='interna'), por eso el
+// permiso de lectura exige herramientas_internas — si en el futuro también
+// se usan para tipo='externa' (público), este chequeo hay que repensarlo.
+// admin_general siempre puede leer/escribir.
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/grupos-herramientas', async (req, res) => {
+  const sesion = await obtenerSesion(req);
+  if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+  const puedeInternas = sesion.rol === 'admin_general' || sesion.herramientas_internas === true;
+  if (!puedeInternas) return res.json([]);
+  try {
+    const r = await pool.query('SELECT id, nombre, descripcion, orden, activo FROM grupos_herramientas ORDER BY orden, nombre');
+    res.json(r.rows);
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
+});
+
+app.post('/api/grupos-herramientas', async (req, res) => {
+  const sesion = await obtenerSesion(req);
+  if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+  if (sesion.rol !== 'admin_general') return res.status(403).json({ error: 'Sin permiso' });
+  const g = req.body || {};
+  if (!g.id || !g.nombre) return res.status(400).json({ error: 'Faltan id o nombre' });
+  try {
+    await pool.query(
+      `INSERT INTO grupos_herramientas (id, nombre, descripcion, orden, activo)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (id) DO UPDATE SET nombre=$2, descripcion=$3, orden=$4, activo=$5`,
+      [g.id, g.nombre, g.descripcion || null, g.orden || 0, g.activo !== false]
+    );
+    res.status(201).json(g);
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
+});
+
+app.put('/api/grupos-herramientas/:id', async (req, res) => {
+  const sesion = await obtenerSesion(req);
+  if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+  if (sesion.rol !== 'admin_general') return res.status(403).json({ error: 'Sin permiso' });
+  const g = { ...req.body, id: req.params.id };
+  try {
+    await pool.query(
+      'UPDATE grupos_herramientas SET nombre=$2, descripcion=$3, orden=$4, activo=$5 WHERE id=$1',
+      [g.id, g.nombre, g.descripcion || null, g.orden || 0, g.activo !== false]
+    );
+    res.json(g);
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
+});
+
+app.delete('/api/grupos-herramientas/:id', async (req, res) => {
+  const sesion = await obtenerSesion(req);
+  if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+  if (sesion.rol !== 'admin_general') return res.status(403).json({ error: 'Sin permiso' });
+  try {
+    // ON DELETE SET NULL en herramientas.grupo_id: las herramientas de este
+    // grupo no se borran, quedan sin grupo (vuelven a verse sueltas).
+    await pool.query('DELETE FROM grupos_herramientas WHERE id=$1', [req.params.id]);
+    res.json({ status: 'ok' });
+  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CRUD: /api/herramientas
 // Lista de herramientas disponibles en el sistema (propias y externas).
 // admin_general puede crear/editar/eliminar; los demás solo leer.
@@ -1915,7 +1977,7 @@ app.get('/api/herramientas', async (req, res) => {
     const r = await pool.query(
       `SELECT id, nombre, descripcion, tipo, url, dominio, fuente,
               vigencia_desde AS "vigenciaDesde", vigencia_hasta AS "vigenciaHasta",
-              orden, activa, asignable, archivo_nombre AS "archivoNombre"
+              orden, activa, asignable, archivo_nombre AS "archivoNombre", grupo_id AS "grupoId"
          FROM herramientas
         WHERE tipo <> 'interna' OR $1
         ORDER BY orden, nombre`,
@@ -1933,14 +1995,14 @@ app.post('/api/herramientas', async (req, res) => {
   if (!h.id || !h.nombre) return res.status(400).json({ error: 'Faltan id o nombre' });
   try {
     await pool.query(
-      `INSERT INTO herramientas (id, nombre, descripcion, tipo, url, dominio, fuente, vigencia_desde, vigencia_hasta, orden, activa, asignable, archivo_nombre)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      `INSERT INTO herramientas (id, nombre, descripcion, tipo, url, dominio, fuente, vigencia_desde, vigencia_hasta, orden, activa, asignable, archivo_nombre, grupo_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
        ON CONFLICT (id) DO UPDATE
          SET nombre=$2, descripcion=$3, tipo=$4, url=$5, dominio=$6, fuente=$7,
-             vigencia_desde=$8, vigencia_hasta=$9, orden=$10, activa=$11, asignable=$12, archivo_nombre=$13`,
+             vigencia_desde=$8, vigencia_hasta=$9, orden=$10, activa=$11, asignable=$12, archivo_nombre=$13, grupo_id=$14`,
       [h.id, h.nombre, h.descripcion||null, h.tipo||'propia', h.url||null, h.dominio||null,
        h.fuente||null, h.vigenciaDesde||null, h.vigenciaHasta||null, h.orden||0,
-       h.activa !== false, h.asignable !== false, h.archivoNombre||null]
+       h.activa !== false, h.asignable !== false, h.archivoNombre||null, h.grupoId||null]
     );
     res.status(201).json(h);
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
@@ -1954,11 +2016,11 @@ app.put('/api/herramientas/:id', async (req, res) => {
   try {
     await pool.query(
       `UPDATE herramientas SET nombre=$2, descripcion=$3, tipo=$4, url=$5, dominio=$6, fuente=$7,
-              vigencia_desde=$8, vigencia_hasta=$9, orden=$10, activa=$11, asignable=$12, archivo_nombre=$13
+              vigencia_desde=$8, vigencia_hasta=$9, orden=$10, activa=$11, asignable=$12, archivo_nombre=$13, grupo_id=$14
        WHERE id=$1`,
       [h.id, h.nombre, h.descripcion||null, h.tipo||'propia', h.url||null, h.dominio||null,
        h.fuente||null, h.vigenciaDesde||null, h.vigenciaHasta||null, h.orden||0,
-       h.activa !== false, h.asignable !== false, h.archivoNombre||null]
+       h.activa !== false, h.asignable !== false, h.archivoNombre||null, h.grupoId||null]
     );
     res.json(h);
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }

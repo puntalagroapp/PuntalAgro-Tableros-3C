@@ -59,6 +59,21 @@ CREATE TABLE labores (
 );
 CREATE UNIQUE INDEX uq_labores_nombre ON labores (trim(lower(nombre)));
 
+-- Grupos de herramientas ("carpetas"). Un solo nivel: un grupo no puede
+-- contener otro grupo, solo herramientas (ver herramientas.grupo_id más
+-- abajo). Nombre genérico a propósito: hoy solo se usa para tipo='interna'
+-- (Herramientas Puntal, con el mismo criterio de visibilidad que ellas —
+-- solo quien tenga usuarios.herramientas_internas=true), pero el cliente
+-- podría pedir lo mismo para tipo='externa' más adelante — esa tabla ya le
+-- serviría sin cambios de esquema.
+CREATE TABLE grupos_herramientas (
+    id          TEXT PRIMARY KEY,
+    nombre      TEXT NOT NULL,
+    descripcion TEXT,
+    orden       INTEGER NOT NULL DEFAULT 0,
+    activo      BOOLEAN NOT NULL DEFAULT true
+);
+
 CREATE TABLE herramientas (
     id             TEXT PRIMARY KEY,
     nombre         TEXT NOT NULL,
@@ -66,6 +81,9 @@ CREATE TABLE herramientas (
     tipo           TEXT NOT NULL DEFAULT 'propia' CHECK (tipo IN ('propia','externa','interna')),
     url            TEXT,
     dominio        TEXT,
+    -- Solo tipo='interna': carpeta/categoría a la que pertenece (opcional). Si
+    -- se borra el grupo, la herramienta no se borra, solo queda sin grupo.
+    grupo_id       TEXT REFERENCES grupos_herramientas(id) ON DELETE SET NULL,
     -- Solo usadas por tipo='externa'/'interna': fuente (texto libre, ej. "Simpleza",
     -- "CREA"), rango de vigencia para mostrar/ocultar en el inicio (NULL =
     -- sin límite en ese extremo), y orden de aparición en la grilla.

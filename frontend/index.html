@@ -44,6 +44,8 @@ main{padding:0;display:flex;flex-direction:column;flex:1}
 .tool-off .tool-main{cursor:default}.tool-off .tool-main:hover{background:none}
 .tag-prox{background:#EEF0F2;color:var(--muted)}
 .empty{font-size:13px;color:var(--muted);padding:8px 4px;font-style:italic}
+.volver{background:none;border:none;padding:0;margin-bottom:14px;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px}
+.volver:hover{color:var(--terra)}
 .tool{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);border-left:3px solid transparent;overflow:hidden;transition:box-shadow .12s;box-shadow:0 1px 3px rgba(15,25,35,.04)}
 .tool:hover{box-shadow:0 4px 14px rgba(15,25,35,.09)}
 .tool-main{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;text-decoration:none;color:inherit}
@@ -268,6 +270,10 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
        herramientas_internas habilitado (ver puedePuntal, usuarios.html). -->
   <div class="view sec" id="view-pun">
     <div class="block-title">Herramientas Puntal<span class="ln" style="background:var(--pun)"></span></div>
+
+    <!-- Grupos (carpetas): uno por cada grupo con al menos una herramienta vigente -->
+    <div class="grid" id="grid-puntal-grupos" style="margin-top:14px"></div>
+
     <div class="grid" id="grid-puntal" style="margin-top:14px">
 
       <div class="tool t-cal tool-off">
@@ -279,10 +285,19 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
         <div class="tool-detail">Guía de tareas según los protocolos de Puntal: qué hacer cada mes, por rol y actividad, y con qué herramienta. Todavía en preparación.</div>
       </div>
 
-      <!-- Archivos/links de tipo='interna', cargados desde herramientas-internas.html -->
+      <!-- Archivos/links de tipo='interna' SIN grupo, cargados desde herramientas-internas.html -->
       <div id="grid-puntal-archivos" style="display:contents"></div>
 
     </div>
+  </div>
+
+  <!-- Contenido de un grupo de Herramientas Puntal: no es parte del router por
+       hash (no cuelga de VISTAS) — se muestra/oculta a mano, superpuesto a
+       view-pun, con abrirGrupoPuntal()/cerrarGrupoPuntal(). -->
+  <div class="sec" id="view-pun-grupo" style="display:none">
+    <button class="volver" onclick="cerrarGrupoPuntal()"><svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;stroke-width:2.2;fill:none;vertical-align:-1px"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Volver a Herramientas Puntal</button>
+    <div class="block-title" id="pun-grupo-titulo"><span class="ln" style="background:var(--pun)"></span></div>
+    <div class="grid" id="grid-puntal-grupo-contenido" style="margin-top:14px"></div>
   </div>
 
   <!-- ============ ADMINISTRACIÓN ============ -->
@@ -370,6 +385,10 @@ function mostrar(v){
     var el = document.getElementById('view-'+VISTAS[i]);
     if (el) { el.className = (VISTAS[i] === v) ? 'view on sec' : 'view sec'; }
   }
+  // view-pun-grupo no es parte de VISTAS (es un estado interno de "pun", no
+  // un hash propio) — cualquier navegación a otra sección la cierra, para
+  // que view-pun no quede con display:none pegado de una visita anterior.
+  cerrarGrupoPuntal();
   var hv = document.getElementById('h-volver');
   if (hv) hv.style.display = (v === 'home') ? 'none' : '';
   window.scrollTo(0,0);
@@ -420,43 +439,100 @@ function renderExternos(lista) {
   if (window.CTX_APLICADO) actualizarContadorDecision();
 }
 
+var _internasData = []; // último /api/herramientas tipo='interna', para contar y para abrir un grupo
+var _gruposPuntal = []; // último /api/grupos-herramientas
+
 function cargarExternos() {
   apiGet('/api/herramientas', function (err, lista) {
     if (err) return;
     renderExternos(lista);
-    renderInternas(lista);
+    _internasData = (lista||[]).filter(function (h) { return h.tipo === 'interna'; });
+    apiGet('/api/grupos-herramientas', function (err2, grupos) {
+      _gruposPuntal = err2 ? [] : (grupos||[]);
+      renderGruposPuntal();
+      renderInternas();
+    });
   });
 }
 
-// "Herramientas Puntal": misma lógica que renderExternos, pero tipo='interna'.
-// El backend ya filtra estas filas por permiso (herramientas_internas/admin_general)
-// antes de que lleguen acá — si no tenés el permiso, `lista` ni las trae.
-function renderInternas(lista) {
-  var grid = document.getElementById('grid-puntal-archivos'); if (!grid) return;
-  var visibles = (lista||[]).filter(function (h) {
-    return h.tipo === 'interna' && h.activa !== false && vigenteHerramienta(h);
-  }).sort(function (a, b) { return (a.orden||0) - (b.orden||0); });
-
-  grid.innerHTML = '';
-  for (var i = 0; i < visibles.length; i++) {
-    var h = visibles[i];
-    var esArchivo = h.url && h.url.indexOf('interno:') === 0;
-    var link = esArchivo
-      ? '<a class="tool-main" href="javascript:void(0)" onclick="abrirArchivoInterno(\'' + esc(h.id) + '\')">'
-      : '<a class="tool-main" href="' + esc(h.url) + '" target="_blank" rel="noopener">';
-    var div = document.createElement('div');
-    div.className = 'tool t-cal';
-    div.innerHTML =
+function herrIntTarjetaHtml(h) {
+  var esArchivo = h.url && h.url.indexOf('interno:') === 0;
+  var link = esArchivo
+    ? '<a class="tool-main" href="javascript:void(0)" onclick="abrirArchivoInterno(\'' + esc(h.id) + '\')">'
+    : '<a class="tool-main" href="' + esc(h.url) + '" target="_blank" rel="noopener">';
+  return '<div class="tool t-cal">' +
       link +
         '<span class="tool-name">' + esc(h.nombre) + '</span>' +
         '<span class="tool-right"><span class="tool-tag tag-cal">' + (esArchivo ? 'Archivo' : 'Link') + '</span>' +
         '<svg class="tool-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>' +
       '</a>' +
       '<button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>' +
-      '<div class="tool-detail">' + esc(h.descripcion||'') + '</div>';
+      '<div class="tool-detail">' + esc(h.descripcion||'') + '</div>' +
+    '</div>';
+}
+
+// "Herramientas Puntal": misma lógica que renderExternos, pero tipo='interna'
+// y SIN grupo (las que tienen grupo se ven adentro de su carpeta, no acá).
+// El backend ya filtra estas filas por permiso (herramientas_internas/admin_general)
+// antes de que lleguen acá — si no tenés el permiso, la lista ni las trae.
+function renderInternas() {
+  var grid = document.getElementById('grid-puntal-archivos'); if (!grid) return;
+  var visibles = _internasData.filter(function (h) {
+    return !h.grupoId && h.activa !== false && vigenteHerramienta(h);
+  }).sort(function (a, b) { return (a.orden||0) - (b.orden||0); });
+
+  grid.innerHTML = '';
+  for (var i = 0; i < visibles.length; i++) { grid.insertAdjacentHTML('beforeend', herrIntTarjetaHtml(visibles[i])); }
+  if (window.CTX_APLICADO) actualizarContadorPuntal();
+}
+
+// Carpetas de Herramientas Puntal: una tarjeta por grupo activo que tenga al
+// menos una herramienta vigente adentro — un grupo vacío no ocupa lugar.
+function renderGruposPuntal() {
+  var grid = document.getElementById('grid-puntal-grupos'); if (!grid) return;
+  var grupos = _gruposPuntal.filter(function (g) { return g.activo !== false; })
+    .sort(function (a, b) { return (a.orden||0) - (b.orden||0); });
+
+  grid.innerHTML = '';
+  for (var i = 0; i < grupos.length; i++) {
+    var g = grupos[i];
+    var cant = _internasData.filter(function (h) {
+      return h.grupoId === g.id && h.activa !== false && vigenteHerramienta(h);
+    }).length;
+    if (!cant) continue;
+    var div = document.createElement('div');
+    div.className = 'tool t-cal';
+    div.innerHTML =
+      '<a class="tool-main" href="javascript:void(0)" onclick="abrirGrupoPuntal(\'' + esc(g.id) + '\')">' +
+        '<span class="tool-name">' + esc(g.nombre) + '</span>' +
+        '<span class="tool-right"><span class="tool-tag tag-cal">' + cant + (cant===1?' herramienta':' herramientas') + '</span>' +
+        '<svg class="tool-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>' +
+      '</a>' +
+      '<button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>' +
+      '<div class="tool-detail">' + esc(g.descripcion||'') + '</div>';
     grid.appendChild(div);
   }
-  if (window.CTX_APLICADO) actualizarContadorPuntal();
+}
+
+function abrirGrupoPuntal(grupoId) {
+  var g = null;
+  for (var i = 0; i < _gruposPuntal.length; i++) { if (_gruposPuntal[i].id === grupoId) { g = _gruposPuntal[i]; break; } }
+  if (!g) return;
+  var visibles = _internasData.filter(function (h) {
+    return h.grupoId === grupoId && h.activa !== false && vigenteHerramienta(h);
+  }).sort(function (a, b) { return (a.orden||0) - (b.orden||0); });
+
+  document.getElementById('pun-grupo-titulo').innerHTML = esc(g.nombre) + '<span class="ln" style="background:var(--pun)"></span>';
+  var cont = document.getElementById('grid-puntal-grupo-contenido');
+  cont.innerHTML = visibles.map(herrIntTarjetaHtml).join('');
+  document.getElementById('view-pun').style.display = 'none';
+  document.getElementById('view-pun-grupo').style.display = '';
+  window.scrollTo(0,0);
+}
+
+function cerrarGrupoPuntal() {
+  document.getElementById('view-pun-grupo').style.display = 'none';
+  document.getElementById('view-pun').style.display = '';
 }
 
 // Abre (en pestaña nueva) un archivo de Herramientas Puntal: pide un link de
@@ -529,7 +605,12 @@ function actualizarContadorDecision() {
 var _ultimoNPunFijo = 0;
 function actualizarContadorPuntal() {
   var cPun = document.getElementById('cnt-pun'); if (!cPun) return;
-  var n = _ultimoNPunFijo + contarVisibles('grid-puntal-archivos');
+  // Cuenta todas las internas vigentes, tengan grupo o no (adentro de una
+  // carpeta siguen siendo "una herramienta disponible", no dejan de contar).
+  var nInternas = _internasData.filter(function (h) {
+    return h.activa !== false && vigenteHerramienta(h);
+  }).length;
+  var n = _ultimoNPunFijo + nInternas;
   if (n) { cPun.className = 'acc-cnt'; cPun.textContent = n + (n === 1 ? ' herramienta' : ' herramientas'); }
   else { cPun.className = 'acc-cnt vacio'; cPun.textContent = 'Sin herramientas habilitadas'; }
 }
