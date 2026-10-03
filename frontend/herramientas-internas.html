@@ -15,6 +15,7 @@
 })();
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="css/mensajes.css" rel="stylesheet">
 <style>
 :root{--bg:#F0F2F5;--card:#fff;--border:#E4E8EE;--text:#0F1923;--muted:#7A8899;--olive:#4A6533;--ochre:#A86A1F;--terra:#C8642D;--pun:#2F4220;--radius:12px;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -52,8 +53,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
 .btn-sm{font-size:11px;padding:5px 9px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;margin-right:4px}
 .btn-sm:hover{color:var(--pun);border-color:var(--pun)}
 .btn-sm.del:hover{color:var(--terra);border-color:var(--terra)}
-.actions-row{display:flex;gap:8px;align-items:center;margin-top:14px}
-.msg{font-size:11px;color:var(--terra)}
+.actions-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
 .bdg{font-size:10px;font-family:var(--mono);padding:2px 7px;border-radius:10px;background:var(--bg);border:1px solid var(--border)}
 .ord-arrows{display:inline-flex;flex-direction:column;margin-right:6px;vertical-align:middle}
 .ord-btn{border:none;background:none;cursor:pointer;color:var(--muted);font-size:9px;line-height:1;padding:1px}
@@ -162,7 +162,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
       <h2 id="grupo-form-title" style="font-size:13px">Nuevo grupo (carpeta)</h2>
       <div class="modal-row"><div class="modal-lbl">Nombre</div><input class="modal-input" id="gr-nombre" maxlength="80" placeholder="Ej: Agricultura"></div>
       <div class="modal-row" style="align-items:flex-start"><div class="modal-lbl">Descripción</div><textarea class="modal-input" id="gr-desc" maxlength="400" style="min-height:50px;resize:vertical"></textarea></div>
-      <div class="modal-actions" style="justify-content:flex-start;border-top:none;padding-top:0;margin-top:8px">
+      <div class="modal-actions" style="justify-content:flex-start;border-top:none;padding-top:0;margin-top:8px;flex-wrap:wrap">
         <button class="modal-ok" onclick="guardarGrupo()">Guardar</button>
         <button class="modal-cancel" onclick="nuevoGrupo()">Nuevo</button>
         <button class="modal-cancel" id="btn-borrar-grupo" style="display:none" onclick="borrarGrupoActual()">Eliminar</button>
@@ -177,6 +177,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
 </div>
 
 <script src="js/api.js"></script>
+<script src="js/mensajes.js"></script>
 <script>
 var CTX = null;
 var _herrInt = [];
@@ -353,42 +354,46 @@ function nuevoGrupo(){
   document.getElementById('gr-nombre').value='';
   document.getElementById('gr-desc').value='';
   document.getElementById('btn-borrar-grupo').style.display='none';
-  document.getElementById('gr-msg').textContent='';
+  limpiarMsg(document.getElementById('gr-msg'));
 }
 
 function editarGrupo(id){
   var g=findGrupoById(id); if(!g) return;
   liberarLockGrupo();
   apiLock('grupos_herramientas',id,null,function(errLock){
-    if(errLock){ document.getElementById('gr-msg').textContent=errLock.error||'No se pudo tomar este registro.'; return; }
+    if(errLock){ marcarError(document.getElementById('gr-msg'), errLock.error||'No se pudo tomar este registro.'); return; }
     editGrupoId=id;
     document.getElementById('grupo-form-title').textContent='Editar grupo: '+g.nombre;
     document.getElementById('gr-nombre').value=g.nombre||'';
     document.getElementById('gr-desc').value=g.descripcion||'';
     document.getElementById('btn-borrar-grupo').style.display='';
-    document.getElementById('gr-msg').textContent='';
+    limpiarMsg(document.getElementById('gr-msg'));
     window.scrollTo(0,0);
   });
 }
 
 function guardarGrupo(){
-  var msg=document.getElementById('gr-msg'); msg.textContent='';
+  var msg=document.getElementById('gr-msg'); limpiarMsg(msg);
   var nombre=document.getElementById('gr-nombre').value.trim();
-  if(!nombre){ msg.textContent='Falta el nombre.'; return; }
+  if(!nombre){ marcarError(msg, 'Falta el nombre.'); return; }
   var existente=editGrupoId?findGrupoById(editGrupoId):null;
   var obj={ id: editGrupoId||uid(), nombre: nombre, descripcion: document.getElementById('gr-desc').value.trim()||null, orden: existente?(existente.orden||0):(_grupos.length+1), activo: true };
   var isNew=!editGrupoId;
   var cb=function(err){
-    if(err){ msg.textContent=err.error||'Error al guardar.'; return; }
+    if(err){ marcarError(msg, err.error||'Error al guardar.'); return; }
     liberarLockGrupo(); editGrupoId=null;
     var idCreado=obj.id;
     var autoSel=_autoSeleccionarGrupoCreado;
     recargarYRenderizarTodo(function(){
       nuevoGrupo();
+      // nuevoGrupo() ya limpió gr-msg — por eso el mensaje se fija DESPUÉS, no antes.
       if(isNew && autoSel){
         document.getElementById('hi-grupo').value=idCreado;
         _autoSeleccionarGrupoCreado=false;
         cerrarModalGrupos();
+      } else {
+        marcarExito(document.getElementById('gr-msg'), (isNew?'Grupo creado':'Grupo guardado')+' con éxito.');
+        
       }
     });
   };
@@ -429,14 +434,14 @@ function nuevaHerrInt(){
   document.querySelector('input[name="hi-modo"][value="link"]').checked=true;
   toggleModoHerrInt();
   document.getElementById('btn-borrar-herrint').style.display='none';
-  document.getElementById('hi-msg').textContent='';
+  limpiarMsg(document.getElementById('hi-msg'));
 }
 
 function editarHerrInt(id){
   var h=findById(id); if(!h) return;
   liberarLockHerrInt();
   apiLock('herramientas',id,null,function(errLock){
-    if(errLock){ document.getElementById('hi-msg').textContent=errLock.error||'No se pudo tomar este registro.'; return; }
+    if(errLock){ marcarError(document.getElementById('hi-msg'), errLock.error||'No se pudo tomar este registro.'); return; }
     editId=id;
     document.getElementById('form-title').textContent='Editar herramienta interna';
     document.getElementById('hi-nombre').value=h.nombre||'';
@@ -456,15 +461,15 @@ function editarHerrInt(id){
     }
     toggleModoHerrInt();
     document.getElementById('btn-borrar-herrint').style.display='';
-    document.getElementById('hi-msg').textContent='';
+    limpiarMsg(document.getElementById('hi-msg'));
     window.scrollTo(0,0);
   });
 }
 
 function guardarHerrInt(){
-  var msg=document.getElementById('hi-msg'); msg.textContent='';
+  var msg=document.getElementById('hi-msg'); limpiarMsg(msg);
   var nombre=document.getElementById('hi-nombre').value.trim();
-  if(!nombre){ msg.textContent='Falta el nombre.'; return; }
+  if(!nombre){ marcarError(msg, 'Falta el nombre.'); return; }
   var modo=document.querySelector('input[name="hi-modo"]:checked').value;
   var urlInput=document.getElementById('hi-url').value.trim();
   var fileInput=document.getElementById('hi-archivo');
@@ -473,10 +478,10 @@ function guardarHerrInt(){
 
   var url, archivoNombre;
   if(modo==='link'){
-    if(!urlInput){ msg.textContent='Falta la URL.'; return; }
+    if(!urlInput){ marcarError(msg, 'Falta la URL.'); return; }
     url=urlInput; archivoNombre=null;
   } else {
-    if(!archivo && !(existente && esArchivoPropio(existente.url))){ msg.textContent='Subí un archivo.'; return; }
+    if(!archivo && !(existente && esArchivoPropio(existente.url))){ marcarError(msg, 'Subí un archivo.'); return; }
     // Si hay archivo nuevo, el upload define la url/nombre reales; si no, se
     // conservan los que ya tenía (nunca se pisan con null).
     url = archivo ? '' : existente.url;
@@ -485,7 +490,7 @@ function guardarHerrInt(){
 
   var desde=document.getElementById('hi-desde').value||null;
   var hasta=document.getElementById('hi-hasta').value||null;
-  if(desde && hasta && desde>hasta){ msg.textContent='"Vigente desde" no puede ser posterior a "vigente hasta".'; return; }
+  if(desde && hasta && desde>hasta){ marcarError(msg, '"Vigente desde" no puede ser posterior a "vigente hasta".'); return; }
 
   var obj={
     id: editId||uid(),
@@ -502,18 +507,23 @@ function guardarHerrInt(){
     asignable: false
   };
   var isNew=!editId;
+  var avisoExito=function(){
+    // nuevaHerrInt() ya limpió hi-msg — por eso el mensaje se fija DESPUÉS, no antes.
+    marcarExito(document.getElementById('hi-msg'), (isNew?'Herramienta cargada':'Herramienta guardada')+' con éxito.');
+    
+  };
   var cb=function(err){
-    if(err){ msg.textContent=err.error||'Error al guardar.'; return; }
+    if(err){ marcarError(msg, err.error||'Error al guardar.'); return; }
     var idGuardado=obj.id;
     if(archivo){
       apiUpload('/api/herramientas/'+encodeURIComponent(idGuardado)+'/archivo', archivo, 'archivo', function(err2){
-        if(err2){ msg.textContent=err2.error||'Se guardó, pero falló la subida del archivo.'; recargarYRenderizarTodo(); return; }
+        if(err2){ marcarError(msg, err2.error||'Se guardó, pero falló la subida del archivo.'); recargarYRenderizarTodo(); return; }
         liberarLockHerrInt(); editId=null;
-        recargarYRenderizarTodo(nuevaHerrInt);
+        recargarYRenderizarTodo(function(){ nuevaHerrInt(); avisoExito(); });
       });
     } else {
       liberarLockHerrInt(); editId=null;
-      recargarYRenderizarTodo(nuevaHerrInt);
+      recargarYRenderizarTodo(function(){ nuevaHerrInt(); avisoExito(); });
     }
   };
   if(isNew) apiPost('/api/herramientas',obj,cb);

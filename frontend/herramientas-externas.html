@@ -15,6 +15,7 @@
 })();
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="css/mensajes.css" rel="stylesheet">
 <style>
 :root{--bg:#F0F2F5;--card:#fff;--border:#E4E8EE;--text:#0F1923;--muted:#7A8899;--olive:#4A6533;--ochre:#A86A1F;--terra:#C8642D;--radius:12px;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -52,8 +53,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
 .btn-sm{font-size:11px;padding:5px 9px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;margin-right:4px}
 .btn-sm:hover{color:var(--olive);border-color:var(--olive)}
 .btn-sm.del:hover{color:var(--terra);border-color:var(--terra)}
-.actions-row{display:flex;gap:8px;align-items:center;margin-top:14px}
-.msg{font-size:11px;color:var(--terra)}
+.actions-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
 .bdg{font-size:10px;font-family:var(--mono);padding:2px 7px;border-radius:10px;background:var(--bg);border:1px solid var(--border)}
 .ord-arrows{display:inline-flex;flex-direction:column;margin-right:6px;vertical-align:middle}
 .ord-btn{border:none;background:none;cursor:pointer;color:var(--muted);font-size:9px;line-height:1;padding:1px}
@@ -129,6 +129,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/mensajes.js"></script>
 <script>
 var CTX = null;
 var _herrExt = [];
@@ -214,14 +215,14 @@ function nuevaHerrExt(){
   document.querySelector('input[name="he-modo"][value="link"]').checked=true;
   toggleModoHerrExt();
   document.getElementById('btn-borrar-herrext').style.display='none';
-  document.getElementById('he-msg').textContent='';
+  limpiarMsg(document.getElementById('he-msg'));
 }
 
 function editarHerrExt(id){
   var h=findById(id); if(!h) return;
   liberarLockHerrExt();
   apiLock('herramientas',id,null,function(errLock){
-    if(errLock){ document.getElementById('he-msg').textContent=errLock.error||'No se pudo tomar este registro.'; return; }
+    if(errLock){ marcarError(document.getElementById('he-msg'), errLock.error||'No se pudo tomar este registro.'); return; }
     editId=id;
     document.getElementById('form-title').textContent='Editar herramienta externa';
     document.getElementById('he-nombre').value=h.nombre||'';
@@ -241,15 +242,15 @@ function editarHerrExt(id){
     }
     toggleModoHerrExt();
     document.getElementById('btn-borrar-herrext').style.display='';
-    document.getElementById('he-msg').textContent='';
+    limpiarMsg(document.getElementById('he-msg'));
     window.scrollTo(0,0);
   });
 }
 
 function guardarHerrExt(){
-  var msg=document.getElementById('he-msg'); msg.textContent='';
+  var msg=document.getElementById('he-msg'); limpiarMsg(msg);
   var nombre=document.getElementById('he-nombre').value.trim();
-  if(!nombre){ msg.textContent='Falta el nombre.'; return; }
+  if(!nombre){ marcarError(msg, 'Falta el nombre.'); return; }
   var modo=document.querySelector('input[name="he-modo"]:checked').value;
   var urlInput=document.getElementById('he-url').value.trim();
   var fileInput=document.getElementById('he-pdf');
@@ -258,16 +259,16 @@ function guardarHerrExt(){
 
   var url;
   if(modo==='link'){
-    if(!urlInput){ msg.textContent='Falta la URL.'; return; }
+    if(!urlInput){ marcarError(msg, 'Falta la URL.'); return; }
     url=urlInput;
   } else {
-    if(!archivo && !(existente && esPdfPropio(existente.url))){ msg.textContent='Subí un PDF.'; return; }
+    if(!archivo && !(existente && esPdfPropio(existente.url))){ marcarError(msg, 'Subí un PDF.'); return; }
     url = archivo ? '' : existente.url; // si hay archivo nuevo, el upload define la url real
   }
 
   var desde=document.getElementById('he-desde').value||null;
   var hasta=document.getElementById('he-hasta').value||null;
-  if(desde && hasta && desde>hasta){ msg.textContent='"Vigente desde" no puede ser posterior a "vigente hasta".'; return; }
+  if(desde && hasta && desde>hasta){ marcarError(msg, '"Vigente desde" no puede ser posterior a "vigente hasta".'); return; }
 
   var obj={
     id: editId||uid(),
@@ -284,17 +285,17 @@ function guardarHerrExt(){
   };
   var isNew=!editId;
   var cb=function(err){
-    if(err){ msg.textContent=err.error||'Error al guardar.'; return; }
+    if(err){ marcarError(msg, err.error||'Error al guardar.'); return; }
     var idGuardado=obj.id;
     if(archivo){
       apiUpload('/api/herramientas/'+encodeURIComponent(idGuardado)+'/pdf', archivo, 'pdf', function(err2){
-        if(err2){ msg.textContent=err2.error||'Se guardó, pero falló la subida del PDF.'; recargarTodo(renderTabla); return; }
+        if(err2){ marcarError(msg, err2.error||'Se guardó, pero falló la subida del PDF.'); recargarTodo(renderTabla); return; }
         liberarLockHerrExt(); editId=null;
-        recargarTodo(function(){ renderTabla(); nuevaHerrExt(); });
+        recargarTodo(function(){ renderTabla(); nuevaHerrExt(); marcarExito(document.getElementById('he-msg'), (isNew?'Herramienta cargada':'Herramienta guardada')+' con éxito.'); });
       });
     } else {
       liberarLockHerrExt(); editId=null;
-      recargarTodo(function(){ renderTabla(); nuevaHerrExt(); });
+      recargarTodo(function(){ renderTabla(); nuevaHerrExt(); marcarExito(document.getElementById('he-msg'), (isNew?'Herramienta cargada':'Herramienta guardada')+' con éxito.'); });
     }
   };
   if(isNew) apiPost('/api/herramientas',obj,cb);

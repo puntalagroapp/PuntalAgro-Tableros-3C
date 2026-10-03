@@ -1,0 +1,22 @@
+/* =============================================================================
+   mensajes.css — estilo único de éxito/error para toda la app.
+   =============================================================================
+   Un solo lugar para cambiar cómo se ven los mensajes de "guardado con éxito"
+   o de error de validación/servidor, en cualquier pantalla de administración.
+   Para cambiar el estilo en toda la app, alcanza con editar este archivo.
+
+   Convención (ver frontend/js/mensajes.js para los helpers que aplican esto):
+     <span class="msg" id="algo-msg"></span>
+     marcarExito(el, 'Guardado con éxito.')
+     marcarError(el, 'Mensaje de error.')
+     limpiarMsg(el)
+
+   El contenedor del span (ej. .actions-row, .modal-actions) necesita
+   flex-wrap:wrap para que el mensaje, con flex-basis:100%, caiga en su
+   propia línea debajo de los botones en vez de empujarlos.
+   ============================================================================= */
+.msg{display:none}
+.msg-ok,.msg-error{display:flex;align-items:flex-start;gap:9px;flex-basis:100%;padding:9px 12px;border-radius:8px;font-size:13px;font-weight:500}
+.msg-ok svg,.msg-error svg{flex:none;width:16px;height:16px;margin-top:1px}
+.msg-ok{background:rgba(74,101,51,.1);border-left:3px solid var(--olive,#4A6533);color:var(--olive,#4A6533)}
+.msg-error{background:rgba(200,100,45,.1);border-left:3px solid var(--terra,#C8642D);color:var(--terra,#C8642D)}
