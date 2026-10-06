@@ -15,6 +15,7 @@
 })();
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="css/mensajes.css" rel="stylesheet">
 <style>
 :root{--bg:#F0F2F5;--card:#fff;--border:#E4E8EE;--text:#0F1923;--muted:#7A8899;--olive:#4A6533;--ochre:#A86A1F;--terra:#C8642D;--radius:12px;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -59,13 +60,12 @@ main{padding:16px 24px 28px;display:grid;grid-template-columns:340px 1fr;gap:16p
 .fld .opt{font-weight:400;color:var(--muted);font-size:10px}
 .sec-sep{grid-column:1 / -1;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);border-top:1px solid var(--border);padding-top:12px;margin-top:6px}
 .chk{display:flex;align-items:center;gap:8px;font-size:13px}.chk input{width:auto}
-.actions{display:flex;gap:8px;margin-top:18px;align-items:center}
+.actions{display:flex;gap:8px;margin-top:18px;align-items:center;flex-wrap:wrap}
 .btn{background:var(--olive);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer}
 .btn:hover{background:#3c5429}
 .btn-out{background:var(--card);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer}
 .btn-out:hover{color:var(--terra);border-color:var(--terra)}
 .btn-link{background:none;border:none;color:var(--olive);font-size:12px;font-weight:600;cursor:pointer;text-decoration:underline;font-family:var(--sans)}
-.msg{font-size:11px;color:var(--muted)}
 .note{font-size:11px;color:var(--muted);background:#FBF1E0;border:1px solid #EAD9B8;border-radius:8px;padding:9px 12px;line-height:1.5;margin:0 24px}
 @media (max-width:860px){main{grid-template-columns:1fr}}
 </style>
@@ -108,6 +108,7 @@ main{padding:16px 24px 28px;display:grid;grid-template-columns:340px 1fr;gap:16p
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/mensajes.js"></script>
 <script>
 var sel = { kind:null, id:null };
 var expand = {};
@@ -119,7 +120,10 @@ var _clientes = [], _empresas = [], _campos = [];
 function uid(){ return 'x_' + Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
 function findById(arr,id){ for(var i=0;i<arr.length;i++){ if(arr[i].id===id)return arr[i]; } return null; }
 function val(id){ var el=document.getElementById(id); return el?el.value.trim():''; }
-function setMsg(t){ var m=document.getElementById('msg'); if(m) m.textContent=t||''; }
+function msgEl(){ return document.getElementById('msg'); }
+function setMsgErr(t){ marcarError(msgEl(), t); }
+function setMsgOk(t){ marcarExito(msgEl(), t); }
+function setMsgClear(){ limpiarMsg(msgEl()); }
 // Hectáreas totales: solo dígitos y un punto decimal — nunca letras, signo "-"
 // ni notación "e". El input es type="text" (no "number") justamente para tener
 // control total del caracter tipeado, en vez de depender de que el navegador
@@ -133,7 +137,7 @@ function validarHa(){
   if(partes.length>2) limpio=partes[0]+'.'+partes.slice(1).join(''); // un solo punto decimal
   var corregido = limpio!==el.value;
   if(corregido) el.value=limpio;
-  setMsg(corregido?'Las hectáreas totales solo admiten números: se sacaron los caracteres inválidos.':'');
+  if(corregido){ setMsgErr('Las hectáreas totales solo admiten números: se sacaron los caracteres inválidos.'); } else { setMsgClear(); }
 }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function esAdminPuntal(){ return !!(CTX && CTX.usuario && CTX.usuario.rol==='admin_general'); }
@@ -249,7 +253,7 @@ function bloquearSeleccionActual(){
     if(errLock){
       bloqueoActual=null;
       if(btn) btn.disabled=true;
-      setMsg(errLock.error||'No se pudo tomar este registro.');
+      setMsgErr(errLock.error||'No se pudo tomar este registro.');
       return;
     }
     bloqueoActual={kind:kind,id:id};
@@ -410,11 +414,11 @@ function nuevoCampo(empresaId){ liberarBloqueoActual(); sel={kind:'campo',id:nul
 
 // ── Guardar / Borrar ──────────────────────────────────────────────────────────
 function guardarCliente(){
-  if(!val('c-nombre')){ setMsg('Falta el nombre.'); return; }
+  if(!val('c-nombre')){ setMsgErr('Falta el nombre.'); return; }
   var existente=sel.id?findById(_clientes,sel.id):null;
   var eCuit=errorCuit(val('c-cuit'), existente?existente.cuit:null);
-  if(eCuit){ setMsg(eCuit); return; }
-  if(val('c-email') && !vEmailValido(val('c-email'))){ setMsg('El email no tiene un formato válido.'); return; }
+  if(eCuit){ setMsgErr(eCuit); return; }
+  if(val('c-email') && !vEmailValido(val('c-email'))){ setMsgErr('El email no tiene un formato válido.'); return; }
   var c={
     id: sel.id||uid(), nombre:val('c-nombre'), nombreContacto:val('c-contacto'),
     email:val('c-email'), telefono:val('c-tel'),
@@ -425,10 +429,10 @@ function guardarCliente(){
   };
   var isNew=!sel.id;
   var cb=function(err,data){
-    if(err){ setMsg(err.error||'Error al guardar.'); return; }
+    if(err){ setMsgErr(err.error||'Error al guardar.'); return; }
     var savedId=data.id||c.id;
     expand[savedId]=true; sel={kind:'cliente',id:savedId};
-    recargarTodo(function(){ renderTree(); renderForm(); setMsg('Guardado.'); bloquearSeleccionActual(); });
+    recargarTodo(function(){ renderTree(); renderForm(); setMsgOk('Guardado.'); bloquearSeleccionActual(); });
   };
   if(isNew) apiPost('/api/clientes',c,cb);
   else apiPut('/api/clientes/'+encodeURIComponent(c.id),c,cb);
@@ -438,7 +442,7 @@ function borrarCliente(){
   if(!sel.id||!confirm('¿Eliminar el cliente con todas sus empresas y campos?'))return;
   var id=sel.id;
   apiDelete('/api/clientes/'+encodeURIComponent(id),function(err){
-    if(err){ setMsg(err.error||'Error al eliminar.'); return; }
+    if(err){ setMsgErr(err.error||'Error al eliminar.'); return; }
     liberarBloqueoActual();
     sel={kind:null,id:null};
     recargarTodo(function(){ renderTree(); renderForm(); });
@@ -446,10 +450,10 @@ function borrarCliente(){
 }
 
 function guardarEmpresa(clienteId){
-  if(!val('e-rs')){ setMsg('Falta la razón social.'); return; }
+  if(!val('e-rs')){ setMsgErr('Falta la razón social.'); return; }
   var existente=(sel.id&&!sel._nuevoEnCliente)?findById(_empresas,sel.id):null;
   var eCuit=errorCuit(val('e-cuit'), existente?existente.cuit:null);
-  if(eCuit){ setMsg(eCuit); return; }
+  if(eCuit){ setMsgErr(eCuit); return; }
   var e={
     id: (sel._nuevoEnCliente?null:sel.id)||uid(), clienteId:clienteId,
     razonSocial:val('e-rs'), cuit:val('e-cuit'), condicionIVA:val('e-iva'), direccion:val('e-dir'),
@@ -457,10 +461,10 @@ function guardarEmpresa(clienteId){
   };
   var isNew=sel._nuevoEnCliente||!sel.id;
   var cb=function(err,data){
-    if(err){ setMsg(err.error||'Error al guardar.'); return; }
+    if(err){ setMsgErr(err.error||'Error al guardar.'); return; }
     var savedId=data.id||e.id;
     expand[clienteId]=true; expand[savedId]=true; sel={kind:'empresa',id:savedId};
-    recargarTodo(function(){ renderTree(); renderForm(); setMsg('Guardado.'); bloquearSeleccionActual(); });
+    recargarTodo(function(){ renderTree(); renderForm(); setMsgOk('Guardado.'); bloquearSeleccionActual(); });
   };
   if(isNew) apiPost('/api/empresas',e,cb);
   else apiPut('/api/empresas/'+encodeURIComponent(e.id),e,cb);
@@ -470,7 +474,7 @@ function borrarEmpresa(){
   if(!sel.id||!confirm('¿Eliminar la empresa y sus campos?'))return;
   var id=sel.id;
   apiDelete('/api/empresas/'+encodeURIComponent(id),function(err){
-    if(err){ setMsg(err.error||'Error al eliminar.'); return; }
+    if(err){ setMsgErr(err.error||'Error al eliminar.'); return; }
     liberarBloqueoActual();
     sel={kind:null,id:null};
     recargarTodo(function(){ renderTree(); renderForm(); });
@@ -478,9 +482,9 @@ function borrarEmpresa(){
 }
 
 function guardarCampo(empresaId){
-  if(!val('k-nombre')){ setMsg('Falta el nombre del campo.'); return; }
+  if(!val('k-nombre')){ setMsgErr('Falta el nombre del campo.'); return; }
   var haTotales=val('k-ha')?Number(val('k-ha')):0;
-  if(haTotales!=null && (isNaN(haTotales) || haTotales<0)){ setMsg('Las hectáreas totales no pueden ser negativas.'); return; }
+  if(haTotales!=null && (isNaN(haTotales) || haTotales<0)){ setMsgErr('Las hectáreas totales no pueden ser negativas.'); return; }
   var existente=(sel.id&&!sel._nuevoEnEmpresa)?findById(_campos,sel.id):null;
   var k={
     id: (sel._nuevoEnEmpresa?null:sel.id)||uid(), empresaId:empresaId,
@@ -489,10 +493,10 @@ function guardarCampo(empresaId){
   };
   var isNew=sel._nuevoEnEmpresa||!sel.id;
   var cb=function(err,data){
-    if(err){ setMsg(err.error||'Error al guardar.'); return; }
+    if(err){ setMsgErr(err.error||'Error al guardar.'); return; }
     var savedId=data.id||k.id;
     expand[empresaId]=true; sel={kind:'campo',id:savedId};
-    recargarTodo(function(){ renderTree(); renderForm(); setMsg('Guardado.'); bloquearSeleccionActual(); });
+    recargarTodo(function(){ renderTree(); renderForm(); setMsgOk('Guardado.'); bloquearSeleccionActual(); });
   };
   if(isNew) apiPost('/api/campos',k,cb);
   else apiPut('/api/campos/'+encodeURIComponent(k.id),k,cb);
@@ -502,7 +506,7 @@ function borrarCampo(){
   if(!sel.id||!confirm('¿Eliminar el campo?'))return;
   var id=sel.id;
   apiDelete('/api/campos/'+encodeURIComponent(id),function(err){
-    if(err){ setMsg(err.error||'Error al eliminar.'); return; }
+    if(err){ setMsgErr(err.error||'Error al eliminar.'); return; }
     liberarBloqueoActual();
     sel={kind:null,id:null};
     recargarTodo(function(){ renderTree(); renderForm(); });

@@ -15,6 +15,7 @@
 })();
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="css/mensajes.css" rel="stylesheet">
 <style>
 :root{--bg:#F0F2F5;--card:#fff;--border:#E4E8EE;--text:#0F1923;--muted:#7A8899;--olive:#4A6533;--ochre:#A86A1F;--terra:#C8642D;--radius:12px;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -102,7 +103,7 @@ body.ro-empresa [data-scope="empresa"] .btn-act-add{display:none}
 .tipos .opts label{display:flex;align-items:center;gap:6px;font-size:12px;border:1px solid var(--border);border-radius:8px;padding:5px 9px;cursor:pointer}
 .tipos .opts label.on{border-color:var(--olive);background:#EEF3E8;color:#3A5128}
 .tipos .opts input{width:auto}
-.modal-actions{display:flex;gap:8px;margin-top:18px;align-items:center}
+.modal-actions{display:flex;gap:8px;margin-top:18px;align-items:center;flex-wrap:wrap}
 .pa-fila{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;padding-bottom:8px;border-bottom:1px dashed var(--border)}
 .pa-fila:last-child{border-bottom:none}
 .pa-fila select.pa-sel{flex:1 1 160px;min-width:150px;border:1px solid var(--border);border-radius:8px;padding:7px 8px;font-family:var(--sans);font-size:12.5px}
@@ -132,7 +133,6 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
 .ord-btn{border:1px solid var(--border);background:var(--card);color:var(--olive);cursor:pointer;font-size:8px;line-height:1;padding:2px 4px;border-radius:4px;width:20px}
 .ord-btn:hover:not(:disabled){background:#EEF3E8;border-color:var(--olive)}
 .ord-btn:disabled{opacity:.3;cursor:default}
-.msg{font-size:11px;color:var(--terra)}
 @media (max-width:820px){main{grid-template-columns:1fr}}
 </style>
 </head>
@@ -835,6 +835,7 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
 </div>
 
 <script src="js/api.js"></script>
+<script src="js/mensajes.js"></script>
 <script>
 // Estado
 var empresaId = null;
@@ -863,7 +864,7 @@ var filasPA = []; // estado del bloque de principios activos dentro del modal de
 function uid(){ return 'x_' + Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
 function findById(lista,id){ for(var i=0;i<lista.length;i++){ if(lista[i].id===id)return lista[i]; } return null; }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function msgSet(elId,txt){ document.getElementById(elId).textContent=txt||''; }
+function msgSet(elId,txt){ var el=document.getElementById(elId); if(!txt){ limpiarMsg(el); } else { marcarError(el,txt); } }
 function numOrNull(elId){ var v=document.getElementById(elId).value; return v===''?null:Number(v); }
 
 /* ============================================================
@@ -927,7 +928,16 @@ function vNum(raw,opts){
   if(opts.max!=null && x>opts.max) return {ok:false,msg:(opts.etiqueta||'Valor')+' no puede ser mayor a '+opts.max+'.'};
   return {ok:true,val:x};
 }
-function vErr(msgId,texto){ var el=document.getElementById(msgId); if(el) el.textContent=texto; }
+function vErr(msgId,texto){ marcarError(document.getElementById(msgId),texto); }
+
+// Los 16 formularios de este tablero viven en modales que hoy se cierran
+// apenas guardar sale bien — si pintáramos el cartel de éxito y cerráramos
+// en el mismo instante, nunca se vería. Lo mostramos y recién 600ms después
+// cerramos el modal y refrescamos la lista de atrás.
+function guardadoOk(msgId,texto,cerrarFn,siguienteFn){
+  marcarExito(document.getElementById(msgId),texto);
+  setTimeout(function(){ cerrarFn(); if(siguienteFn) siguienteFn(); }, 600);
+}
 
 // Navegación
 var VISTAS = ['terceros','choferes','socios','depositos','labores','cultivos','ambientes','usos','tenencias','especies','unidades','insumos','categorias','formul','ppioactivo','modosacc'];
@@ -1123,7 +1133,7 @@ function guardar(){
     direccion:vEsp(document.getElementById('t-dir').value),
     esProveedor:esProv,esCliente:esCli,tiposProveedor:tipos,activo:true};
   var isNew=!editId;
-  var cb=function(err){if(err){vErr('msg',err.error||'Error al guardar.');return;} cerrarModal();cargarTerceros(renderTerceros);};
+  var cb=function(err){if(err){vErr('msg',err.error||'Error al guardar.');return;} guardadoOk('msg','Tercero guardado con éxito.',cerrarModal,function(){cargarTerceros(renderTerceros);});};
   if(isNew) apiPost('/api/maestros/terceros',obj,cb);
   else apiPut('/api/maestros/terceros/'+encodeURIComponent(editId),obj,cb);
 }
@@ -1223,7 +1233,7 @@ function guardarChofer(){
     nombre:nombre,dni:dni,
     licencia:vEsp(document.getElementById('c-lic').value),activo:true};
   var isNew=!editChofer;
-  var cb=function(err){if(err){vErr('msg-chofer',err.error||'Error al guardar.');return;} cerrarModalChofer();cargarChoferes(renderChoferes);};
+  var cb=function(err){if(err){vErr('msg-chofer',err.error||'Error al guardar.');return;} guardadoOk('msg-chofer','Chofer guardado con éxito.',cerrarModalChofer,function(){cargarChoferes(renderChoferes);});};
   if(isNew) apiPost('/api/maestros/choferes',obj,cb);
   else apiPut('/api/maestros/choferes/'+encodeURIComponent(editChofer),obj,cb);
 }
@@ -1318,7 +1328,7 @@ function guardarDep(){
   var obj={id:editDep||uid(),empresaId:empresaId,campoId:document.getElementById('d-campo').value||null,
     nombre:n,clase:clase,especieId:espId,activo:true};
   var isNew=!editDep;
-  var cb=function(err){if(err){vErr('msg-dep',err.error||'Error al guardar.');return;} cerrarModalDep();cargarDepositos(renderDepositos);};
+  var cb=function(err){if(err){vErr('msg-dep',err.error||'Error al guardar.');return;} guardadoOk('msg-dep','Depósito guardado con éxito.',cerrarModalDep,function(){cargarDepositos(renderDepositos);});};
   if(isNew) apiPost('/api/maestros/depositos',obj,cb);
   else apiPut('/api/maestros/depositos/'+encodeURIComponent(editDep),obj,cb);
 }
@@ -1380,7 +1390,7 @@ function guardarLab(){
   if(vDuplicado(_labores,n,function(it){return it.nombre;},editLab)){ vErr('msg-lab','Ya existe una labor con ese nombre.'); return; }
   var obj={id:editLab||uid(),nombre:n,unidadLabor:document.getElementById('l-unidad').value||null,precioRef:precioRefLabEdit,activo:true};
   var isNew=!editLab;
-  var cb=function(err){if(err){vErr('msg-lab',err.error||'Error al guardar.');return;} cerrarModalLab();cargarLabores(renderLabores);};
+  var cb=function(err){if(err){vErr('msg-lab',err.error||'Error al guardar.');return;} guardadoOk('msg-lab','Labor guardada con éxito.',cerrarModalLab,function(){cargarLabores(renderLabores);});};
   if(isNew) apiPost('/api/maestros/labores',obj,cb);
   else apiPut('/api/maestros/labores/'+encodeURIComponent(editLab),obj,cb);
 }
@@ -1499,7 +1509,7 @@ function guardarCul(){
   var obj={id:editCul||uid(),empresaId:empresaId,nombre:n,
     sigla:sig,esCultivo:esCultivo,actividad:act,especieId:espId,graminea:graminea,default2da:def2,activo:true};
   var isNew=!editCul;
-  var cb=function(err){if(err){vErr('msg-cul',err.error||'Error al guardar.');return;} cerrarModalCul();cargarCultivos(renderCultivos);};
+  var cb=function(err){if(err){vErr('msg-cul',err.error||'Error al guardar.');return;} guardadoOk('msg-cul','Cultivo guardado con éxito.',cerrarModalCul,function(){cargarCultivos(renderCultivos);});};
   if(isNew) apiPost('/api/maestros/tipos-actividad',obj,cb);
   else apiPut('/api/maestros/tipos-actividad/'+encodeURIComponent(editCul),obj,cb);
 }
@@ -1566,7 +1576,7 @@ function guardarAmb(){
   var obj={id:editAmb||uid(),empresaId:empresaId,codigo:cod,descripcion:desc,
     tipo:document.getElementById('amb-tipo').value,color:document.getElementById('amb-color').value,activo:true};
   var isNew=!editAmb;
-  var cb=function(err){if(err){vErr('msg-amb',err.error||'Error al guardar.');return;} cerrarModalAmb();cargarAmbientes(renderAmbientes);};
+  var cb=function(err){if(err){vErr('msg-amb',err.error||'Error al guardar.');return;} guardadoOk('msg-amb','Ambiente guardado con éxito.',cerrarModalAmb,function(){cargarAmbientes(renderAmbientes);});};
   if(isNew) apiPost('/api/maestros/ambientes',obj,cb);
   else apiPut('/api/maestros/ambientes/'+encodeURIComponent(editAmb),obj,cb);
 }
@@ -1624,7 +1634,7 @@ function guardarUso(){
   if(!editUso && vDuplicado(_usos,cod,function(it){return it.codigo;},null)){ vErr('msg-uso','Ya existe un uso con ese código.'); return; }
   var obj={id:editUso||uid(),codigo:cod,label:lab,color:document.getElementById('uso-color').value,activo:true};
   var isNew=!editUso;
-  var cb=function(err){if(err){vErr('msg-uso',err.error||'Error al guardar.');return;} cerrarModalUso();cargarUsos(renderUsos);};
+  var cb=function(err){if(err){vErr('msg-uso',err.error||'Error al guardar.');return;} guardadoOk('msg-uso','Uso guardado con éxito.',cerrarModalUso,function(){cargarUsos(renderUsos);});};
   if(isNew) apiPost('/api/maestros/usos',obj,cb);
   else apiPut('/api/maestros/usos/'+encodeURIComponent(editUso),obj,cb);
 }
@@ -1674,7 +1684,7 @@ function guardarTenencia(){
   if(vDuplicado(_tenencias,nom,function(it){return it.nombre;},editTenencia)){ vErr('msg-tenencia','Ya existe una tenencia con ese nombre.'); return; }
   var obj={id:editTenencia||uid(),nombre:nom,activo:true};
   var isNew=!editTenencia;
-  var cb=function(err){if(err){vErr('msg-tenencia',err.error||'Error al guardar.');return;} cerrarModalTenencia();cargarTenencias(renderTenencias);};
+  var cb=function(err){if(err){vErr('msg-tenencia',err.error||'Error al guardar.');return;} guardadoOk('msg-tenencia','Tenencia guardada con éxito.',cerrarModalTenencia,function(){cargarTenencias(renderTenencias);});};
   if(isNew) apiPost('/api/maestros/tenencias',obj,cb);
   else apiPut('/api/maestros/tenencias/'+encodeURIComponent(editTenencia),obj,cb);
 }
@@ -1731,7 +1741,7 @@ function guardarEsp(){
   if(sig && vDuplicado(_especies,sig,function(it){return it.sigla;},editEsp)){ vErr('msg-esp','Ya existe una especie con esa sigla.'); return; }
   var obj={id:editEsp||uid(),nombre:n,sigla:sig,activo:true};
   var isNew=!editEsp;
-  var cb=function(err){if(err){vErr('msg-esp',err.error||'Error al guardar.');return;} cerrarModalEsp();recargarEspecies(renderEspecies);};
+  var cb=function(err){if(err){vErr('msg-esp',err.error||'Error al guardar.');return;} guardadoOk('msg-esp','Especie guardada con éxito.',cerrarModalEsp,function(){recargarEspecies(renderEspecies);});};
   if(isNew) apiPost('/api/maestros/especies',obj,cb);
   else apiPut('/api/maestros/especies/'+encodeURIComponent(editEsp),obj,cb);
 }
@@ -1787,7 +1797,7 @@ function guardarUni(){
   if(vDuplicado(_unidades,s,function(it){return it.sigla;},editUni)){ vErr('msg-uni','Ya existe una unidad con esa sigla.'); return; }
   var obj={id:editUni||uid(),sigla:s,nombre:nom,activo:true};
   var isNew=!editUni;
-  var cb=function(err){if(err){vErr('msg-uni',err.error||'Error al guardar.');return;} cerrarModalUni();recargarUnidades(renderUnidades);};
+  var cb=function(err){if(err){vErr('msg-uni',err.error||'Error al guardar.');return;} guardadoOk('msg-uni','Unidad guardada con éxito.',cerrarModalUni,function(){recargarUnidades(renderUnidades);});};
   if(isNew) apiPost('/api/maestros/unidades',obj,cb);
   else apiPut('/api/maestros/unidades/'+encodeURIComponent(editUni),obj,cb);
 }
@@ -2098,7 +2108,7 @@ function guardarIns(){
     obj.nutrientes=nut;
   }
   var isNew=!editIns;
-  var cb=function(err){if(err){msgSet('msg-ins',err.error||'Error al guardar.');return;} cerrarModalIns();cargarInsumos(renderInsumos);};
+  var cb=function(err){if(err){msgSet('msg-ins',err.error||'Error al guardar.');return;} guardadoOk('msg-ins','Insumo guardado con éxito.',cerrarModalIns,function(){cargarInsumos(renderInsumos);});};
   if(isNew) apiPost('/api/maestros/insumos',obj,cb);
   else apiPut('/api/maestros/insumos/'+encodeURIComponent(editIns),obj,cb);
 }
@@ -2189,8 +2199,9 @@ function guardarCategUI(){
   }
   var cb=function(err){
     if(err){msgSet('msg-categ',err.error||'Error al guardar.');return;}
-    cerrarModalCateg();
-    cargarCategorias(function(){ renderCategs(); if(document.getElementById('i-tipo')) poblarSelectCategoria(document.getElementById('i-tipo').value); });
+    guardadoOk('msg-categ','Categoría guardada con éxito.',cerrarModalCateg,function(){
+      cargarCategorias(function(){ renderCategs(); if(document.getElementById('i-tipo')) poblarSelectCategoria(document.getElementById('i-tipo').value); });
+    });
   };
   if(isNew) apiPost('/api/maestros/categorias-insumo',obj,cb);
   else apiPut('/api/maestros/categorias-insumo/'+encodeURIComponent(obj.id),obj,cb);
@@ -2268,7 +2279,7 @@ function guardarFormulUI(){
   if(isNaN(orden)||orden<0||orden>99){msgSet('msg-formul','Orden inválido.');return;}
   var obj={id:editFormul||uid(),codigo:cod,descripcion:desc,orden:orden,activo:true};
   var isNew=!editFormul;
-  var cb=function(err){if(err){msgSet('msg-formul',err.error||'Error al guardar.');return;} cerrarModalFormul();cargarFormulaciones(renderFormul);};
+  var cb=function(err){if(err){msgSet('msg-formul',err.error||'Error al guardar.');return;} guardadoOk('msg-formul','Formulación guardada con éxito.',cerrarModalFormul,function(){cargarFormulaciones(renderFormul);});};
   if(isNew) apiPost('/api/maestros/formulaciones',obj,cb);
   else apiPut('/api/maestros/formulaciones/'+encodeURIComponent(editFormul),obj,cb);
 }
@@ -2346,7 +2357,7 @@ function guardarPAUI(){
   if(uso.length>200){msgSet('msg-pa','Uso: máximo 200 caracteres.');return;}
   var obj={id:editPA||uid(),nombre:nom,eiq:eiq,uso:uso,activo:true};
   var isNew=!editPA;
-  var cb=function(err){if(err){msgSet('msg-pa',err.error||'Error al guardar.');return;} cerrarModalPA();cargarPrincipiosActivos(renderPA);};
+  var cb=function(err){if(err){msgSet('msg-pa',err.error||'Error al guardar.');return;} guardadoOk('msg-pa','Principio activo guardado con éxito.',cerrarModalPA,function(){cargarPrincipiosActivos(renderPA);});};
   if(isNew) apiPost('/api/maestros/principios-activos',obj,cb);
   else apiPut('/api/maestros/principios-activos/'+encodeURIComponent(editPA),obj,cb);
 }
@@ -2405,7 +2416,7 @@ function guardarSocio(){
   e=vMax(obs,300,'Observaciones'); if(e){ vErr('msg-socio',e); return; }
   var obj={id:editSocio||uid(),empresaId:empresaId,nombre:n,obs:obs,activo:true};
   var isNew=!editSocio;
-  var cb=function(err){if(err){msgSet('msg-socio',err.error||'Error al guardar.');return;} cerrarModalSocio();cargarSocios(renderSocios);};
+  var cb=function(err){if(err){msgSet('msg-socio',err.error||'Error al guardar.');return;} guardadoOk('msg-socio','Socio guardado con éxito.',cerrarModalSocio,function(){cargarSocios(renderSocios);});};
   if(isNew) apiPost('/api/maestros/socios',obj,cb);
   else apiPut('/api/maestros/socios/'+encodeURIComponent(editSocio),obj,cb);
 }
@@ -2467,7 +2478,7 @@ function guardarMoa(){
   var obj={id:editMoa||uid(),sistema:document.getElementById('m-sistema').value,codigo:c,descripcion:d,activo:true};
   var isNew=!editMoa;
   var reload=function(){ apiGet('/api/maestros/modos-accion',function(err,lista){_modosAcc=lista||[];renderModosAcc();}); };
-  var cb=function(err){if(err){msgSet('msg-moa',err.error||'Error al guardar.');return;} cerrarModalMoa();reload();};
+  var cb=function(err){if(err){msgSet('msg-moa',err.error||'Error al guardar.');return;} guardadoOk('msg-moa','Modo de acción guardado con éxito.',cerrarModalMoa,function(){reload();});};
   if(isNew) apiPost('/api/maestros/modos-accion',obj,cb);
   else apiPut('/api/maestros/modos-accion/'+encodeURIComponent(editMoa),obj,cb);
 }
