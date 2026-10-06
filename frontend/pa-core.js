@@ -139,7 +139,17 @@
         try { data = JSON.parse(xhr.responseText); } catch (e) {}
         if (callback) callback(null, data);
       } else {
-        if (callback) callback({ status: xhr.status, msg: xhr.responseText });
+        // .msg (texto crudo) se mantiene por compatibilidad con los
+        // console.error ya existentes; .error es el mensaje limpio del
+        // backend (mismo criterio que xhr() en js/api.js), para quien
+        // necesite mostrárselo al usuario en vez de solo loguearlo.
+        var errJson = null;
+        try { errJson = JSON.parse(xhr.responseText); } catch (e2) {}
+        if (callback) callback({
+          status: xhr.status,
+          msg: xhr.responseText,
+          error: (errJson && errJson.error) ? errJson.error : ('Error ' + xhr.status)
+        });
       }
     };
     xhr.send(datos !== null && datos !== undefined ? JSON.stringify(datos) : null);
@@ -148,8 +158,11 @@
   // ── 5. HELPERS DE ESCRITURA ──────────────────────────────────────────────
   // Toda escritura: actualiza caché (local o memoria) + sync async al backend.
 
-  function apiSync(coleccion, accion, datos) {
-    if (!usaApi()) return;
+  // callback(err, data) es opcional — el llamador que lo necesite (confirmar
+  // antes de avisar éxito/error al usuario) lo pasa; si no, el sync sigue
+  // siendo "fire and forget" con el console.error de siempre, como antes.
+  function apiSync(coleccion, accion, datos, callback) {
+    if (!usaApi()) { if (callback) callback(null); return; }
     var method, url;
     if (accion === 'crear') {
       method = 'POST'; url = '/api/maestros/' + coleccion;
@@ -157,21 +170,29 @@
       method = 'PUT'; url = '/api/maestros/' + coleccion + '/' + encodeURIComponent(datos.id);
     } else { // 'borrar': datos = string id
       method = 'DELETE'; url = '/api/maestros/' + coleccion + '/' + encodeURIComponent(datos);
+      // El backend exige empresaId por query en los DELETE de colecciones
+      // "por empresa" (devuelve 400 "Falta empresaId en query" si no viene) —
+      // a diferencia de crear/actualizar, el DELETE no manda body donde ya
+      // viajaba. Sin esto, todo borrado vía esta capa fallaba en silencio
+      // (el error solo iba a console.error) y el registro seguía existiendo
+      // en la base aunque desaparecía de la UI de esa sesión.
+      if (CTX && CTX.empresaActivaId) url += '?empresaId=' + encodeURIComponent(CTX.empresaActivaId);
       datos  = null;
     }
-    apiXHR(method, url, datos, function (err) {
+    apiXHR(method, url, datos, function (err, data) {
       if (err) console.error('PA sync [' + coleccion + '] ' + accion + ':', err.msg || err.status);
+      if (callback) callback(err, data);
     });
   }
 
-  function cacheGuardar(key, coleccion, obj, idPrefix) {
+  function cacheGuardar(key, coleccion, obj, idPrefix, callback) {
     var lista    = cacheGet(key, []);
     var esNuevo  = !obj.id;
     if (esNuevo) {
       obj.id = uid(idPrefix);
       lista.push(obj);
       cacheSet(key, lista);
-      apiSync(coleccion, 'crear', obj);
+      apiSync(coleccion, 'crear', obj, callback);
     } else {
       var ok = false;
       for (var i = 0; i < lista.length; i++) {
@@ -179,19 +200,19 @@
       }
       if (!ok) lista.push(obj);
       cacheSet(key, lista);
-      apiSync(coleccion, 'actualizar', obj);
+      apiSync(coleccion, 'actualizar', obj, callback);
     }
     return obj;
   }
 
-  function cacheBorrar(key, coleccion, id) {
+  function cacheBorrar(key, coleccion, id, callback) {
     var lista = cacheGet(key, []);
     var nueva = [];
     for (var i = 0; i < lista.length; i++) {
       if (lista[i].id !== id) nueva.push(lista[i]);
     }
     cacheSet(key, nueva);
-    apiSync(coleccion, 'borrar', id);
+    apiSync(coleccion, 'borrar', id, callback);
   }
 
   function _tieneRol(tercero, rol) {
@@ -899,8 +920,8 @@
       }
       return out;
     },
-    guardarLote: function (l) { return cacheGuardar(K_LOTES, 'lotes', l, 'lot'); },
-    borrarLote:  function (id) { cacheBorrar(K_LOTES, 'lotes', id); },
+    guardarLote: function (l, callback) { return cacheGuardar(K_LOTES, 'lotes', l, 'lot', callback); },
+    borrarLote:  function (id, callback) { cacheBorrar(K_LOTES, 'lotes', id, callback); },
 
     // ── ACTIVIDADES (lote + tipo actividad + campaña) ─────────────────────────
     listarActividades: function (empresaId, campaniaId, loteId) {

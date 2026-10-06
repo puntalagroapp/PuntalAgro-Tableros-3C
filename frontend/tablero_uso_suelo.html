@@ -291,6 +291,7 @@ tr.hist-subtot td{background:#F4F6F1;border-top:1px solid var(--border);border-b
 .modal-ok{padding:7px 14px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid #4A6533;background:#4A6533;color:#fff;font-family:var(--sans);font-weight:500}
 .modal-ok:hover{background:#3B5128}
 .modal-warn{padding:8px 12px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:6px;font-size:11px;color:#991B1B;margin:8px 0;font-family:var(--sans)}
+.modal-warn.ok{background:#EFF5EA;border-color:#B7CFA4;color:var(--olive-dark,#3B5128)}
 
 /* Dropdown custom de cultivos */
 .dd-wrap{position:relative;display:inline-block}
@@ -1338,8 +1339,8 @@ function cargarDesdeApi(callback) {
 // tipoOverride, además de campo/nombre/ha) en la tabla lotes.
 // Sirve tanto para alta (lote._id todavía no existe -> PA.demo.guardarLote lo
 // crea y acá se guarda el id real devuelto) como para edición.
-function guardarAtributosLote(lote) {
-  if (!CTX) return;
+function guardarAtributosLote(lote, callback) {
+  if (!CTX) { if (callback) callback(null); return; }
   var payload = {
     empresaId: CTX.empresaActivaId, campoId: lote._campoId || '',
     nombre: lote.l, ha: lote.s || 0, ambiente: lote.a || '',
@@ -1347,7 +1348,7 @@ function guardarAtributosLote(lote) {
     tipoOverride: TIPO_OVERRIDE[lote.l] || ''
   };
   if (lote._id) payload.id = lote._id;
-  var guardado = PA.demo.guardarLote(payload);
+  var guardado = PA.demo.guardarLote(payload, callback);
   lote._id = guardado.id;
 }
 
@@ -3259,7 +3260,8 @@ function openLoteModal(loteName){
   var abrirModalLote = function(){
     loteEditando = loteName || null;
     loteEditandoId = lExistente ? lExistente._id : null;
-    document.getElementById('modalLoteWarn').style.display = 'none';
+    var mlWarnEl = document.getElementById('modalLoteWarn');
+    mlWarnEl.className = 'modal-warn'; mlWarnEl.style.display = 'none';
     buildAmbienteSelect('mlAmbiente', '');
     // En modo API: poblar select de campos desde el caché, restringido a
     // permiso.campoIds si el usuario no es admin_general (mismo criterio que
@@ -3314,9 +3316,15 @@ function closeLoteModal(){
   if (loteEditandoId) unlockRegistro('plan_uso_suelo:lote', loteEditandoId);
   document.getElementById('modalLote').classList.remove('on'); loteEditando = null; loteEditandoId = null;
 }
+// En modo API no se toca LOTES/TIPO_OVERRIDE (ni se cierra el modal) hasta
+// tener la confirmación real del backend (guardarAtributosLote con callback)
+// — antes se aplicaba todo de una y el POST/PUT se mandaba en segundo plano
+// sin que nadie chequeara el resultado: si fallaba, la UI quedaba mostrando
+// un lote "guardado" que en realidad nunca llegó a la base.
 function confirmLoteModal(){
   if(!puedeEscribir()){ closeLoteModal(); return; }
   var warn = document.getElementById('modalLoteWarn');
+  var btnGuardar = document.querySelector('#modalLote .modal-ok');
   var nombre = document.getElementById('mlNombre').value.trim();
   var campo = document.getElementById('mlCampo').value;
   var amb = document.getElementById('mlAmbiente').value;
@@ -3326,49 +3334,88 @@ function confirmLoteModal(){
   var explStr = String(explRaw).trim();
   var expl = explStr==='' ? null : parseNumAR(explStr);
   var activo = document.getElementById('mlActivo').checked;
+  warn.className = 'modal-warn';
   if(!nombre){ warn.textContent='Poné un nombre de lote.'; warn.style.display='block'; return; }
   // nombre único (excepto el que estoy editando)
   var dup = LOTES.find(function(x){return x.l===nombre && x.l!==loteEditando;});
   if(dup){ warn.textContent='Ya existe un lote con ese nombre.'; warn.style.display='block'; return; }
   if(isNaN(sup) || sup<0) sup = 0;
   if(expl!=null && (isNaN(expl) || expl<0)){ expl = null; }
+
+  var campoId = null;
+  if (_esModoApi() && CTX) {
+    var cams = PA.demo.camposDeEmpresa(CTX.empresaActivaId);
+    for (var ci = 0; ci < cams.length; ci++) { if (cams[ci].nombre === campo) { campoId = cams[ci].id; break; } }
+  }
+
+  function mostrarError(err){
+    if(btnGuardar) btnGuardar.disabled = false;
+    warn.className = 'modal-warn';
+    warn.textContent = (err && err.error) ? err.error : 'No se pudo guardar el lote. Probá de nuevo.';
+    warn.style.display = 'block';
+  }
+  function mostrarExitoYcerrar(texto){
+    warn.className = 'modal-warn ok';
+    warn.textContent = texto;
+    warn.style.display = 'block';
+    setTimeout(function(){ if(btnGuardar) btnGuardar.disabled=false; closeLoteModal(); renderAll(); }, 600);
+  }
+
   if(loteEditando){
     var l = LOTES.find(function(x){return x.l===loteEditando;});
-    if(l){
-      // Si cambió el nombre, migrar el override de tipo
+    if(!l){ closeLoteModal(); return; }
+    if (!(_esModoApi() && CTX)) {
+      // Modo demo (sin backend): no hay nada que confirmar, se aplica directo.
       if(nombre!==l.l && TIPO_OVERRIDE[l.l]){ TIPO_OVERRIDE[nombre]=TIPO_OVERRIDE[l.l]; delete TIPO_OVERRIDE[l.l]; }
       l.l = nombre; l.c = campo; l.a = amb; l.s = sup; l.expl = expl; l.activo = activo;
-      if (_esModoApi() && CTX) {
-        var cams = PA.demo.camposDeEmpresa(CTX.empresaActivaId);
-        var cId = null;
-        for (var ci = 0; ci < cams.length; ci++) { if (cams[ci].nombre === campo) { cId = cams[ci].id; break; } }
-        if (cId) l._campoId = cId;
-        guardarAtributosLote(l);
-      }
+      closeLoteModal(); renderAll();
+      return;
     }
+    // Candidato: "l" (el lote real) no se toca hasta que el backend confirme.
+    var candidato = { l: nombre, c: campo, a: amb, s: sup, expl: expl, activo: activo, _id: l._id, _campoId: campoId || l._campoId };
+    var tipoAnterior = TIPO_OVERRIDE[l.l];
+    var renombrando = nombre !== l.l && !!tipoAnterior;
+    if (renombrando) TIPO_OVERRIDE[nombre] = tipoAnterior; // así guardarAtributosLote manda el override con la clave nueva
+    if(btnGuardar) btnGuardar.disabled = true;
+    guardarAtributosLote(candidato, function(err){
+      if(err){ if(renombrando) delete TIPO_OVERRIDE[nombre]; mostrarError(err); return; }
+      if(renombrando) delete TIPO_OVERRIDE[l.l];
+      l.l=candidato.l; l.c=candidato.c; l.a=candidato.a; l.s=candidato.s; l.expl=candidato.expl; l.activo=candidato.activo; l._campoId=candidato._campoId; l._id=candidato._id;
+      mostrarExitoYcerrar('Lote guardado con éxito.');
+    });
   } else {
-    var nuevoLote = { l: nombre, c: campo, s: sup, a: amb, expl: expl, activo: activo, p: {} };
-    if (_esModoApi() && CTX) {
-      var cams2 = PA.demo.camposDeEmpresa(CTX.empresaActivaId);
-      var cId2 = null;
-      for (var cj = 0; cj < cams2.length; cj++) { if (cams2[cj].nombre === campo) { cId2 = cams2[cj].id; break; } }
-      nuevoLote._campoId = cId2;
-      LOTES.push(nuevoLote);
-      guardarAtributosLote(nuevoLote);
-    } else {
-      LOTES.push(nuevoLote);
+    if (!(_esModoApi() && CTX)) {
+      LOTES.push({ l: nombre, c: campo, s: sup, a: amb, expl: expl, activo: activo, p: {} });
+      closeLoteModal(); renderAll();
+      return;
     }
+    var nuevoLote = { l: nombre, c: campo, s: sup, a: amb, expl: expl, activo: activo, p: {}, _campoId: campoId };
+    if(btnGuardar) btnGuardar.disabled = true;
+    guardarAtributosLote(nuevoLote, function(err){
+      if(err){ mostrarError(err); return; }
+      LOTES.push(nuevoLote);
+      mostrarExitoYcerrar('Lote creado con éxito.');
+    });
   }
-  closeLoteModal();
-  renderAll();
 }
 function deleteLote(loteName){
   if(!puedeEscribir()){ alert('No tenés permiso de carga en esta empresa.'); return; }
   if(!confirm('¿Eliminar el lote "'+loteName+'"? Se borra de TODAS las campañas.')) return;
   var idx = LOTES.findIndex(function(x){return x.l===loteName;});
-  if(idx>=0){
-    // Al borrar el lote, actividades se borra en cascada (FK ON DELETE CASCADE).
-    if (_esModoApi() && LOTES[idx]._id) PA.demo.borrarLote(LOTES[idx]._id);
+  if(idx<0) return;
+  // Al borrar el lote, actividades se borra en cascada (FK ON DELETE CASCADE).
+  if (_esModoApi() && CTX && LOTES[idx]._id) {
+    PA.demo.borrarLote(LOTES[idx]._id, function(err){
+      if(err){
+        alert((err.error||'No se pudo eliminar el lote.')+' El lote sigue existiendo — probá de nuevo.');
+        return;
+      }
+      var idx2 = LOTES.findIndex(function(x){return x.l===loteName;});
+      if(idx2>=0) LOTES.splice(idx2,1);
+      delete TIPO_OVERRIDE[loteName];
+      renderAll();
+    });
+  } else {
     LOTES.splice(idx,1);
     delete TIPO_OVERRIDE[loteName];
     renderAll();
