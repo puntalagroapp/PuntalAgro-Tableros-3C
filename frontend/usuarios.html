@@ -15,8 +15,13 @@
 })();
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="css/mensajes.css" rel="stylesheet">
 <style>
 :root{--bg:#F0F2F5;--card:#fff;--border:#E4E8EE;--text:#0F1923;--muted:#7A8899;--olive:#4A6533;--ochre:#A86A1F;--terra:#C8642D;--radius:12px;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;}
+/* p-estado también muestra avisos neutros ("Editando permiso existente.") que
+   no son ni error ni éxito — se quedan con este estilo discreto en vez del
+   formato de .msg-ok/.msg-error, para no confundirlos con un resultado. */
+#p-estado.msg-neutro{display:block;font-size:11px;color:var(--muted)}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15px;min-height:100vh;display:flex;flex-direction:column}
 header{background:var(--card);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
@@ -106,6 +111,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
       </div>
       <button class="btn" id="btn-guardar-usuario" onclick="guardarUsuario()">Crear usuario</button>
       <button class="btn-sm" id="btn-cancelar-edicion" style="display:none" onclick="cancelarEdicionUsuario()">Cancelar</button>
+      <span class="msg" id="u-msg"></span>
     </div>
     <p class="sub" id="hint-admin-cliente" style="display:none;margin-top:10px">Un <strong>admin_cliente</strong> administra automáticamente todas las empresas del cliente asociado — no hace falta asignarle permisos por empresa más abajo.</p>
     <p class="sub" id="hint-usuario-admin" style="display:none;margin-top:10px">Este usuario queda asociado a tu cliente. Después asignale acceso a alguna de las empresas que administrás, más abajo.</p>
@@ -148,12 +154,13 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
     <div class="row" style="margin-top:14px">
       <button class="btn" id="btn-asignar" onclick="asignarPermiso()">Guardar permiso</button>
       <button class="btn-sm" id="btn-borrar" style="display:none" onclick="borrarPermisoActual()">Quitar acceso a esta empresa</button>
-      <span id="p-estado" style="font-size:11px;color:var(--muted)"></span>
+      <span class="msg" id="p-estado"></span>
     </div>
   </div>
 </main>
 
 <script src="js/api.js"></script>
+<script src="js/mensajes.js"></script>
 <script>
 var CTX = null;
 var _usuarios = [], _permisos = [], _empresas = [], _campos = [], _clientes = [], _herramientas = [];
@@ -538,7 +545,14 @@ function liberarPermisoBloqueado(){
   }
 }
 
-function precargar(){
+function estadoNeutro(texto){
+  var el=document.getElementById('p-estado');
+  if(!el) return;
+  el.textContent=texto;
+  el.className='msg msg-neutro';
+}
+
+function precargar(cb){
   var usuarioId=document.getElementById('p-usuario').value;
   var empresaId=document.getElementById('p-empresa').value;
   var estado=document.getElementById('p-estado');
@@ -546,14 +560,15 @@ function precargar(){
   var btnAsignar=document.getElementById('btn-asignar');
   var todosCampos=document.getElementById('p-todos-campos');
   liberarPermisoBloqueado();
-  if(!usuarioId||!empresaId){ btnAsignar.disabled=false; renderChecklist([],empresaId); todosCampos.checked=true; renderCamposChecklist(empresaId,[],true); return; }
+  if(!usuarioId||!empresaId){ btnAsignar.disabled=false; renderChecklist([],empresaId); todosCampos.checked=true; renderCamposChecklist(empresaId,[],true); if(cb) cb(); return; }
   apiLock('permisos',permisoTabla(usuarioId,empresaId),empresaId,function(errLock){
     // La selección pudo haber cambiado mientras esperábamos la respuesta.
     if(usuarioId!==document.getElementById('p-usuario').value || empresaId!==document.getElementById('p-empresa').value) return;
     if(errLock){
       btnAsignar.disabled=true; btnBorrar.style.display='none';
-      estado.textContent=errLock.error||'No se pudo tomar este registro.';
+      marcarError(estado, errLock.error||'No se pudo tomar este registro.');
       renderChecklist([],empresaId); todosCampos.checked=true; renderCamposChecklist(empresaId,[],true);
+      if(cb) cb();
       return;
     }
     permisoBloqueado={usuarioId:usuarioId,empresaId:empresaId};
@@ -565,7 +580,7 @@ function precargar(){
       var especificos=p.campoIds && p.campoIds.length>0;
       todosCampos.checked=!especificos;
       renderCamposChecklist(empresaId,p.campoIds||[],!especificos);
-      estado.textContent='Editando permiso existente.';
+      estadoNeutro('Editando permiso existente.');
       btnBorrar.style.display='';
       onNivelChange();
     } else {
@@ -573,27 +588,29 @@ function precargar(){
       renderChecklist([],empresaId);
       todosCampos.checked=true;
       renderCamposChecklist(empresaId,[],true);
-      estado.textContent='Nuevo permiso (sin acceso todavía).';
+      estadoNeutro('Nuevo permiso (sin acceso todavía).');
       btnBorrar.style.display='none';
       onNivelChange();
     }
+    if(cb) cb();
   });
 }
 
 // Lee Nombre/Email/Rol/Cliente del formulario, comunes a alta y edición.
 // Devuelve null (y ya mostró el alert correspondiente) si falta algo obligatorio.
 function leerDatosComunesForm(){
+  var msg=document.getElementById('u-msg');
   var nombre=document.getElementById('u-nombre').value.trim();
   var email=document.getElementById('u-email').value.trim();
   var rol=document.getElementById('u-rol').value;
-  if(!nombre||!email){ alert('Completá nombre y email.'); return null; }
+  if(!nombre||!email){ marcarError(msg,'Completá nombre y email.'); return null; }
   var clienteId=null;
   if(rol!=='admin_general'){
     if(CTX && (CTX.usuario.rol==='admin_cliente' || CTX.usuario.rol==='usuario')){
       clienteId=CTX.usuario.clienteId;
     } else {
       clienteId=document.getElementById('u-cliente').value||null;
-      if(!clienteId){ alert('Elegí a qué cliente pertenece este usuario.'); return null; }
+      if(!clienteId){ marcarError(msg,'Elegí a qué cliente pertenece este usuario.'); return null; }
     }
   }
   return {nombre:nombre,email:email,rol:rol,clienteId:clienteId};
@@ -605,10 +622,11 @@ function guardarUsuario(){
 }
 
 function crearUsuario(){
+  var msg=document.getElementById('u-msg');
   var datos=leerDatosComunesForm();
   if(!datos) return;
   var pass=document.getElementById('u-pass').value;
-  if(!pass){ alert('Completá una contraseña inicial.'); return; }
+  if(!pass){ marcarError(msg,'Completá una contraseña inicial.'); return; }
   var u={id:uid(),nombre:datos.nombre,email:datos.email,password:pass,rol:datos.rol,clienteId:datos.clienteId,activo:true};
   if(document.getElementById('fld-herramientas-internas').style.display!=='none'){
     u.herramientasInternas=document.getElementById('u-herramientas-internas').checked;
@@ -617,9 +635,9 @@ function crearUsuario(){
     u.usuarioInterno=document.getElementById('u-usuario-interno').checked;
   }
   apiPost('/api/usuarios',u,function(err){
-    if(err){ alert(err.error||'Error al crear usuario.'); return; }
+    if(err){ marcarError(msg,err.error||'Error al crear usuario.'); return; }
     limpiarFormUsuario();
-    recargarTodo(function(){ renderUsuarios(); renderRoles(); precargar(); });
+    recargarTodo(function(){ renderUsuarios(); renderRoles(); precargar(); marcarExito(document.getElementById('u-msg'),'Usuario creado con éxito.'); });
   });
 }
 
@@ -629,7 +647,12 @@ function editarUsuario(id){
   for(var i=0;i<_usuarios.length;i++){ if(_usuarios[i].id===id){ u=_usuarios[i]; break; } }
   if(!u) return;
   apiLock('usuarios', id, null, function(errLock){
-    if(errLock){ alert(errLock.error||'No se pudo tomar este usuario para editar.'); return; }
+    if(errLock){
+      window.scrollTo({top:0,behavior:'smooth'});
+      marcarError(document.getElementById('u-msg'),errLock.error||'No se pudo tomar este usuario para editar.');
+      return;
+    }
+    limpiarMsg(document.getElementById('u-msg'));
     editandoUsuarioId=id;
     document.getElementById('panel-usuario-titulo').textContent='Editar usuario: '+u.nombre;
     document.getElementById('u-nombre').value=u.nombre||'';
@@ -673,13 +696,14 @@ function editarUsuario(id){
 }
 
 function actualizarUsuario(){
+  var msg=document.getElementById('u-msg');
   var pass=document.getElementById('u-pass').value;
   var esAutoedicion=CTX && CTX.usuario.rol==='usuario' && CTX.usuario.id===editandoUsuarioId;
   var body;
   if(esAutoedicion){
     // Solo se manda la contraseña — el backend ignora cualquier otro campo
     // en este caso, pero ni siquiera se ofrecen en el formulario.
-    if(!pass){ alert('Ingresá la nueva contraseña.'); return; }
+    if(!pass){ marcarError(msg,'Ingresá la nueva contraseña.'); return; }
     body={password:pass};
   } else {
     var datos=leerDatosComunesForm();
@@ -698,10 +722,10 @@ function actualizarUsuario(){
     }
   }
   apiPut('/api/usuarios/'+encodeURIComponent(editandoUsuarioId),body,function(err){
-    if(err){ alert(err.error||'Error al guardar los cambios.'); return; }
+    if(err){ marcarError(msg,err.error||'Error al guardar los cambios.'); return; }
     apiUnlock('usuarios',editandoUsuarioId,function(){});
     limpiarFormUsuario();
-    recargarTodo(function(){ renderUsuarios(); renderRoles(); precargar(); });
+    recargarTodo(function(){ renderUsuarios(); renderRoles(); precargar(); marcarExito(document.getElementById('u-msg'),'Usuario guardado con éxito.'); });
   });
 }
 
@@ -712,6 +736,7 @@ function cancelarEdicionUsuario(){
 
 // Vuelve el formulario al modo alta (limpio) y libera el título/botones de edición.
 function limpiarFormUsuario(){
+  limpiarMsg(document.getElementById('u-msg'));
   editandoUsuarioId=null;
   document.getElementById('panel-usuario-titulo').textContent='Nuevo usuario';
   document.getElementById('u-nombre').value='';
@@ -765,9 +790,12 @@ function asignarPermiso(){
     guardado=guardado||p;
     var gCampos=guardado.campoIds||[], gHerr=guardado.herramientas||[];
     var txtCampos=gCampos.length?(gCampos.length+' campos'):'todos los campos';
-    document.getElementById('p-estado').textContent='Permiso guardado ('+gHerr.length+' herramientas, '+txtCampos+', nivel '+guardado.nivel+').';
+    var txtExito='Permiso guardado ('+gHerr.length+' herramientas, '+txtCampos+', nivel '+guardado.nivel+').';
     liberarPermisoBloqueado();
-    recargarTodo(function(){ renderUsuarios(); precargar(); });
+    // precargar() vuelve a pisar p-estado con el aviso neutro ("Editando
+    // permiso existente.") al releer lo recién guardado — el éxito se marca
+    // recién en su callback para que no quede tapado al instante.
+    recargarTodo(function(){ renderUsuarios(); precargar(function(){ marcarExito(document.getElementById('p-estado'), txtExito); }); });
   });
 }
 
