@@ -3222,6 +3222,36 @@ function buildAmbienteSelect(selectId, current){
   sel.innerHTML = html;
 }
 
+// Aviso (no bloqueante: nunca impide guardar) cuando la sup. total de este
+// lote, sumada a la de los demás lotes del mismo campo, supera la sup. total
+// del campo (Administración). Se recalcula en vivo mientras se edita.
+// Nota: ya no hay lotes "Desperdicios" que excluir de la suma (ver
+// estructuraDeCampo()) — todas las filas de LOTES son lotes productivos reales.
+function checkSupCampoAviso(){
+  var el = document.getElementById('mlSupAviso');
+  if(!el) return;
+  var campo = document.getElementById('mlCampo').value;
+  // totalDeCampo() puede devolver un NUMERIC de Postgres serializado como string
+  // (ej. "1225.50"): forzar a number para que la comparación no concatene.
+  var campoTotal = Number(totalDeCampo(campo)) || 0;
+  var sup = parseNumAR(document.getElementById('mlSup').value);
+  if(!campo || !(campoTotal>0) || isNaN(sup)){ el.style.display='none'; return; }
+  var otros = 0;
+  for(var i=0;i<LOTES.length;i++){
+    var x = LOTES[i];
+    if(x.l===loteEditando) continue; // el que estoy editando, no contar dos veces
+    if(x.c!==campo) continue;
+    otros += x.s||0;
+  }
+  var total = otros + sup;
+  if(total > campoTotal + 0.01){
+    el.textContent = '⚠ Este lote + los demás lotes de '+campo+' suman '+f(total,1)+' ha, superan la sup. total del campo ('+f(campoTotal,1)+' ha).';
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
 function openLoteModal(loteName){
   if(!puedeEscribir()){ alert('No tenés permiso de carga en esta empresa. Solo podés ver el padrón.'); return; }
   var lExistente = loteName ? LOTES.find(function(x){return x.l===loteName;}) : null;
