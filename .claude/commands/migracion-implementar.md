@@ -35,6 +35,7 @@ Actuá como un ingeniero de software senior especializado en migración de aplic
 
 ### Reglas absolutas — NO violar ninguna:
 - **No cambiar diseño visual**: ni HTML estructural, ni CSS, ni layout, ni colores, ni textos visibles al usuario
+- **Excepción a la regla anterior: los mensajes de éxito/error de guardado SIEMPRE usan el mecanismo unificado del proyecto** (`css/mensajes.css` + `js/mensajes.js`), sin importar qué use el HTML standalone del cliente (alert(), texto suelto, o nada) — ver sección "Mensajes de éxito y error" más abajo
 - **No reescribir el tablero** desde cero
 - **No usar frameworks** (React, Vue, Angular, etc.)
 - **Mantener ES5**: var, function, XMLHttpRequest, callbacks — sin let/const/arrow functions/fetch/class
@@ -172,15 +173,56 @@ apiPost('/api/endpoint', payload, function(err, resp) {
 });
 ```
 
-### Si la API devuelve error, mostrar al usuario
+### Mensajes de éxito y error
 
-Reutilizar cualquier mecanismo de error que ya tenga el tablero (toast, banner, alert), o agregar uno mínimo:
-```javascript
-function mostrarError(err) {
-  var msg = (err && err.error) ? err.error : 'Error al comunicarse con el servidor';
-  alert(msg); // reemplazar con el mecanismo visual del tablero si existe
-}
+Esta es la única excepción deliberada a "no cambiar diseño visual": no importa
+qué tenga el HTML standalone del cliente (alert(), un texto suelto, o nada) —
+en `frontend/NombreTablero.html` todo guardado/edición/borrado avisa éxito y
+error con el mecanismo unificado del proyecto, no con el del cliente.
+
+**Importar (si no están ya):**
+```html
+<link href="css/mensajes.css" rel="stylesheet">
+<script src="js/mensajes.js"></script>
 ```
+
+**En el HTML**, un `<span class="msg" id="xxx-msg"></span>` dentro del mismo
+contenedor que los botones de guardar. Ese contenedor necesita
+`flex-wrap:wrap` en su CSS — el mensaje usa `flex-basis:100%` y cae en su
+propia línea debajo de los botones (así no se confunde con uno clickeable).
+
+**En el JS** (`marcarExito`/`marcarError`/`limpiarMsg` ya están en `js/mensajes.js`):
+```javascript
+apiPost('/api/mi-endpoint', payload, function(err, resp) {
+  var msg = document.getElementById('xxx-msg');
+  if (err) { marcarError(msg, err.error || 'Error al guardar.'); return; }
+  limpiarFormulario();
+  recargarYRenderizar(function() {
+    // El éxito se marca DESPUÉS del reset/recarga, nunca antes — si no, el
+    // propio reset lo pisa y el usuario no llega a verlo.
+    marcarExito(msg, 'Guardado con éxito.');
+  });
+});
+```
+
+**Cuidados aprendidos migrando esto en la práctica** (maestros/administración/
+usuarios/herramientas internas-externas, 2026-10-06):
+- Si el guardado vive en un **modal que se cierra solo al confirmar**, no
+  cerrarlo al toque: mostrar el cartel de éxito, esperar ~600ms, recién ahí
+  cerrar — si no, nunca llega a verse.
+- Mientras se espera la confirmación del servidor, **deshabilitar el botón
+  de guardar** (si no, un doble click durante la espera puede reenviar el
+  mismo alta/edición).
+- Si el mismo elemento de mensaje también se usa para **avisos neutros** (no
+  son ni error ni éxito — ej. "Editando X existente"), no les apliques
+  `marcarError`/`marcarExito`: quedan mal etiquetados como si fueran un
+  resultado. Dejalos con un estilo propio, discreto, aparte.
+- Esto solo funciona si el guardado de verdad **espera la respuesta del
+  backend** antes de avisar — ver la regla "No asumir éxito antes de la
+  respuesta" más abajo. Si el patrón existente del tablero actualiza el
+  estado local y manda el POST/PUT/DELETE en segundo plano sin esperarlo
+  (ver por ejemplo `PA.demo.*` en `pa-core.js`), hay que hacerlo esperar
+  antes de poder avisar algo real.
 
 ---
 
