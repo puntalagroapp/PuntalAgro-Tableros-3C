@@ -102,6 +102,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
     <div class="row" id="filtros-usuarios" style="margin-bottom:12px">
       <div class="fld" id="fld-f-cliente"><label>Cliente</label><select id="f-cliente" onchange="onCambioFiltroCliente()"></select></div>
       <div class="fld"><label>Empresa</label><select id="f-empresa" onchange="renderUsuarios()"></select></div>
+      <div class="fld" id="fld-f-rol"><label>Rol</label><select id="f-rol" onchange="renderUsuarios()"></select></div>
       <div class="fld"><label>Usuario</label><input id="f-usuario" placeholder="Nombre o email…" autocomplete="off" oninput="renderUsuarios()"></div>
       <button class="btn-sm" onclick="limpiarFiltrosUsuarios()">Limpiar filtros</button>
     </div>
@@ -321,6 +322,12 @@ function poblarFiltrosUsuarios(){
   var esAdminGeneral=CTX && CTX.usuario.rol==='admin_general';
   var fldCliente=document.getElementById('fld-f-cliente');
   if(fldCliente) fldCliente.style.display=esAdminGeneral?'':'none';
+  // El filtro de Rol solo aporta para admin_general: admin_cliente y el
+  // 'usuario' administrador de empresa ya reciben de la API únicamente
+  // usuarios de rol 'usuario' (ver GET /api/usuarios en el backend), así
+  // que para ellos el filtro siempre tendría una sola opción posible.
+  var fldRol=document.getElementById('fld-f-rol');
+  if(fldRol) fldRol.style.display=esAdminGeneral?'':'none';
 
   var selCli=document.getElementById('f-cliente');
   var prevCli=selCli.value;
@@ -332,6 +339,16 @@ function poblarFiltrosUsuarios(){
   var cliSigueValido=false;
   for(var ci=0;ci<_clientes.length;ci++){ if(_clientes[ci].id===prevCli) cliSigueValido=true; }
   selCli.value=cliSigueValido?prevCli:'';
+
+  if(esAdminGeneral){
+    var selRol=document.getElementById('f-rol');
+    var prevRol=selRol.value;
+    selRol.innerHTML='<option value="">Todos los roles</option>'
+      +'<option value="admin_general">admin_general</option>'
+      +'<option value="admin_cliente">admin_cliente</option>'
+      +'<option value="usuario">usuario</option>';
+    selRol.value=prevRol;
+  }
 
   poblarFiltroEmpresa();
 }
@@ -357,6 +374,7 @@ function onCambioFiltroCliente(){
 
 function limpiarFiltrosUsuarios(){
   document.getElementById('f-cliente').value='';
+  document.getElementById('f-rol').value='';
   document.getElementById('f-usuario').value='';
   poblarFiltroEmpresa();
   renderUsuarios();
@@ -381,13 +399,16 @@ function renderUsuarios(){
 
   // Filtros de la lista (no afectan el selector de "Asignar/editar permiso",
   // que sigue ofreciendo todos los usuarios dentro del alcance del admin).
-  var filtroCliente=(CTX && CTX.usuario.rol==='admin_general') ? document.getElementById('f-cliente').value : '';
+  var esAdminGeneralVista=CTX && CTX.usuario.rol==='admin_general';
+  var filtroCliente=esAdminGeneralVista ? document.getElementById('f-cliente').value : '';
   var filtroEmpresa=document.getElementById('f-empresa').value;
+  var filtroRol=esAdminGeneralVista ? document.getElementById('f-rol').value : '';
   var filtroTexto=(document.getElementById('f-usuario').value||'').trim().toLowerCase();
 
   var usFiltrados=us;
   if(filtroCliente) usFiltrados=usFiltrados.filter(function(u){ return u.clienteId===filtroCliente; });
   if(filtroEmpresa) usFiltrados=usFiltrados.filter(function(u){ return usuarioTieneAccesoEmpresa(u,filtroEmpresa); });
+  if(filtroRol) usFiltrados=usFiltrados.filter(function(u){ return u.rol===filtroRol; });
   if(filtroTexto) usFiltrados=usFiltrados.filter(function(u){
     return (u.nombre||'').toLowerCase().indexOf(filtroTexto)>=0 || (u.email||'').toLowerCase().indexOf(filtroTexto)>=0;
   });
