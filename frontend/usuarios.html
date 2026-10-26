@@ -694,6 +694,10 @@ function crearUsuario(){
   if(document.getElementById('fld-usuario-interno').style.display!=='none'){
     u.usuarioInterno=document.getElementById('u-usuario-interno').checked;
   }
+  // Solo rol 'usuario' tiene permiso para delegar (ver abrirModalPermisos) —
+  // admin_general/admin_cliente ya tienen acceso total por su propio rol, no
+  // tiene sentido proponerles cargar permisos.
+  var proponerPermisos=(u.rol==='usuario');
   deshabilitarGuardarUsuario();
   apiPost('/api/usuarios',u,function(err){
     if(err){ habilitarGuardarUsuario(); marcarError(msg,err.error||'Error al crear usuario.'); return; }
@@ -702,7 +706,12 @@ function crearUsuario(){
       marcarExito(document.getElementById('u-msg'),'Usuario creado con éxito.');
       // Mismo patrón que en maestros.html: se muestra el éxito y recién
       // ~600ms después se cierra el modal — si cerráramos al toque nunca se vería.
-      setTimeout(function(){ habilitarGuardarUsuario(); cerrarModalUsuario(); }, 600);
+      setTimeout(function(){
+        habilitarGuardarUsuario();
+        var irAPermisos=proponerPermisos && confirm('Usuario creado. ¿Querés cargarle los permisos ahora?');
+        cerrarModalUsuario();
+        if(irAPermisos) abrirModalPermisos(u.id);
+      }, 600);
     });
   });
 }
