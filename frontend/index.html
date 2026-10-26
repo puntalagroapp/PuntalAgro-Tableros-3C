@@ -130,14 +130,14 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
 
       <button class="acc acc-b" onclick="irA('ges')">
         <svg class="acc-ico" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
-        <div class="acc-tit">Herramientas de Gestión</div>
+        <div class="acc-tit">Herramientas de Gestión Productiva y Económica</div>
         <div class="acc-txt">Planificación y registro de la operación: uso del suelo, siembra, insumos, labores, ganadería, finanzas y catálogos maestros.</div>
         <div class="acc-cnt" id="cnt-ges"></div>
       </button>
 
       <button class="acc acc-d" id="acc-pun" style="display:none" onclick="irA('pun')">
         <svg class="acc-ico" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>
-        <div class="acc-tit">Herramientas Puntal</div>
+        <div class="acc-tit">Consulta</div>
         <div class="acc-txt">Herramientas internas del equipo Puntal Agro para el trabajo de consultoría.</div>
         <div class="acc-cnt" id="cnt-pun"></div>
       </button>
@@ -205,7 +205,7 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
 
   <!-- ============ HERRAMIENTAS DE GESTIÓN ============ -->
   <div class="view sec" id="view-ges">
-    <div class="block-title">Herramientas de Gestión<span class="ln" style="background:var(--terra)"></span></div>
+    <div class="block-title">Herramientas de Gestión Productiva y Económica<span class="ln" style="background:var(--terra)"></span></div>
 
     <div class="subsec first">Gestión Productiva</div>
     <div class="grid" id="grid-gestion">
@@ -294,21 +294,17 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
        Visible para admin_general (la administra) o quien tenga el permiso
        herramientas_internas habilitado (ver puedePuntal, usuarios.html). -->
   <div class="view sec" id="view-pun">
-    <div class="block-title">Herramientas Puntal<span class="ln" style="background:var(--pun)"></span></div>
+    <div class="block-title">Consulta<span class="ln" style="background:var(--pun)"></span></div>
 
     <!-- Grupos (carpetas): uno por cada grupo con al menos una herramienta vigente -->
     <div class="grid" id="grid-puntal-grupos" style="margin-top:14px"></div>
 
     <div class="grid" id="grid-puntal" style="margin-top:14px">
 
-      <div class="tool t-cal tool-off">
-        <div class="tool-main">
-          <span class="tool-name">Calendario de Actividades</span>
-          <span class="tool-right"><span class="tool-tag tag-prox">Próximamente</span></span>
-        </div>
-        <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
-        <div class="tool-detail">Guía de tareas según los protocolos de Puntal: qué hacer cada mes, por rol y actividad, y con qué herramienta. Todavía en preparación.</div>
-      </div>
+      <!-- El placeholder "Calendario de Actividades · Próximamente" que estaba
+           acá se sacó: ya existe como herramienta real (subida desde el admin
+           de Herramientas Puntal), así que aparece sola en grid-puntal-archivos
+           o dentro de su grupo — mantener las dos hubiera sido un duplicado. -->
 
       <!-- Archivos/links de tipo='interna' SIN grupo, cargados desde herramientas-internas.html -->
       <div id="grid-puntal-archivos" style="display:contents"></div>
