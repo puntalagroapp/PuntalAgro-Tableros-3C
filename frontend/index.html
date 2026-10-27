@@ -15,6 +15,7 @@
 })();
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="css/mensajes.css" rel="stylesheet">
 <style>
 :root{--pun:#2F4220;--bg:#F0F2F5;--card:#fff;--border:#E4E8EE;--text:#0F1923;--muted:#7A8899;--olive:#4A6533;--ochre:#A86A1F;--terra:#C8642D;--radius:12px;--mono:'DM Sans',sans-serif;--sans:'DM Sans',sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -33,6 +34,17 @@ header{background:var(--card);border-bottom:1px solid var(--border);padding:18px
 .h-emp:focus{outline:none;border-color:#4A6533}
 .h-out{font-family:var(--sans);font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:20px;padding:5px 12px;cursor:pointer}
 .h-out:hover{color:#C8642D;border-color:#C8642D}
+.overlay{position:fixed;inset:0;background:rgba(15,25,35,.4);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:10;overflow:auto}
+.overlay.open{display:flex}
+.modal{background:var(--card);border-radius:var(--radius);width:100%;max-width:380px;padding:22px}
+.modal h3{font-size:16px;font-weight:600;margin-bottom:14px}
+.modal .fld{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.modal .fld label{font-size:11px;font-weight:600;color:var(--muted)}
+.modal .fld input{border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-family:var(--sans);font-size:13px}
+.modal .fld input:focus{outline:none;border-color:var(--olive)}
+.modal-actions{display:flex;gap:8px;margin-top:6px;align-items:center;flex-wrap:wrap}
+.modal-actions .btn{background:var(--olive);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer}
+.modal-actions .btn-out{background:var(--card);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer;font-family:var(--sans)}
 main{padding:0;display:flex;flex-direction:column;flex:1}
 .sec{padding:22px 24px 26px}
 .sec-divisor{height:0;border-top:6px solid var(--card);margin:0 24px}
@@ -108,9 +120,28 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
     <span class="h-user" id="huser">—</span>
     <select class="h-emp" id="hemp" onchange="cambiarEmpresa(this.value)"></select>
     <button class="h-out" id="h-volver" style="display:none" onclick="irA('home')">← Volver al inicio</button>
+    <button class="h-out" onclick="abrirModalPassword()">Mi contraseña</button>
     <button class="h-out" onclick="salir()">Salir</button>
   </div>
 </header>
+
+<!-- ============ MODAL: cambiar mi propia contraseña ============
+     Disponible para cualquier rol — a diferencia del admin reseteándole la
+     contraseña a otro usuario, acá se exige la contraseña actual (ver
+     PUT /api/usuarios/me/password en el backend). -->
+<div class="overlay" id="overlayPassword">
+  <div class="modal">
+    <h3>Cambiar mi contraseña</h3>
+    <div class="fld"><label>Contraseña actual</label><input type="password" id="pw-actual" autocomplete="current-password"></div>
+    <div class="fld"><label>Nueva contraseña</label><input type="password" id="pw-nueva" autocomplete="new-password"></div>
+    <div class="fld"><label>Confirmar nueva contraseña</label><input type="password" id="pw-confirmar" autocomplete="new-password"></div>
+    <div class="modal-actions">
+      <button class="btn" id="btn-guardar-password" onclick="guardarPassword()">Guardar</button>
+      <button class="btn-out" onclick="cerrarModalPassword()">Cancelar</button>
+      <span class="msg" id="pw-msg"></span>
+    </div>
+  </div>
+</div>
 
 <main>
 
@@ -374,6 +405,7 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
 </footer>
 
 <script src="js/api.js"></script>
+<script src="js/mensajes.js"></script>
 <script>
 /* ================== navegación entre vistas ==================
    Portada con 3 accesos + una vista por bloque. Sin recarga: se
@@ -720,6 +752,36 @@ function salir() {
     localStorage.removeItem('pa_sesion_activa');
     localStorage.removeItem('pa_empresa_activa');
     location.href = 'login.html';
+  });
+}
+
+function abrirModalPassword(){
+  document.getElementById('pw-actual').value='';
+  document.getElementById('pw-nueva').value='';
+  document.getElementById('pw-confirmar').value='';
+  limpiarMsg(document.getElementById('pw-msg'));
+  document.getElementById('overlayPassword').classList.add('open');
+  setTimeout(function(){ document.getElementById('pw-actual').focus(); }, 60);
+}
+function cerrarModalPassword(){
+  document.getElementById('overlayPassword').classList.remove('open');
+}
+function guardarPassword(){
+  var msg=document.getElementById('pw-msg');
+  var actual=document.getElementById('pw-actual').value;
+  var nueva=document.getElementById('pw-nueva').value;
+  var confirmar=document.getElementById('pw-confirmar').value;
+  if(!actual){ marcarError(msg,'Ingresá tu contraseña actual.'); return; }
+  if(!nueva){ marcarError(msg,'Ingresá la nueva contraseña.'); return; }
+  if(nueva!==confirmar){ marcarError(msg,'La confirmación no coincide con la nueva contraseña.'); return; }
+  if(nueva===actual){ marcarError(msg,'La nueva contraseña tiene que ser distinta de la actual.'); return; }
+  var btn=document.getElementById('btn-guardar-password'); if(btn) btn.disabled=true;
+  apiPut('/api/usuarios/me/password', { passwordActual: actual, password: nueva }, function(err){
+    if(err){ if(btn) btn.disabled=false; marcarError(msg, err.error||'Error al cambiar la contraseña.'); return; }
+    marcarExito(msg,'Contraseña actualizada con éxito.');
+    // Mismo patrón que en maestros/usuarios: se ve el éxito y recién
+    // ~600ms después se cierra el modal.
+    setTimeout(function(){ if(btn) btn.disabled=false; cerrarModalPassword(); }, 600);
   });
 }
 
