@@ -81,6 +81,7 @@ main{padding:0;display:flex;flex-direction:column;flex:1}
 .tag-gra{background:#EEF3E8;color:#3A5128}.tag-var{background:#FBF1E0;color:#7A4E16}.tag-ins{background:#FBEDE3;color:#9A4A20}
 .tag-sue{background:#F2F5E8;color:#4F5C28}.tag-sie{background:#EBF1DF;color:#3F5520}.tag-hac{background:#FBEAD9;color:#8A4520}
 .tag-lab{background:#F8EDD9;color:#6E4612}.tag-fit{background:#EFF1E0;color:#4A5520}.tag-ext{background:#EEF0F3;color:#475569}.tag-cal{background:#E7EDE1;color:#2F4220}
+.tag-fin{background:#F3ECDF;color:#6B4416}
 footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--card);font-size:11px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
 
 /* ---------- portada: accesos ---------- */
@@ -277,11 +278,15 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
         <div class="tool-detail">Registro y seguimiento de labores, órdenes de trabajo e insumos aplicados. Planificación operativa de campaña.</div>
       </div>
 
-      <div class="tool t-hac" data-tool="exist_prod_ganadera">
-        <a class="tool-main" href="exist_prod_ganadera.html">
+      <!-- Sin data-tool ni link real: exist_prod_ganadera.html todavía no está
+           migrado (no existe en frontend/). Mismo patrón "Próximamente" que ya
+           se usó para Calendario de Actividades — así filtrarGrupo()/
+           contarVisibles() la ignoran y no queda un link roto (404). -->
+      <div class="tool t-hac tool-off">
+        <div class="tool-main">
           <span class="tool-name">Existencia y Producción Ganadera</span>
-          <span class="tool-right"><span class="tool-tag tag-hac">Ganadería</span><svg class="tool-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-        </a>
+          <span class="tool-right"><span class="tool-tag tag-prox">Próximamente</span></span>
+        </div>
         <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
         <div class="tool-detail">Existencias de hacienda por negocio, rodeo y categoría. Movimientos, conciliación de stock y seguimiento de cabezas y kilos.</div>
       </div>
@@ -298,21 +303,14 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
     </div>
     <div class="empty" id="empty-gestion" style="display:none">No tenés herramientas de gestión productiva habilitadas para esta empresa.</div>
 
-    <!-- grid-gestion-eco: por ahora solo tiene la tarjeta "Próximamente" de
-         Plan y Seguimiento Financiero (tablero_financiero.html todavía no
-         está migrado — ver client-src/2026-10-14). Sin data-tool, así que
-         filtrarGrupo()/contarVisibles() la ignoran igual que a Calendario de
-         Actividades en Herramientas Puntal; cuando se migre el tablero, se le
-         agrega data-tool="tablero_financiero" y recién ahí tiene sentido
-         filtrarGrupo('grid-gestion-eco', 'empty-gestion-eco', ctx.permiso). -->
     <div class="subsec">Gestión Económica</div>
     <div class="grid" id="grid-gestion-eco">
 
-      <div class="tool t-fin tool-off">
-        <div class="tool-main">
+      <div class="tool t-fin" data-tool="tablero_financiero">
+        <a class="tool-main" href="tablero_financiero.html">
           <span class="tool-name">Plan y Seguimiento Financiero</span>
-          <span class="tool-right"><span class="tool-tag tag-prox">Próximamente</span></span>
-        </div>
+          <span class="tool-right"><span class="tool-tag tag-fin">Finanzas</span><svg class="tool-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </a>
         <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
         <div class="tool-detail">Presupuesto financiero de la empresa y seguimiento de lo real contra lo planificado: ingresos, egresos y saldos por período.</div>
       </div>
@@ -732,7 +730,8 @@ function aplicarCtx(ctx) {
 
   // Contadores de Decisión y Gestión de la portada.
   _ultimoNDec = filtrarGrupo('grid-dec-propios', 'empty-dec-propios', ctx.permiso);
-  var nGes = filtrarGrupo('grid-gestion', 'empty-gestion', ctx.permiso, puedeVerMaestros ? 1 : 0);
+  var nGes = filtrarGrupo('grid-gestion', 'empty-gestion', ctx.permiso, puedeVerMaestros ? 1 : 0)
+    + filtrarGrupo('grid-gestion-eco', 'empty-gestion-eco', ctx.permiso);
   ponerCnt('cnt-ges', nGes, 'herramienta disponible', 'herramientas disponibles', '');
   window.CTX_APLICADO = true;
   actualizarContadorDecision();
