@@ -1,0 +1,27 @@
+/* =============================================================================
+   header.css — estilo único de "← Menú" y "Salir" en la barra superior,
+   para toda la app. Un solo lugar para cambiarlo en todos lados a la vez.
+
+   Convención:
+     <a class="hnav-btn" href="index.html#ges">← Menú</a>
+     <button class="hnav-btn" onclick="salir()">Salir</button>
+
+   Usa los mismos tokens (--sans/--border/--card/--muted/--terra) que ya
+   define cada página en su propio :root — con fallback por si alguna
+   página no los tuviera.
+   ============================================================================= */
+.hnav-btn{
+  font-family:var(--sans,'DM Sans',sans-serif);
+  font-size:11px;
+  font-weight:600;
+  border:1px solid var(--border,#E4E8EE);
+  background:var(--card,#fff);
+  color:var(--muted,#7A8899);
+  border-radius:20px;
+  padding:5px 12px;
+  cursor:pointer;
+  text-decoration:none;
+  display:inline-block;
+  white-space:nowrap;
+}
+.hnav-btn:hover{color:var(--terra,#C8642D);border-color:var(--terra,#C8642D)}

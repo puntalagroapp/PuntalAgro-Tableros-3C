@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Calendario de Actividades · Puntal Agro</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="css/header.css" rel="stylesheet">
 <style>
 :root{--ancho:1440px;--pad:max(24px, calc((100% - var(--ancho)) / 2 + 24px));--bg:#F7F6F2;--card:#fff;--border:#E7E4DC;--sombra:0 1px 2px rgba(60,48,28,.05),0 4px 16px rgba(60,48,28,.05);--text:#0F1923;--muted:#7A8899;--soft:#FAF9F6;--olive:#4A6533;--ochre:#A86A1F;--terra:#C8642D;--pun:#2F4220;--radius:12px;--sans:'DM Sans',sans-serif;
   --e-PLAN:#6D4AAE;--e-PROG:#2F6FD6;--e-OPER:#C0306E;--e-ANALISIS:#2E9E4F;}
@@ -22,8 +23,6 @@ header{background:var(--card);border-bottom:1px solid var(--border);padding:14px
 .h-user strong{color:var(--text);font-weight:600}
 .sel{font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:8px;padding:5px 8px;color:var(--text);background:var(--bg)}
 .sel:focus{outline:none;border-color:var(--olive)}
-.h-back{font-size:11px;font-weight:600;color:var(--muted);text-decoration:none;border:1px solid var(--border);border-radius:20px;padding:5px 12px;background:var(--card)}
-.h-back:hover{color:var(--terra);border-color:var(--terra)}
 
 /* ---- barra de contexto: Empresa → Rol → Actividades ---- */
 .ctx{background:var(--card);border-bottom:1px solid var(--border);padding:12px var(--pad)}
@@ -528,7 +527,8 @@ table,.num{font-variant-numeric:tabular-nums}
   </div>
   <div class="h-right">
     <span class="h-user" id="huser"></span>
-    <a class="h-back" href="index.html#pun">← Herramientas de Consulta</a>
+    <a class="hnav-btn" href="index.html#pun">← Herramientas de Consulta</a>
+    <button class="hnav-btn" onclick="salir()">Salir</button>
   </div>
 </header>
 
@@ -619,6 +619,9 @@ var LS_ROLES = 'pa_cal_roles_v1_';        // + empresaId → lista de ids de rol
 var LS_HECHAS = 'pa_cal_hechas_v1_';     // + empresaId + '_' + año-mes → { idTarea:1 }
 
 var CTX = null;
+function salir(){
+  PA.logout(function(){ location.href='login.html'; });
+}
 var HOY = new Date();
 var S = { roles:{}, rolesGuardado:false, foco:null, tabs:{cie:1,arr:1,sig:1,cont:1}, vista:'mes', rol:null, mes:HOY.getMonth(), etapas:{PLAN:1,PROG:1,OPER:1,ANALISIS:1}, q:'', act:null, actGuardado:false, modoCal:'ciclo' };
 var ABIERTOS_CAL = {};

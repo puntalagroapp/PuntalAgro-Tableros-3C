@@ -16,6 +16,7 @@
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link href="css/mensajes.css" rel="stylesheet">
+<link href="css/header.css" rel="stylesheet">
 <style>
 :root{--bg:#F0F2F5;--card:#fff;--border:#E4E8EE;--text:#0F1923;--muted:#7A8899;--olive:#4A6533;--ochre:#A86A1F;--terra:#C8642D;--radius:12px;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -23,8 +24,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 header{background:var(--card);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .logo{display:flex;align-items:center;gap:10px}.logo img{height:42px;width:auto;object-fit:contain}.logo-title{font-size:17px;font-weight:600;letter-spacing:-.3px}.logo-sub{font-size:11px;color:var(--muted)}
 .h-actions{display:flex;gap:8px}
-.lnk{font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:20px;padding:5px 12px;cursor:pointer;text-decoration:none}
-.lnk:hover{color:var(--olive);border-color:var(--olive)}
 .intro{padding:18px 24px 0}
 .intro h1{font-size:20px;font-weight:600;letter-spacing:-.3px}
 .intro p{font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.5;max-width:760px}
@@ -81,8 +80,8 @@ main{padding:16px 24px 28px;display:grid;grid-template-columns:340px 1fr;gap:16p
     </div>
   </div>
   <div class="h-actions">
-    <a class="lnk" href="index.html#adm">← Menú</a>
-    <button class="lnk" onclick="salir()">Salir</button>
+    <a class="hnav-btn" href="index.html#adm">← Menú</a>
+    <button class="hnav-btn" onclick="salir()">Salir</button>
   </div>
 </header>
 

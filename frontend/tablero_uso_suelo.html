@@ -15,6 +15,7 @@
 })();
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="css/header.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="pa-core.js"></script>
@@ -30,7 +31,6 @@ header{background:var(--card);border-bottom:1px solid var(--border);padding:12px
 .logo img{height:42px;width:auto;object-fit:contain}
 .logo-title{font-size:17px;font-weight:600;letter-spacing:-.3px}
 .sticky-top{position:sticky;top:0;z-index:40;background:var(--bg);box-shadow:0 2px 6px -4px rgba(0,0,0,.15)}
-.hdr-menu{text-decoration:none;display:inline-flex;align-items:center}
 .logo-sub{font-size:11px;color:var(--muted)}
 .hdr-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .espacio-lbl{font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.5px;font-weight:600;white-space:nowrap}
@@ -443,8 +443,8 @@ tbody tr.lote-start:first-child td{border-top:none}
     <span class="espacio-lbl">Campaña:</span>
     <select class="ctx-sel" id="selCampania"></select>
     <span class="ctx-pill" id="ctxPill">Don Eduardo · 26-27</span>
-    <a class="hdr-btn hdr-menu" href="index.html#ges">← Menú</a>
-    <button class="hdr-btn" onclick="salir()">Salir</button>
+    <a class="hnav-btn" href="index.html#ges">← Menú</a>
+    <button class="hnav-btn" onclick="salir()">Salir</button>
     <button class="hdr-btn primary" onclick="exportActual()">Exportar Excel</button>
   </div>
 </header>

@@ -16,6 +16,7 @@
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link href="css/mensajes.css" rel="stylesheet">
+<link href="css/header.css" rel="stylesheet">
 <style>
 :root{--bg:#F0F2F5;--card:#fff;--border:#E4E8EE;--text:#0F1923;--muted:#7A8899;--olive:#4A6533;--ochre:#A86A1F;--terra:#C8642D;--radius:12px;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -26,8 +27,6 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
 .h-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .h-emp{font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:8px;padding:5px 8px;color:var(--text);background:var(--bg)}
 .h-emp:focus{outline:none;border-color:var(--olive)}
-.lnk{font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:20px;padding:5px 12px;cursor:pointer;text-decoration:none}
-.lnk:hover{color:var(--olive);border-color:var(--olive)}
 .intro{padding:18px 24px 0;max-width:1180px;margin:0 auto;width:100%}
 .intro h1{font-size:20px;font-weight:600;letter-spacing:-.3px}
 .intro p{font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.5;max-width:760px}
@@ -148,7 +147,8 @@ tr.sec-head .sec-count{color:var(--muted);font-weight:600;letter-spacing:0;text-
   </div>
   <div class="h-right">
     <select class="h-emp" id="hemp" onchange="cambiarEmpresa(this.value)"></select>
-    <a class="lnk" href="index.html#ges">← Menú</a>
+    <a class="hnav-btn" href="index.html#ges">← Menú</a>
+    <button class="hnav-btn" onclick="salir()">Salir</button>
   </div>
 </header>
 
@@ -862,6 +862,12 @@ var filasPA = []; // estado del bloque de principios activos dentro del modal de
 
 // Utilidades
 function uid(){ return 'x_' + Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
+function salir(){
+  apiPost('/api/auth/logout', null, function(){
+    localStorage.removeItem('pa_sesion_activa');
+    location.href='login.html';
+  });
+}
 function findById(lista,id){ for(var i=0;i<lista.length;i++){ if(lista[i].id===id)return lista[i]; } return null; }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function msgSet(elId,txt){ var el=document.getElementById(elId); if(!txt){ limpiarMsg(el); } else { marcarError(el,txt); } }

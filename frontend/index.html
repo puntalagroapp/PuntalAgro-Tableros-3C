@@ -16,6 +16,7 @@
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="css/mensajes.css" rel="stylesheet">
+<link href="css/header.css" rel="stylesheet">
 <style>
 :root{--pun:#2F4220;--bg:#F0F2F5;--card:#fff;--border:#E4E8EE;--text:#0F1923;--muted:#7A8899;--olive:#4A6533;--ochre:#A86A1F;--terra:#C8642D;--radius:12px;--mono:'DM Sans',sans-serif;--sans:'DM Sans',sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -32,8 +33,6 @@ header{background:var(--card);border-bottom:1px solid var(--border);padding:18px
 .h-user strong{color:var(--text);font-weight:600}
 .h-emp{font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:8px;padding:5px 8px;color:var(--text);background:var(--bg)}
 .h-emp:focus{outline:none;border-color:#4A6533}
-.h-out{font-family:var(--sans);font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:20px;padding:5px 12px;cursor:pointer}
-.h-out:hover{color:#C8642D;border-color:#C8642D}
 .overlay{position:fixed;inset:0;background:rgba(15,25,35,.4);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:10;overflow:auto}
 .overlay.open{display:flex}
 .modal{background:var(--card);border-radius:var(--radius);width:100%;max-width:380px;padding:22px}
@@ -119,9 +118,9 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
   <div class="h-right">
     <span class="h-user" id="huser">—</span>
     <select class="h-emp" id="hemp" onchange="cambiarEmpresa(this.value)"></select>
-    <button class="h-out" id="h-volver" style="display:none" onclick="irA('home')">← Volver al inicio</button>
-    <button class="h-out" onclick="abrirModalPassword()">Cambiar contraseña</button>
-    <button class="h-out" onclick="salir()">Salir</button>
+    <button class="hnav-btn" id="h-volver" style="display:none" onclick="irA('home')">← Volver al inicio</button>
+    <button class="hnav-btn" onclick="abrirModalPassword()">Cambiar contraseña</button>
+    <button class="hnav-btn" onclick="salir()">Salir</button>
   </div>
 </header>
 
