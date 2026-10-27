@@ -224,6 +224,15 @@ function uniqueViolation(err) {
   return UNIQUE_ERROR_MESSAGES[err.constraint] || 'Ya existe un registro con esos datos';
 }
 
+const FK_ERROR_MESSAGES = {
+  'empresas_cliente_id_fkey': 'No se puede borrar: el cliente tiene empresas asociadas',
+  'usuarios_cliente_id_fkey': 'No se puede borrar: el cliente tiene usuarios asociados',
+};
+function fkViolation(err) {
+  if (err.code !== '23503') return null;
+  return FK_ERROR_MESSAGES[err.constraint] || 'No se puede borrar: tiene registros asociados';
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER: recupera la sesión del usuario a partir del header Authorization.
 // Devuelve null si no hay token válido (el endpoint decide si bloquear o no).
@@ -1683,7 +1692,12 @@ app.delete('/api/clientes/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM clientes WHERE id=$1', [req.params.id]);
     res.json({ status: 'ok' });
-  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
+  } catch (err) {
+    const msg = fkViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
+    console.error('DELETE /api/clientes/:id error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 app.get('/api/empresas', async (req, res) => {
