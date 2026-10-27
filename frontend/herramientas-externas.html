@@ -60,6 +60,14 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
 .ord-btn:disabled{opacity:.3;cursor:default}
 .empty{font-size:12.5px;color:var(--muted);padding:10px 0}
 .note{font-size:11px;color:var(--muted);background:#FBF1E0;border:1px solid #EAD9B8;border-radius:8px;padding:10px 12px;line-height:1.5}
+.modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,25,35,.5);z-index:100;display:none;align-items:center;justify-content:center}
+.modal-bg.on{display:flex}
+.modal{background:var(--card);border-radius:12px;padding:20px;width:90%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.2)}
+.modal-title{font-size:14px;font-weight:600;margin-bottom:14px;color:var(--text)}
+.modal-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:14px;border-top:1px solid var(--border);padding-top:12px}
+.modal-cancel{padding:7px 14px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--muted);font-family:var(--sans)}
+.modal-ok{padding:7px 14px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--olive);background:var(--olive);color:#fff;font-family:var(--sans);font-weight:500}
+.modal-ok:hover{background:#3c5429}
 </style>
 </head>
 <body>
@@ -87,7 +95,21 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
   <div class="note">Es una lista global: la ven todos los clientes por igual. Solo el administrador general puede crear, editar o borrar estas herramientas.</div>
 
   <div class="panel">
-    <h2 id="form-title">Nueva herramienta externa</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <h2 style="margin-bottom:0">Herramientas externas cargadas</h2>
+      <button class="btn" onclick="abrirModalHerrExt()">+ Nuevo</button>
+    </div>
+    <table id="tbl-herrext">
+      <thead><tr><th>Orden</th><th>Nombre</th><th>Fuente</th><th>Vigencia</th><th>Tipo</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="empty" id="empty-herrext" style="display:none">No hay herramientas externas cargadas todavía.</div>
+  </div>
+</main>
+
+<div class="modal-bg" id="modalHerrExt">
+  <div class="modal">
+    <div class="modal-title" id="form-title">Nueva herramienta externa</div>
     <div class="grid2">
       <div class="fld"><label>Nombre</label><input id="he-nombre" maxlength="120" placeholder="Ej: Calculadora de Alquileres"></div>
       <div class="fld"><label>Fuente <span class="opt">(opcional)</span></label><input id="he-fuente" maxlength="80" placeholder="Ej: Simpleza, CREA"></div>
@@ -110,23 +132,14 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
       <div class="fld"><label>Vigente desde <span class="opt">(opcional)</span></label><input id="he-desde" type="date"></div>
       <div class="fld"><label>Vigente hasta <span class="opt">(opcional)</span></label><input id="he-hasta" type="date"></div>
     </div>
-    <div class="actions-row">
-      <button class="btn" onclick="guardarHerrExt()">Guardar</button>
-      <button class="btn-out" onclick="nuevaHerrExt()">Nueva</button>
-      <button class="btn-sm del" id="btn-borrar-herrext" style="display:none" onclick="borrarHerrExtActual()">Eliminar</button>
+    <div class="modal-actions" style="justify-content:flex-start;flex-wrap:wrap">
+      <button class="modal-ok" id="btn-guardar-herrext" onclick="guardarHerrExt()">Guardar</button>
+      <button class="modal-cancel" onclick="cerrarModalHerrExt()">Cancelar</button>
+      <button class="modal-cancel" id="btn-borrar-herrext" style="display:none" onclick="borrarHerrExtActual()">Eliminar</button>
       <span class="msg" id="he-msg"></span>
     </div>
   </div>
-
-  <div class="panel">
-    <h2>Herramientas externas cargadas</h2>
-    <table id="tbl-herrext">
-      <thead><tr><th>Orden</th><th>Nombre</th><th>Fuente</th><th>Vigencia</th><th>Tipo</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <div class="empty" id="empty-herrext" style="display:none">No hay herramientas externas cargadas todavía.</div>
-  </div>
-</main>
+</div>
 
 <script src="js/api.js"></script>
 <script src="js/mensajes.js"></script>
@@ -206,6 +219,15 @@ function toggleModoHerrExt(){
 
 function liberarLockHerrExt(){ if(editId){ apiUnlock('herramientas',editId,function(){}); } }
 
+function abrirModalHerrExt(){
+  nuevaHerrExt();
+  document.getElementById('modalHerrExt').classList.add('on');
+}
+function cerrarModalHerrExt(){
+  nuevaHerrExt();
+  document.getElementById('modalHerrExt').classList.remove('on');
+}
+
 function nuevaHerrExt(){
   liberarLockHerrExt();
   editId=null;
@@ -224,9 +246,13 @@ function nuevaHerrExt(){
   limpiarMsg(document.getElementById('he-msg'));
 }
 
+// Abre el modal antes del lock: si falla, el error se ve adentro — no queda
+// ningún panel inline al que hacerle scroll.
 function editarHerrExt(id){
   var h=findById(id); if(!h) return;
   liberarLockHerrExt();
+  limpiarMsg(document.getElementById('he-msg'));
+  document.getElementById('modalHerrExt').classList.add('on');
   apiLock('herramientas',id,null,function(errLock){
     if(errLock){ marcarError(document.getElementById('he-msg'), errLock.error||'No se pudo tomar este registro.'); return; }
     editId=id;
@@ -249,7 +275,6 @@ function editarHerrExt(id){
     toggleModoHerrExt();
     document.getElementById('btn-borrar-herrext').style.display='';
     limpiarMsg(document.getElementById('he-msg'));
-    window.scrollTo(0,0);
   });
 }
 
@@ -290,18 +315,26 @@ function guardarHerrExt(){
     asignable: false
   };
   var isNew=!editId;
+  var btn=document.getElementById('btn-guardar-herrext');
+  var avisoExitoYcerrar=function(){
+    marcarExito(document.getElementById('he-msg'), (isNew?'Herramienta cargada':'Herramienta guardada')+' con éxito.');
+    // Mismo patrón que en maestros.html: se ve el éxito y recién ~600ms
+    // después se cierra el modal — si cerráramos al toque nunca se vería.
+    setTimeout(function(){ if(btn) btn.disabled=false; cerrarModalHerrExt(); }, 600);
+  };
+  if(btn) btn.disabled=true;
   var cb=function(err){
-    if(err){ marcarError(msg, err.error||'Error al guardar.'); return; }
+    if(err){ if(btn) btn.disabled=false; marcarError(msg, err.error||'Error al guardar.'); return; }
     var idGuardado=obj.id;
     if(archivo){
       apiUpload('/api/herramientas/'+encodeURIComponent(idGuardado)+'/pdf', archivo, 'pdf', function(err2){
-        if(err2){ marcarError(msg, err2.error||'Se guardó, pero falló la subida del PDF.'); recargarTodo(renderTabla); return; }
+        if(err2){ if(btn) btn.disabled=false; marcarError(msg, err2.error||'Se guardó, pero falló la subida del PDF.'); recargarTodo(renderTabla); return; }
         liberarLockHerrExt(); editId=null;
-        recargarTodo(function(){ renderTabla(); nuevaHerrExt(); marcarExito(document.getElementById('he-msg'), (isNew?'Herramienta cargada':'Herramienta guardada')+' con éxito.'); });
+        recargarTodo(function(){ renderTabla(); avisoExitoYcerrar(); });
       });
     } else {
       liberarLockHerrExt(); editId=null;
-      recargarTodo(function(){ renderTabla(); nuevaHerrExt(); marcarExito(document.getElementById('he-msg'), (isNew?'Herramienta cargada':'Herramienta guardada')+' con éxito.'); });
+      recargarTodo(function(){ renderTabla(); avisoExitoYcerrar(); });
     }
   };
   if(isNew) apiPost('/api/herramientas',obj,cb);
@@ -312,8 +345,9 @@ function borrarHerrExt(id){
   if(!confirm('¿Borrar esta herramienta externa?')) return;
   apiDelete('/api/herramientas/'+encodeURIComponent(id),function(err){
     if(err){ alert(err.error||'Error al borrar.'); return; }
-    if(editId===id){ editId=null; nuevaHerrExt(); }
-    recargarTodo(renderTabla);
+    var eraLaEditada=(editId===id);
+    if(eraLaEditada) editId=null;
+    recargarTodo(function(){ renderTabla(); if(eraLaEditada) cerrarModalHerrExt(); });
   });
 }
 function borrarHerrExtActual(){ if(editId) borrarHerrExt(editId); }
