@@ -162,7 +162,7 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
       <button class="acc acc-b" onclick="irA('ges')">
         <svg class="acc-ico" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
         <div class="acc-tit">Herramientas de Gestión Productiva y Económica</div>
-        <div class="acc-txt">Planificación y registro de la operación: uso del suelo, siembra, insumos, labores, ganadería, finanzas y catálogos maestros.</div>
+        <div class="acc-txt">Planificación y registro de la operación: uso del suelo, insumos, labores, ganadería, finanzas y catálogos maestros.</div>
         <div class="acc-cnt" id="cnt-ges"></div>
       </button>
 
@@ -250,23 +250,12 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
         <div class="tool-detail">Planificación del uso del suelo por lote y campaña: rotaciones, cultivos asignados y superficies.</div>
       </div>
 
-      <div class="tool t-sie" data-tool="ProgramaSiembra">
-        <a class="tool-main" href="ProgramaSiembra.html">
-          <span class="tool-name">Programa de Siembra</span>
-          <span class="tool-right"><span class="tool-tag tag-sie">Planificación</span><svg class="tool-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-        </a>
-        <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
-        <div class="tool-detail">Programación de siembra por lote y campaña: cultivos, fechas y superficies a sembrar.</div>
-      </div>
-
-      <div class="tool t-fit" data-tool="Fitosanitarios">
-        <a class="tool-main" href="Fitosanitarios.html">
-          <span class="tool-name">Requerimiento de Fitosanitarios</span>
-          <span class="tool-right"><span class="tool-tag tag-fit">Insumos</span><svg class="tool-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-        </a>
-        <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
-        <div class="tool-detail">Cálculo de requerimientos de fitosanitarios por lote y cultivo para planificar compras y aplicaciones de campaña.</div>
-      </div>
+      <!-- Programa de Siembra y Fitosanitarios se sacan del menú (2026-10-27):
+           ninguno de los dos está migrado de verdad — no tienen chequeo de
+           sesión ni se conectan a la API, siguen siendo el demo original del
+           cliente con localStorage puro. Quedan ocultos hasta que se migren
+           en serio; los archivos (ProgramaSiembra.html, Fitosanitarios.html)
+           y la fila correspondiente en la tabla herramientas no se tocaron. -->
 
       <div class="tool t-ins" data-tool="tablero_insumos_ot">
         <a class="tool-main" href="tablero_insumos_ot.html">
