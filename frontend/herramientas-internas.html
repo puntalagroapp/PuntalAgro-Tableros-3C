@@ -100,7 +100,21 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
   <div class="note">Es una lista global, pero de acceso restringido: la ve solo quien tenga el permiso "Herramientas de Consulta" (o sea admin_general). Solo el administrador general puede crear, editar o borrar estas herramientas.</div>
 
   <div class="panel">
-    <h2 id="form-title">Nueva herramienta interna</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <h2 style="margin-bottom:0">Herramientas internas cargadas</h2>
+      <button class="btn" onclick="abrirModalHerrInt()">+ Nuevo</button>
+    </div>
+    <table id="tbl-herrint">
+      <thead><tr><th>Orden</th><th>Nombre</th><th>Grupo</th><th>Vigencia</th><th>Tipo</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="empty" id="empty-herrint" style="display:none">No hay herramientas internas cargadas todavía.</div>
+  </div>
+</main>
+
+<div class="modal-bg" id="modalHerrInt">
+  <div class="modal">
+    <div class="modal-title" id="form-title">Nueva herramienta interna</div>
     <div class="grid2">
       <div class="fld"><label>Nombre</label><input id="hi-nombre" maxlength="120" placeholder="Ej: Protocolo de siembra"></div>
       <div class="fld">
@@ -129,23 +143,14 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
       <div class="fld"><label>Vigente desde <span class="opt">(opcional)</span></label><input id="hi-desde" type="date"></div>
       <div class="fld"><label>Vigente hasta <span class="opt">(opcional)</span></label><input id="hi-hasta" type="date"></div>
     </div>
-    <div class="actions-row">
-      <button class="btn" onclick="guardarHerrInt()">Guardar</button>
-      <button class="btn-out" onclick="nuevaHerrInt()">Nueva</button>
-      <button class="btn-sm del" id="btn-borrar-herrint" style="display:none" onclick="borrarHerrIntActual()">Eliminar</button>
+    <div class="modal-actions" style="justify-content:flex-start;flex-wrap:wrap">
+      <button class="modal-ok" id="btn-guardar-herrint" onclick="guardarHerrInt()">Guardar</button>
+      <button class="modal-cancel" onclick="cerrarModalHerrInt()">Cancelar</button>
+      <button class="modal-cancel" id="btn-borrar-herrint" style="display:none" onclick="borrarHerrIntActual()">Eliminar</button>
       <span class="msg" id="hi-msg"></span>
     </div>
   </div>
-
-  <div class="panel">
-    <h2>Herramientas internas cargadas</h2>
-    <table id="tbl-herrint">
-      <thead><tr><th>Orden</th><th>Nombre</th><th>Grupo</th><th>Vigencia</th><th>Tipo</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <div class="empty" id="empty-herrint" style="display:none">No hay herramientas internas cargadas todavía.</div>
-  </div>
-</main>
+</div>
 
 <div class="modal-bg" id="modalGrupos">
   <div class="modal">
@@ -425,6 +430,15 @@ function borrarGrupoActual(){ if(editGrupoId) borrarGrupo(editGrupoId); }
 
 function liberarLockHerrInt(){ if(editId){ apiUnlock('herramientas',editId,function(){}); } }
 
+function abrirModalHerrInt(){
+  nuevaHerrInt();
+  document.getElementById('modalHerrInt').classList.add('on');
+}
+function cerrarModalHerrInt(){
+  nuevaHerrInt();
+  document.getElementById('modalHerrInt').classList.remove('on');
+}
+
 function nuevaHerrInt(){
   liberarLockHerrInt();
   editId=null;
@@ -443,9 +457,13 @@ function nuevaHerrInt(){
   limpiarMsg(document.getElementById('hi-msg'));
 }
 
+// Abre el modal antes del lock (no después): si el lock falla, el error se
+// ve adentro del modal — no queda ningún panel inline al que hacerle scroll.
 function editarHerrInt(id){
   var h=findById(id); if(!h) return;
   liberarLockHerrInt();
+  limpiarMsg(document.getElementById('hi-msg'));
+  document.getElementById('modalHerrInt').classList.add('on');
   apiLock('herramientas',id,null,function(errLock){
     if(errLock){ marcarError(document.getElementById('hi-msg'), errLock.error||'No se pudo tomar este registro.'); return; }
     editId=id;
@@ -468,7 +486,6 @@ function editarHerrInt(id){
     toggleModoHerrInt();
     document.getElementById('btn-borrar-herrint').style.display='';
     limpiarMsg(document.getElementById('hi-msg'));
-    window.scrollTo(0,0);
   });
 }
 
@@ -513,23 +530,26 @@ function guardarHerrInt(){
     asignable: false
   };
   var isNew=!editId;
-  var avisoExito=function(){
-    // nuevaHerrInt() ya limpió hi-msg — por eso el mensaje se fija DESPUÉS, no antes.
+  var btn=document.getElementById('btn-guardar-herrint');
+  var avisoExitoYcerrar=function(){
     marcarExito(document.getElementById('hi-msg'), (isNew?'Herramienta cargada':'Herramienta guardada')+' con éxito.');
-    
+    // Mismo patrón que en maestros.html: se ve el éxito y recién ~600ms
+    // después se cierra el modal — si cerráramos al toque nunca se vería.
+    setTimeout(function(){ if(btn) btn.disabled=false; cerrarModalHerrInt(); }, 600);
   };
+  if(btn) btn.disabled=true;
   var cb=function(err){
-    if(err){ marcarError(msg, err.error||'Error al guardar.'); return; }
+    if(err){ if(btn) btn.disabled=false; marcarError(msg, err.error||'Error al guardar.'); return; }
     var idGuardado=obj.id;
     if(archivo){
       apiUpload('/api/herramientas/'+encodeURIComponent(idGuardado)+'/archivo', archivo, 'archivo', function(err2){
-        if(err2){ marcarError(msg, err2.error||'Se guardó, pero falló la subida del archivo.'); recargarYRenderizarTodo(); return; }
+        if(err2){ if(btn) btn.disabled=false; marcarError(msg, err2.error||'Se guardó, pero falló la subida del archivo.'); recargarYRenderizarTodo(); return; }
         liberarLockHerrInt(); editId=null;
-        recargarYRenderizarTodo(function(){ nuevaHerrInt(); avisoExito(); });
+        recargarYRenderizarTodo(function(){ avisoExitoYcerrar(); });
       });
     } else {
       liberarLockHerrInt(); editId=null;
-      recargarYRenderizarTodo(function(){ nuevaHerrInt(); avisoExito(); });
+      recargarYRenderizarTodo(function(){ avisoExitoYcerrar(); });
     }
   };
   if(isNew) apiPost('/api/herramientas',obj,cb);
@@ -540,8 +560,9 @@ function borrarHerrInt(id){
   if(!confirm('¿Borrar esta herramienta interna?')) return;
   apiDelete('/api/herramientas/'+encodeURIComponent(id),function(err){
     if(err){ alert(err.error||'Error al borrar.'); return; }
-    if(editId===id){ editId=null; nuevaHerrInt(); }
-    recargarYRenderizarTodo();
+    var eraLaEditada=(editId===id);
+    if(eraLaEditada) editId=null;
+    recargarYRenderizarTodo(function(){ if(eraLaEditada) cerrarModalHerrInt(); });
   });
 }
 function borrarHerrIntActual(){ if(editId) borrarHerrInt(editId); }
