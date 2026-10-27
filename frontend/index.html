@@ -247,11 +247,15 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
         <div class="tool-detail">Registro y seguimiento de labores, órdenes de trabajo e insumos aplicados. Planificación operativa de campaña.</div>
       </div>
 
-      <div class="tool t-hac" data-tool="exist_prod_ganadera">
-        <a class="tool-main" href="exist_prod_ganadera.html">
+      <!-- Sin data-tool ni link real: exist_prod_ganadera.html todavía no está
+           migrado (no existe en frontend/). Mismo patrón "Próximamente" que ya
+           se usó para Calendario de Actividades — así filtrarGrupo()/
+           contarVisibles() la ignoran y no queda un link roto (404). -->
+      <div class="tool t-hac tool-off">
+        <div class="tool-main">
           <span class="tool-name">Existencia y Producción Ganadera</span>
-          <span class="tool-right"><span class="tool-tag tag-hac">Ganadería</span><svg class="tool-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-        </a>
+          <span class="tool-right"><span class="tool-tag tag-prox">Próximamente</span></span>
+        </div>
         <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
         <div class="tool-detail">Existencias de hacienda por negocio, rodeo y categoría. Movimientos, conciliación de stock y seguimiento de cabezas y kilos.</div>
       </div>
