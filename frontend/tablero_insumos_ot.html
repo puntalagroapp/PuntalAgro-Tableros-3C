@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Insumos &amp; OT · Puntal Agro</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="css/header.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="pa-core.js"></script>
 <script src="js/api.js"></script>
@@ -359,6 +360,8 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
     </div>
     <button class="btn" onclick="openCierreStock()" title="Conciliar stock teórico vs real al cierre de campaña y registrar ajustes">📋 Cerrar stock</button>
     <button class="btn btn-primary" onclick="exportExcel()">Exportar Excel</button>
+    <a class="hnav-btn" href="index.html#ges">← Menú</a>
+    <button class="hnav-btn" onclick="salir()">Salir</button>
   </div>
 </header>
 
@@ -1348,6 +1351,12 @@ function fp(v){ if(v==null||isNaN(Number(v))) return '—'; return Number(v).toF
 function fm(v){ if(v==null||isNaN(Number(v))) return '—'; return '$ '+Number(v).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0}); }
 function fd(d){ if(!d) return '—'; var p=String(d).split('-'); if(p.length<3) return d; return p[2]+'/'+p[1]+'/'+p[0].slice(2); }
 function uid(){ return 'x'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36); }
+function salir(){
+  apiPost('/api/auth/logout', null, function(){
+    localStorage.removeItem('pa_sesion_activa');
+    location.href='login.html';
+  });
+}
 function byId(id){ return document.getElementById(id); }
 function esc(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 // Badge de estado consistente en todo el tablero: gris=pendiente, ámbar=parcial/en curso, verde=hecho
