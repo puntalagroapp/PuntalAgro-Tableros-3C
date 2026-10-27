@@ -1138,6 +1138,33 @@ app.post('/api/usuarios', async (req, res) => {
   }
 });
 
+// Cualquier usuario logueado, sin importar el rol, cambia SU PROPIA
+// contraseña — siempre actúa sobre sesion.id, nunca sobre un :id de la URL,
+// así que no hace falta ningún chequeo de permiso adicional (no se puede
+// apuntar a otra cuenta). A diferencia del admin reseteándole la contraseña
+// a otro usuario, acá SÍ se exige la contraseña actual (es autoservicio, no
+// una acción de un admin de confianza) — debe ir antes de /api/usuarios/:id
+// en el archivo: si no, Express interpretaría "me" como el :id.
+app.put('/api/usuarios/me/password', async (req, res) => {
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    const { passwordActual, password } = req.body || {};
+    if (!passwordActual) return res.status(400).json({ error: 'Ingresá tu contraseña actual' });
+    if (!password) return res.status(400).json({ error: 'Ingresá la nueva contraseña' });
+    const r = await pool.query('SELECT password_hash FROM usuarios WHERE id = $1', [sesion.id]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const ok = await verificarPassword(passwordActual, r.rows[0].password_hash);
+    if (!ok) return res.status(400).json({ error: 'La contraseña actual no es correcta' });
+    const hash = await hashearPassword(password);
+    await pool.query('UPDATE usuarios SET password_hash = $2 WHERE id = $1', [sesion.id, hash]);
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('PUT /api/usuarios/me/password error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 app.put('/api/usuarios/:id', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
@@ -1146,7 +1173,11 @@ app.put('/api/usuarios/:id', async (req, res) => {
   // activo y clienteId quedan forzados a como ya estaban, sin importar el body
   // (ver más abajo). admin_cliente/admin_general no llegan a esta excepción
   // (puedeSobreUsuario sigue rechazando admin_cliente sobre sí mismo;
-  // admin_general no la necesita, ya tiene acceso total).
+  // admin_general no la necesita, ya tiene acceso total). Para que cualquier
+  // rol pueda cambiar SU PROPIA contraseña sin tocar el resto de su perfil,
+  // ver PUT /api/usuarios/me/password — un endpoint aparte, para no mezclar
+  // ese caso con este (acá un body "solo password" de admin_general pisaría
+  // su rol por el default de abajo).
   const esAutoedicionDeUsuario = req.params.id === sesion.id && sesion.rol === 'usuario';
   if (!esAutoedicionDeUsuario && !(await puedeSobreUsuario(sesion, req.params.id))) {
     return res.status(403).json({ error: 'No podés modificar este usuario' });
