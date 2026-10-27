@@ -842,7 +842,8 @@ INSERT INTO herramientas (id, nombre, descripcion, tipo, url, dominio, asignable
     ('tablero_hacienda',   'Tablero de Relaciones Ganaderas','Manejo ganadero y carga animal',                       'propia',  'tablero_hacienda.html',   'Ganadería',    true),
     ('tablero_labores',    'Precio de Labores y Fletes',     'Referencia de tarifas CATAC y labores por campaña',    'propia',  'tablero_labores.html',    'Operativo',    true),
     ('Fitosanitarios',     'Fitosanitarios',                  'Registro y auditoría de aplicaciones fitosanitarias', 'propia',  'Fitosanitarios.html',     'Operativo',    true),
-    ('exist_prod_ganadera','Existencia y Producción Ganadera','Existencias de hacienda por negocio, rodeo y categoría. Movimientos, conciliación de stock y seguimiento de cabezas y kilos.', 'propia', 'exist_prod_ganadera.html', 'Ganadería', true);
+    ('exist_prod_ganadera','Existencia y Producción Ganadera','Existencias de hacienda por negocio, rodeo y categoría. Movimientos, conciliación de stock y seguimiento de cabezas y kilos.', 'propia', 'exist_prod_ganadera.html', 'Ganadería', true),
+    ('tablero_financiero', 'Plan y Seguimiento Financiero',  'Presupuesto financiero de la empresa y seguimiento de lo real contra lo planificado: ingresos, egresos y saldos por período.', 'propia', 'tablero_financiero.html', 'Finanzas', true);
 
 -- Herramientas externas (calculadoras, informes en PDF, sitios externos —
 -- se muestran en el inicio bajo "Externos"; solo admin_general las edita).
