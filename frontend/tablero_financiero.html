@@ -15,6 +15,7 @@
 })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="css/header.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -320,8 +321,8 @@ footer{padding:14px 24px 22px;display:flex;justify-content:space-between;color:v
     <div class="h-t2">Puntal Agro · Tablero para directorio y accionistas</div>
   </div>
   <div class="h-right">
-    <a class="btn sec" href="index.html#ges">← Menú</a>
-    <button class="btn sec" onclick="salir()">Salir</button>
+    <a class="hnav-btn" href="index.html#ges">← Menú</a>
+    <button class="hnav-btn" onclick="salir()">Salir</button>
     <button class="btn sec hide" id="btnPrint" onclick="window.print()">Imprimir / PDF</button>
     <button class="btn sec" data-role="ini" onclick="pickFiles('ini')" title="Excel del plan al 1/7: alimenta solo la solapa Plan">+ Plan inicio (1/7)</button>
     <button class="btn" data-role="act" onclick="pickFiles('act')" title="Excel actualizado del mes: alimenta todo el seguimiento">+ Plan actual</button>
