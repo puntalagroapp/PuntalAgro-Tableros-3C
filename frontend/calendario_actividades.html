@@ -586,6 +586,7 @@ table,.num{font-variant-numeric:tabular-nums}
 </footer>
 
 <script src="pa-core.js"></script>
+<script src="js/api.js"></script>
 <script>
 /* =====================================================================
    Calendario de Actividades — Puntal Agro
@@ -626,6 +627,7 @@ var HOY = new Date();
 var S = { roles:{}, rolesGuardado:false, foco:null, tabs:{cie:1,arr:1,sig:1,cont:1}, vista:'mes', rol:null, mes:HOY.getMonth(), etapas:{PLAN:1,PROG:1,OPER:1,ANALISIS:1}, q:'', act:null, actGuardado:false, modoCal:'ciclo' };
 var ABIERTOS_CAL = {};
 var WEL = null;   // estado de la bienvenida { paso, rol }
+var HECHAS_CACHE = {};   // modo API: { 'YYYY-MM': { idTarea:1 } }, precargado al entrar a la empresa
 
 /* ---------- íconos (SVG inline) ---------- */
 var P_ICO = {
@@ -660,6 +662,7 @@ function ico(n, cls){ return '<svg class="ico'+(cls?' '+cls:'')+'" viewBox="0 0 
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function lsGet(k){ try { return window.localStorage.getItem(k); } catch(e){ return null; } }
 function lsSet(k,v){ try { window.localStorage.setItem(k,v); } catch(e){} }
+function _esModoApi(){ return typeof PA !== 'undefined' && PA.esModoApi && PA.esModoApi(); }
 function norm(s){ return String(s||'').toLowerCase().replace(/[áàä]/g,'a').replace(/[éèë]/g,'e').replace(/[íìï]/g,'i').replace(/[óòö]/g,'o').replace(/[úùü]/g,'u'); }
 function colorGrupo(g){ return COLOR_GRUPO[g] || '#4A6533'; }
 function nombreRol(id){ if (!id || id==='*') return 'Todos los roles'; for(var i=0;i<DATOS.roles.length;i++) if(DATOS.roles[i].id===id) return DATOS.roles[i].nombre; return id; }
@@ -675,12 +678,11 @@ function nombreRoles(){
   return r.map(nombreCortoRol).join(' + ');
 }
 function tieneAlgunRol(t, lista){ for (var i=0;i<lista.length;i++) if (letrasRol(t,lista[i]).length) return true; return false; }
-function cargarRoles(){
+function cargarRolesLocal(){
   S.roles = {}; S.rolesGuardado = false;
   var g = lsGet(LS_ROLES+empresaId());
   if (g){ try { var l = JSON.parse(g); for (var i=0;i<l.length;i++) S.roles[l[i]] = 1; S.rolesGuardado = l.length>0; } catch(e){} }
 }
-function guardarRoles(){ lsSet(LS_ROLES+empresaId(), JSON.stringify(rolesElegidos())); S.rolesGuardado = rolesElegidos().length>0; }
 function fin(s){ return /\.$/.test(s) ? s : s+'.'; }
 function nombreCorto(p){ return p.n.replace('Cría Ss Primavera','Cría PMV').replace('Cría Ss Invierno','Cría INV'); }
 
@@ -719,16 +721,60 @@ function pasa(t){
 function tareasMes(m){ var out = []; for (var i=0;i<DATOS.tareas.length;i++){ var t = DATOS.tareas[i]; if (tiene(t,m) && pasa(t)) out.push(t); } return out; }
 function ordenAct(a, b){ if (a.p!==b.p) return a.p-b.p; return ETAPA_ORD[a.e]-ETAPA_ORD[b.e]; }
 
-/* ---------- tareas hechas (por empresa y mes) ---------- */
-function claveHechas(m){ return LS_HECHAS+empresaId()+'_'+anioDe(m)+'-'+(m<9?'0':'')+(m+1); }
-function hechas(m){ var h = lsGet(claveHechas(m)); if (!h) return {}; try { return JSON.parse(h)||{}; } catch(e){ return {}; } }
+/* ---------- tareas hechas (por empresa y mes) ----------
+   En modo API, HECHAS_CACHE se precarga entero (todos los meses de la
+   empresa) al entrar, así hechas(m) sigue siendo síncrona para cualquier
+   mes sin ida y vuelta al servidor en cada render. En modo demo/local
+   sigue yendo directo a localStorage como antes. */
+function anioMesStr(m){ return anioDe(m)+'-'+(m<9?'0':'')+(m+1); }
+function claveHechas(m){ return LS_HECHAS+empresaId()+'_'+anioMesStr(m); }
+function hechas(m){
+  if (_esModoApi()) return HECHAS_CACHE[anioMesStr(m)] || {};
+  var h = lsGet(claveHechas(m)); if (!h) return {}; try { return JSON.parse(h)||{}; } catch(e){ return {}; }
+}
+function cargarHechasEmpresa(callback){
+  HECHAS_CACHE = {};
+  if (!_esModoApi()){ if (callback) callback(); return; }
+  apiGet('/api/calendario-actividades/hechas?empresaId='+encodeURIComponent(empresaId()), function(err, resp){
+    if (err){ console.error('Error cargando tareas hechas:', err); if (callback) callback(); return; }
+    var data = resp || {};
+    for (var k in data){
+      if (!Object.prototype.hasOwnProperty.call(data, k)) continue;
+      var map = {};
+      for (var i=0;i<data[k].length;i++) map[data[k][i]] = 1;
+      HECHAS_CACHE[k] = map;
+    }
+    if (callback) callback();
+  });
+}
+function pintarEstadoHecha(id, m){
+  var on = !!hechas(m)[id];
+  var els = document.querySelectorAll('[data-id="'+id+'"][data-m="'+m+'"]');
+  for (var i=0;i<els.length;i++){ if (on) els[i].classList.add('done'); else els[i].classList.remove('done'); }
+}
 function togHecha(ev, id, m){
   if (ev && ev.stopPropagation) ev.stopPropagation();
-  var h = hechas(m);
-  if (h[id]) delete h[id]; else h[id] = 1;
-  lsSet(claveHechas(m), JSON.stringify(h));
-  var els = document.querySelectorAll('[data-id="'+id+'"][data-m="'+m+'"]');
-  for (var i=0;i<els.length;i++){ if (h[id]) els[i].classList.add('done'); else els[i].classList.remove('done'); }
+  var k = anioMesStr(m);
+  if (!_esModoApi()){
+    var h = hechas(m);
+    if (h[id]) delete h[id]; else h[id] = 1;
+    lsSet(claveHechas(m), JSON.stringify(h));
+  } else {
+    if (!HECHAS_CACHE[k]) HECHAS_CACHE[k] = {};
+    var eId = empresaId(), marcar;
+    if (HECHAS_CACHE[k][id]){ delete HECHAS_CACHE[k][id]; marcar = false; }
+    else { HECHAS_CACHE[k][id] = 1; marcar = true; }
+    if (marcar){
+      apiPut('/api/calendario-actividades/hechas', { empresaId: eId, anioMes: k, tareaId: id }, function(err){
+        if (err){ console.error('Error marcando tarea hecha:', err); delete HECHAS_CACHE[k][id]; pintarEstadoHecha(id, m); }
+      });
+    } else {
+      apiDelete('/api/calendario-actividades/hechas/'+encodeURIComponent(k)+'/'+encodeURIComponent(id)+'?empresaId='+encodeURIComponent(eId), function(err){
+        if (err){ console.error('Error desmarcando tarea hecha:', err); HECHAS_CACHE[k][id] = 1; pintarEstadoHecha(id, m); }
+      });
+    }
+  }
+  pintarEstadoHecha(id, m);
   if (VENTANA_P!=null){ var vb = document.getElementById('vwBody'), sy = vb.scrollTop; pintarVentana(); vb.scrollTop = sy; }
   else if (S.vista==='mes' && document.getElementById('ovCel').className.indexOf('on')<0){ var y = window.pageYOffset; renderMes(); window.scrollTo(0,y); }
 }
@@ -1332,22 +1378,61 @@ function abrirRol(){
 }
 function rolTog(id){
   if (S.roles[id] && rolesElegidos().length===1){ document.getElementById('rolErr').textContent = 'Tiene que quedar al menos un rol.'; return; }
-  S.roles[id] = S.roles[id] ? 0 : 1; guardarRoles(); abrirRol(); pintarCtx(); render();
+  S.roles[id] = S.roles[id] ? 0 : 1; guardarConfigEmpresa(); abrirRol(); pintarCtx(); render();
 }
 
 /* ---------- actividades ---------- */
-function cargarAct(){
+function cargarActLocal(){
   S.act = {}; S.actGuardado = false;
   var g = lsGet(LS_ACT+empresaId()), lista = null, i;
   if (g){ try { lista = JSON.parse(g); S.actGuardado = true; } catch(e){ lista = null; } }
   for (i=0;i<DATOS.protocolos.length;i++){ var p = DATOS.protocolos[i]; S.act[i] = lista ? (lista.indexOf(p.g+' | '+p.n)>=0) : true; }
 }
-function guardarAct(){
-  var lista = [];
-  for (var i=0;i<DATOS.protocolos.length;i++) if (S.act[i]){ var p = DATOS.protocolos[i]; lista.push(p.g+' | '+p.n); }
-  lsSet(LS_ACT+empresaId(), JSON.stringify(lista)); S.actGuardado = true;
-}
 function contarAct(){ var n = 0; for (var i=0;i<DATOS.protocolos.length;i++) if (S.act[i]) n++; return n; }
+
+/* ---------- config por empresa (roles + actividades elegidas) ----------
+   Antes vivía en dos claves de localStorage separadas (pa_cal_roles_v1_*,
+   pa_cal_actividades_v1_*). Ahora se persiste junto en el backend por
+   empresa: así no se pierde y lo ven todos los usuarios de esa empresa,
+   no solo el navegador donde se eligió. En modo demo/local (sin API)
+   sigue yendo a localStorage como antes. */
+function cargarConfigEmpresa(callback){
+  if (!_esModoApi()){
+    cargarRolesLocal(); cargarActLocal();
+    if (callback) callback();
+    return;
+  }
+  apiGet('/api/calendario-actividades/config?empresaId='+encodeURIComponent(empresaId()), function(err, resp){
+    if (err){
+      console.error('Error cargando configuración del calendario:', err);
+      cargarRolesLocal(); cargarActLocal();
+      if (callback) callback();
+      return;
+    }
+    var rolesG = (resp && resp.rolesElegidos) || [], i;
+    S.roles = {};
+    for (i=0;i<rolesG.length;i++) S.roles[rolesG[i]] = 1;
+    S.rolesGuardado = rolesG.length>0;
+    var actG = (resp && resp.actividadesElegidas) || [];
+    S.act = {}; S.actGuardado = actG.length>0;
+    for (i=0;i<DATOS.protocolos.length;i++){ var p = DATOS.protocolos[i]; S.act[i] = S.actGuardado ? (actG.indexOf(p.g+' | '+p.n)>=0) : true; }
+    if (callback) callback();
+  });
+}
+function guardarConfigEmpresa(){
+  S.rolesGuardado = rolesElegidos().length>0;
+  var listaAct = [], i;
+  for (i=0;i<DATOS.protocolos.length;i++) if (S.act[i]){ var p = DATOS.protocolos[i]; listaAct.push(p.g+' | '+p.n); }
+  S.actGuardado = listaAct.length>0;
+  if (!_esModoApi()){
+    lsSet(LS_ROLES+empresaId(), JSON.stringify(rolesElegidos()));
+    lsSet(LS_ACT+empresaId(), JSON.stringify(listaAct));
+    return;
+  }
+  apiPut('/api/calendario-actividades/config', { empresaId: empresaId(), rolesElegidos: rolesElegidos(), actividadesElegidas: listaAct }, function(err){
+    if (err) console.error('Error guardando configuración del calendario:', err);
+  });
+}
 var GRUPO_INFO = {
   'Empresa':               { i:'g_emp', d:'Planificación estratégica y del uso del suelo' },
   'Ganadería':             { i:'g_gan', d:'Rodeos de cría, recría y terminación, y estructura' },
@@ -1390,13 +1475,13 @@ function abrirAct(){
   document.getElementById('actBody').innerHTML = '<div style="padding-top:12px">'+htmlActividades('actTog','actGrupo')+'</div>';
   document.getElementById('ovAct').className = 'ov on';
 }
-function actTog(i){ S.act[i] = !S.act[i]; guardarAct(); abrirAct(); pintarBarra(); render(); }
-function actTodas(v){ for (var i=0;i<DATOS.protocolos.length;i++) S.act[i] = v; guardarAct(); abrirAct(); pintarBarra(); render(); }
+function actTog(i){ S.act[i] = !S.act[i]; guardarConfigEmpresa(); abrirAct(); pintarBarra(); render(); }
+function actTodas(v){ for (var i=0;i<DATOS.protocolos.length;i++) S.act[i] = v; guardarConfigEmpresa(); abrirAct(); pintarBarra(); render(); }
 function actGrupo(g){
   var todos = true, i;
   for (i=0;i<DATOS.protocolos.length;i++) if (DATOS.protocolos[i].g===g && !S.act[i]) todos = false;
   for (i=0;i<DATOS.protocolos.length;i++) if (DATOS.protocolos[i].g===g) S.act[i] = !todos;
-  guardarAct(); abrirAct(); pintarBarra(); render();
+  guardarConfigEmpresa(); abrirAct(); pintarBarra(); render();
 }
 function cerrarOv(id){ document.getElementById(id).className = 'ov'; }
 
@@ -1422,7 +1507,7 @@ function renderBienvenida(){
 function welRolTog(id){ S.roles[id] = S.roles[id] ? 0 : 1; renderBienvenida(); }
 function welRolListo(){
   if (!rolesElegidos().length){ document.getElementById('welErr').textContent = 'Elegí al menos un rol.'; return; }
-  guardarRoles();
+  guardarConfigEmpresa();
   if (S.actGuardado){ WEL = null; iniciarVista(); }
   else { WEL.paso = 2; for (var i=0;i<DATOS.protocolos.length;i++) S.act[i] = false; renderBienvenida(); pintarCtx(); }
 }
@@ -1430,7 +1515,7 @@ function welTog(i){ S.act[i] = !S.act[i]; renderBienvenida(); }
 function welGrupo(g){ var todos = true, i; for (i=0;i<DATOS.protocolos.length;i++) if (DATOS.protocolos[i].g===g && !S.act[i]) todos = false; for (i=0;i<DATOS.protocolos.length;i++) if (DATOS.protocolos[i].g===g) S.act[i] = !todos; renderBienvenida(); }
 function welListo(){
   if (!contarAct()){ document.getElementById('welErr').textContent = 'Marcá al menos una actividad.'; return; }
-  guardarAct(); WEL = null; iniciarVista();
+  guardarConfigEmpresa(); WEL = null; iniciarVista();
 }
 
 /* ---------- controles ---------- */
@@ -1493,12 +1578,16 @@ function pintarHeader(){
 }
 /* Decide qué mostrar para la empresa activa: bienvenida (rol / actividades) o el calendario */
 function entrarEmpresa(){
-  cargarRoles(); cargarAct(); S.foco = null;
-  var i;
-  if (!S.rolesGuardado){ WEL = { paso:1 }; for (i=0;i<DATOS.protocolos.length;i++) S.act[i] = S.actGuardado ? S.act[i] : false; render(); }
-  else if (!S.actGuardado){ WEL = { paso:2 }; for (i=0;i<DATOS.protocolos.length;i++) S.act[i] = false; render(); }
-  else { WEL = null; iniciarVista(); }
-  pintarCtx();
+  S.foco = null;
+  cargarConfigEmpresa(function(){
+    cargarHechasEmpresa(function(){
+      var i;
+      if (!S.rolesGuardado){ WEL = { paso:1 }; for (i=0;i<DATOS.protocolos.length;i++) S.act[i] = S.actGuardado ? S.act[i] : false; render(); }
+      else if (!S.actGuardado){ WEL = { paso:2 }; for (i=0;i<DATOS.protocolos.length;i++) S.act[i] = false; render(); }
+      else { WEL = null; iniciarVista(); }
+      pintarCtx();
+    });
+  });
 }
 function cambiarEmpresa(id){
   if (typeof PA==='undefined' || !PA.setEmpresaActiva) return;
@@ -1516,7 +1605,7 @@ function arrancar(){
 }
 
 if (typeof PA !== 'undefined' && PA.init){
-  PA.init({ modo:'demo' }, function(){
+  PA.init({ modo:'backend' }, function(){
     if (PA.haySesion && !PA.haySesion()){ location.href = 'login.html'; return; }
     PA.loadContext(null, function(err, ctx){ if (!err && ctx) CTX = ctx; arrancar(); });
   });

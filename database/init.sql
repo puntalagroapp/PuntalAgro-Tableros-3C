@@ -224,6 +224,22 @@ CREATE TABLE lotes (
 -- (tablero_uso_suelo.html compara contra TODOS los lotes de la empresa).
 CREATE UNIQUE INDEX uq_lotes_nombre_empresa ON lotes (empresa_id, trim(lower(nombre)));
 
+-- Datos reales de calendario_actividades.html (antes solo en localStorage):
+-- roles y actividades elegidas por empresa, y tareas marcadas como "hecha".
+CREATE TABLE calendario_actividades_config (
+    empresa_id            TEXT PRIMARY KEY REFERENCES empresas(id) ON DELETE CASCADE,
+    roles_elegidos        JSONB NOT NULL DEFAULT '[]',
+    actividades_elegidas  JSONB NOT NULL DEFAULT '[]'
+);
+
+CREATE TABLE calendario_actividades_hechas (
+    empresa_id   TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    anio_mes     TEXT NOT NULL,   -- 'YYYY-MM'
+    tarea_id     TEXT NOT NULL,
+    PRIMARY KEY (empresa_id, anio_mes, tarea_id)
+);
+CREATE INDEX idx_calendario_hechas_empresa_mes ON calendario_actividades_hechas(empresa_id, anio_mes);
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECCIÓN 3: USUARIOS, SESIONES Y PERMISOS
 -- ─────────────────────────────────────────────────────────────────────────────

@@ -2560,5 +2560,119 @@ app.delete('/api/config-operativa/tc-mensual/:anioMes', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// calendario_actividades.html — antes guardaba todo en localStorage (roles y
+// actividades elegidas por empresa, tareas marcadas "hecha" por mes); ahora
+// persiste en la base para no perderse y compartirse entre usuarios/dispositivos.
+app.get('/api/calendario-actividades/config', async (req, res) => {
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    const empresaId = req.query.empresaId;
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+
+    const r = await pool.query(
+      `SELECT roles_elegidos AS "rolesElegidos", actividades_elegidas AS "actividadesElegidas"
+         FROM calendario_actividades_config WHERE empresa_id = $1`,
+      [empresaId]
+    );
+    res.json(r.rows[0] || { rolesElegidos: [], actividadesElegidas: [] });
+  } catch (err) {
+    console.error('/api/calendario-actividades/config GET error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.put('/api/calendario-actividades/config', async (req, res) => {
+  const c = req.body || {};
+  const empresaId = c.empresaId;
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+
+    await pool.query(
+      `INSERT INTO calendario_actividades_config (empresa_id, roles_elegidos, actividades_elegidas)
+       VALUES ($1, $2::jsonb, $3::jsonb)
+       ON CONFLICT (empresa_id) DO UPDATE SET roles_elegidos = $2::jsonb, actividades_elegidas = $3::jsonb`,
+      [empresaId, JSON.stringify(c.rolesElegidos || []), JSON.stringify(c.actividadesElegidas || [])]
+    );
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('/api/calendario-actividades/config PUT error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Devuelve TODAS las tareas marcadas "hecha" de la empresa, agrupadas por mes
+// ({ 'YYYY-MM': ['tareaId', ...] }) — el calendario necesita poder mostrar
+// cualquier mes/año sin ida y vuelta al servidor por cada click.
+app.get('/api/calendario-actividades/hechas', async (req, res) => {
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    const empresaId = req.query.empresaId;
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+
+    const r = await pool.query(
+      'SELECT anio_mes AS "anioMes", tarea_id AS "tareaId" FROM calendario_actividades_hechas WHERE empresa_id = $1',
+      [empresaId]
+    );
+    const out = {};
+    r.rows.forEach(row => { (out[row.anioMes] = out[row.anioMes] || []).push(row.tareaId); });
+    res.json(out);
+  } catch (err) {
+    console.error('/api/calendario-actividades/hechas GET error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.put('/api/calendario-actividades/hechas', async (req, res) => {
+  const c = req.body || {};
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    if (!c.empresaId || !c.anioMes || !c.tareaId) return res.status(400).json({ error: 'Faltan datos' });
+    const permiso = await obtenerPermiso(req, c.empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+
+    await pool.query(
+      `INSERT INTO calendario_actividades_hechas (empresa_id, anio_mes, tarea_id)
+       VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`,
+      [c.empresaId, c.anioMes, c.tareaId]
+    );
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('/api/calendario-actividades/hechas PUT error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.delete('/api/calendario-actividades/hechas/:anioMes/:tareaId', async (req, res) => {
+  const empresaId = req.query.empresaId;
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+
+    await pool.query(
+      'DELETE FROM calendario_actividades_hechas WHERE empresa_id = $1 AND anio_mes = $2 AND tarea_id = $3',
+      [empresaId, req.params.anioMes, req.params.tareaId]
+    );
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('/api/calendario-actividades/hechas DELETE error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`PA API lista en puerto ${PORT}`));
