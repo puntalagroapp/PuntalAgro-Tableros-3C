@@ -1946,6 +1946,137 @@ app.delete('/api/campos/:id', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// cargar_datos.html — Carga masiva desde Excel (Fase 1: Plan de Uso del Suelo).
+// Reemplazo TOTAL de lotes y actividades de la empresa (fidelidad al
+// comportamiento original del cliente: no es incremental). Solo
+// admin_general/admin_cliente, sin chequear nivel de permiso (decisión del
+// cliente). Transaccional: si falla cualquier paso, no queda nada a medio
+// reemplazar. Queda auditado en cargas_excel.
+// ─────────────────────────────────────────────────────────────────────────────
+app.post('/api/carga-excel/plan', async (req, res) => {
+  const b = req.body || {};
+  const empresaId = b.empresaId;
+  const client = await pool.connect();
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
+    if (sesion.rol !== 'admin_general' && sesion.rol !== 'admin_cliente') {
+      client.release();
+      return res.status(403).json({ error: 'La carga masiva desde Excel la hace un administrador' });
+    }
+    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+
+    const campos = b.campos || [];
+    const lotes = b.lotes || [];
+    const actividades = b.actividades || [];
+    const tiposNuevos = b.tiposNuevos || [];
+    const campanias = (b.campanias || []).slice().sort();
+    const informe = b.informe || {};
+
+    await client.query('BEGIN');
+
+    // Campañas (catálogo global): agrega las que falten, con orden correlativo.
+    if (campanias.length) {
+      const maxRes = await client.query('SELECT COALESCE(MAX(orden),0) AS m FROM campanias');
+      let maxO = Number(maxRes.rows[0].m) || 0;
+      for (const cid of campanias) {
+        const ex = await client.query('SELECT 1 FROM campanias WHERE id=$1', [cid]);
+        if (!ex.rows.length) {
+          maxO += 1;
+          await client.query(
+            'INSERT INTO campanias (id, nombre, orden, activa) VALUES ($1,$2,$3,false) ON CONFLICT (id) DO NOTHING',
+            [cid, cid, maxO]
+          );
+        }
+      }
+    }
+
+    // Tipos de actividad nuevos (por empresa): solo agrega, nunca pisa existentes.
+    for (const t of tiposNuevos) {
+      await client.query(
+        `INSERT INTO tipos_actividad (id, empresa_id, datos) VALUES ($1,$2,$3::jsonb)
+         ON CONFLICT (id, empresa_id) DO NOTHING`,
+        [t.id, empresaId, JSON.stringify(t)]
+      );
+    }
+
+    // Campos: actualiza ha_totales de los existentes; da de alta los que falten
+    // (el resto de sus datos, localidad/partido/provincia, quedan vacíos — el
+    // Excel de Plan de Uso no los trae).
+    for (const c of campos) {
+      const ex = await client.query('SELECT id FROM campos WHERE id=$1 AND empresa_id=$2', [c.id, empresaId]);
+      if (ex.rows.length) {
+        await client.query(
+          'UPDATE campos SET ha_totales=$3 WHERE id=$1 AND empresa_id=$2',
+          [c.id, empresaId, c.haTotales != null ? c.haTotales : null]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO campos (id, empresa_id, nombre, localidad, partido, provincia, ha_totales)
+           VALUES ($1,$2,$3,'','','',$4)`,
+          [c.id, empresaId, c.nombre || c.id, c.haTotales != null ? c.haTotales : null]
+        );
+      }
+    }
+
+    // Lotes + actividades: reemplazo total (borra TODO lo anterior de la empresa).
+    // El Excel puede traer el mismo nombre de lote más de una vez (ej. una
+    // parcela que se partió y quedó con el mismo nombre en las dos filas) —
+    // nuestra base exige nombre único por empresa (misma regla que usa
+    // tablero_uso_suelo.html), así que a partir de la 2ª repetición se le
+    // agrega un sufijo " (2)", " (3)"... para poder importar las dos sin perder
+    // ningún dato; se pueden renombrar a mano después si corresponde.
+    const vistosNombre = {};
+    for (const l of lotes) {
+      const k = (l.nombre || '').trim().toLowerCase();
+      if (!k) continue;
+      vistosNombre[k] = (vistosNombre[k] || 0) + 1;
+      if (vistosNombre[k] > 1) l.nombre = (l.nombre || '').trim() + ' (' + vistosNombre[k] + ')';
+    }
+    await client.query('DELETE FROM actividades WHERE empresa_id=$1', [empresaId]);
+    await client.query('DELETE FROM lotes WHERE empresa_id=$1', [empresaId]);
+    for (const l of lotes) {
+      await client.query(
+        `INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha, ambiente, explotable, activo, tipo_override)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [l.id, l.campoId || null, empresaId, l.nombre || null, l.ha != null ? l.ha : null,
+         l.ambiente || null, l.explotable != null ? l.explotable : null, l.activo !== false, l.tipoOverride || null]
+      );
+    }
+    for (const a of actividades) {
+      await client.query(
+        `INSERT INTO actividades (id, empresa_id, lote_id, campania_id, tipo_actividad_id, ha, es_segunda, tenencia_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [a.id, empresaId, a.loteId || null, a.campaniaId || null,
+         a.tipoActividadId || null, a.ha != null ? a.ha : null, a.esSegunda || false, a.tenenciaId || null]
+      );
+    }
+
+    await client.query(
+      `INSERT INTO cargas_excel (id, empresa_id, usuario_id, partes, resumen, avisos)
+       VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb)`,
+      ['carga_' + Date.now(), empresaId, sesion.id,
+       JSON.stringify({ plan: true, reg: false }),
+       JSON.stringify(informe.resumen || []),
+       JSON.stringify(informe.avisos || [])]
+    );
+
+    await client.query('COMMIT');
+    res.json({ status: 'ok', lotes: lotes.length, actividades: actividades.length });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('/api/carga-excel/plan POST error:', err);
+    const msg = uniqueViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
+    res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CRUD: /api/grupos-herramientas
 // "Carpetas" para herramientas, un solo nivel (no contienen otros grupos).
 // Por ahora solo las usa Herramientas Puntal (tipo='interna'), por eso el

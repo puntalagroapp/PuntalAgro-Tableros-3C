@@ -366,6 +366,15 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
         <div class="tool-detail">Archivos y links del equipo Puntal que se muestran en "Herramientas de Consulta", visibles solo para quien tenga ese permiso habilitado en Usuarios y permisos.</div>
       </div>
 
+      <div class="tool t-mae" id="card-carga-excel" style="display:none">
+        <a class="tool-main" href="cargar_datos.html">
+          <span class="tool-name">Carga de datos desde Excel</span>
+          <span class="tool-right"><span class="tool-tag tag-ins">Importación</span><svg class="tool-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </a>
+        <button class="tool-toggle" onclick="tog(this)"><span class="ico">+</span> Detalle</button>
+        <div class="tool-detail">Carga el Plan de Uso del Suelo (lotes y actividades por campaña) de una empresa desde su Excel. Reemplaza lo que esa empresa tenga cargado hoy. La carga de Registro de Labores e Insumos está en desarrollo.</div>
+      </div>
+
     </div>
     <div class="empty" id="empty-admin" style="display:none">No tenés opciones de administración habilitadas.</div>
   </div>
@@ -681,6 +690,8 @@ function aplicarCtx(ctx) {
   if (cardHerrExt) cardHerrExt.style.display = esHerrExt ? '' : 'none';
   var cardHerrInt = document.getElementById('card-herramientas-internas');
   if (cardHerrInt) cardHerrInt.style.display = esHerrExt ? '' : 'none';
+  var cardCargaExcel = document.getElementById('card-carga-excel');
+  if (cardCargaExcel) cardCargaExcel.style.display = esAdminEstructura ? '' : 'none';
 
   var visiblesAdmin = esAdminEstructura || esAdminUsuarios || esHerrExt;
   var emptyAdmin = document.getElementById('empty-admin');
