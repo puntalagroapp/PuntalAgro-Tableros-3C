@@ -656,6 +656,7 @@ function aplicarCtx(ctx) {
 
   var sel = document.getElementById('hemp');
   sel.innerHTML = '';
+  sel.style.display = ctx.empresasDisponibles.length ? '' : 'none';
   for (var i = 0; i < ctx.empresasDisponibles.length; i++) {
     var e = ctx.empresasDisponibles[i];
     var op = document.createElement('option');
