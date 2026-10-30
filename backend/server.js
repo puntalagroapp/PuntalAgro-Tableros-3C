@@ -1994,7 +1994,15 @@ app.post('/api/carga-excel/plan', async (req, res) => {
     }
 
     // Tipos de actividad nuevos (por empresa): solo agrega, nunca pisa existentes.
+    // Se chequea por nombre (no solo por id): la tabla exige nombre único por
+    // empresa, y el Excel puede traer un tipo cuyo nombre ya exista con otro
+    // id/sigla — insertarlo igual rompería esa restricción.
     for (const t of tiposNuevos) {
+      const ex = await client.query(
+        `SELECT 1 FROM tipos_actividad WHERE empresa_id=$1 AND trim(lower(datos->>'nombre'))=trim(lower($2))`,
+        [empresaId, t.nombre || '']
+      );
+      if (ex.rows.length) continue;
       await client.query(
         `INSERT INTO tipos_actividad (id, empresa_id, datos) VALUES ($1,$2,$3::jsonb)
          ON CONFLICT (id, empresa_id) DO NOTHING`,
@@ -2004,13 +2012,23 @@ app.post('/api/carga-excel/plan', async (req, res) => {
 
     // Campos: actualiza ha_totales de los existentes; da de alta los que falten
     // (el resto de sus datos, localidad/partido/provincia, quedan vacíos — el
-    // Excel de Plan de Uso no los trae).
+    // Excel de Plan de Uso no los trae). Se busca por nombre (no solo por id):
+    // la tabla exige nombre único por empresa, y el id que arma el Excel es
+    // orientativo — si ya existe un campo con ese nombre (con otro id), hay
+    // que actualizar ESE y no intentar crear uno nuevo. Los lotes del mismo
+    // paquete referencian el id "orientativo", así que se resuelve con un mapa.
+    const campoIdMap = {};
     for (const c of campos) {
-      const ex = await client.query('SELECT id FROM campos WHERE id=$1 AND empresa_id=$2', [c.id, empresaId]);
+      const ex = await client.query(
+        `SELECT id FROM campos WHERE empresa_id=$1 AND trim(lower(nombre))=trim(lower($2))`,
+        [empresaId, c.nombre || c.id]
+      );
       if (ex.rows.length) {
+        const idReal = ex.rows[0].id;
+        campoIdMap[c.id] = idReal;
         await client.query(
           'UPDATE campos SET ha_totales=$3 WHERE id=$1 AND empresa_id=$2',
-          [c.id, empresaId, c.haTotales != null ? c.haTotales : null]
+          [idReal, empresaId, c.haTotales != null ? c.haTotales : null]
         );
       } else {
         await client.query(
@@ -2038,10 +2056,11 @@ app.post('/api/carga-excel/plan', async (req, res) => {
     await client.query('DELETE FROM actividades WHERE empresa_id=$1', [empresaId]);
     await client.query('DELETE FROM lotes WHERE empresa_id=$1', [empresaId]);
     for (const l of lotes) {
+      const campoIdReal = (l.campoId && campoIdMap[l.campoId]) || l.campoId;
       await client.query(
         `INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha, ambiente, explotable, activo, tipo_override)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [l.id, l.campoId || null, empresaId, l.nombre || null, l.ha != null ? l.ha : null,
+        [l.id, campoIdReal || null, empresaId, l.nombre || null, l.ha != null ? l.ha : null,
          l.ambiente || null, l.explotable != null ? l.explotable : null, l.activo !== false, l.tipoOverride || null]
       );
     }
