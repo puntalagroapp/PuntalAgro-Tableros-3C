@@ -1421,9 +1421,15 @@ function importar(){
       alert('Falló la importación: '+(err.error||'Error desconocido'));
       return;
     }
-    // Las herramientas abren en la empresa recién cargada.
-    try{ PA.setEmpresaActiva(empresaId(), function(){}); }catch(e){}
-    pintarHecho({ escritos:{ lotes:payload.lotes.length, actividades:payload.actividades.length }, borrados:{} }, partes);
+    // Las herramientas abren en la empresa recién cargada. PA.setEmpresaActiva
+    // solo toca el localStorage de este navegador; lo que realmente deciden
+    // tablero_uso_suelo.html y las demás al abrir (vía PA.loadContext(null,…))
+    // es la empresa activa GUARDADA EN LA SESIÓN del servidor, así que hay
+    // que pegarle a /api/context?empresaId=… (mismo mecanismo que usa el
+    // selector de empresa de index.html) para que quede activada de verdad.
+    apiGet('/api/context?empresaId='+encodeURIComponent(empresaId()), function(){
+      pintarHecho({ escritos:{ lotes:payload.lotes.length, actividades:payload.actividades.length }, borrados:{} }, partes);
+    });
   });
 }
 function pintarHecho(res, partes){
