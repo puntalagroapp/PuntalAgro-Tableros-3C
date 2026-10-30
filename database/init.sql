@@ -422,32 +422,20 @@ CREATE TABLE actividades (
 CREATE INDEX idx_actividades_lote     ON actividades(lote_id, campania_id);
 CREATE INDEX idx_actividades_empresa  ON actividades(empresa_id, campania_id);
 
--- Órdenes de trabajo
--- labor_id/subactividad/tarifa quedan sin usar por el frontend real (la labor
--- se define por lote dentro de destinos[].subact, no a nivel de cabecera) —
--- se conservan por si se necesitan a futuro, no se dropean sin necesidad.
+-- Órdenes de trabajo: solo la CABECERA (num, fecha, campaña, estado agregado
+-- sobre todos sus trabajos). Una OT (un mismo número) puede agrupar varias
+-- labores distintas, cada una con su propio contratista/tarifa/facturación y
+-- sus propios lotes — eso vive en ot_trabajos, no acá.
 CREATE TABLE ordenes_trabajo (
     id           TEXT NOT NULL,
     empresa_id   TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
     num          INTEGER NOT NULL,
     campania_id  TEXT REFERENCES campanias(id),
     fecha        DATE,
-    labor_tipo   TEXT CHECK (labor_tipo IN ('LP','LC')),
-    labor_id     TEXT REFERENCES labores(id),
-    subactividad TEXT,
-    tercero_id   TEXT,
-    tarifa       NUMERIC(12,2),
-    tarifa_moneda    TEXT NOT NULL DEFAULT 'ARS',
-    monto_facturado  NUMERIC(12,2) NOT NULL DEFAULT 0,
     obs          TEXT,
     estado       TEXT NOT NULL DEFAULT 'Pendiente'
                      CHECK (estado IN ('Pendiente','Parcial','Aplicada','Cancelada')),
-    estado_fact  TEXT NOT NULL DEFAULT 'Sin facturar'
-                     CHECK (estado_fact IN ('Sin facturar','Parcial','Facturado')),
-    plantilla    JSONB NOT NULL DEFAULT '[]',
-    destinos     JSONB NOT NULL DEFAULT '[]',
-    PRIMARY KEY (id, empresa_id),
-    FOREIGN KEY (tercero_id, empresa_id) REFERENCES terceros(id, empresa_id) ON DELETE RESTRICT
+    PRIMARY KEY (id, empresa_id)
 );
 CREATE INDEX idx_ots_empresa ON ordenes_trabajo(empresa_id, campania_id);
 CREATE UNIQUE INDEX uq_ordenes_trabajo_num_empresa ON ordenes_trabajo(empresa_id, num);
@@ -458,22 +446,49 @@ CREATE TABLE contadores_ot (
     siguiente  INTEGER NOT NULL DEFAULT 1
 );
 
--- Comprobantes: cabecera de movimiento, compartida por N líneas (movimientos).
-CREATE TABLE comprobantes (
-    id           TEXT NOT NULL,
-    empresa_id   TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-    fecha        DATE,
-    tipo         TEXT,
-    comp_tipo    TEXT,
-    comp_nro     TEXT,
-    proveedor_id TEXT,
-    campania_id  TEXT REFERENCES campanias(id),
-    obs          TEXT,
-    ref_ot       TEXT,
-    ref_ot_num   INTEGER,
+-- Una labor dentro de una OT (ej. "sembrar" y "fertilizar" bajo la misma
+-- orden): contratista, tarifa, facturación y destinos (lotes) propios.
+CREATE TABLE ot_trabajos (
+    id               TEXT NOT NULL,
+    empresa_id       TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    ot_id            TEXT NOT NULL,
+    labor_tipo       TEXT CHECK (labor_tipo IN ('LP','LC')),
+    labor_id         TEXT REFERENCES labores(id),
+    subactividad     TEXT,
+    tercero_id       TEXT,
+    tarifa           NUMERIC(12,2),
+    tarifa_moneda    TEXT NOT NULL DEFAULT 'ARS',
+    monto_facturado  NUMERIC(12,2) NOT NULL DEFAULT 0,
+    estado_fact      TEXT NOT NULL DEFAULT 'Sin facturar'
+                         CHECK (estado_fact IN ('Sin facturar','Parcial','Facturado')),
+    es_resiembra     BOOLEAN NOT NULL DEFAULT false,
+    plantilla        JSONB NOT NULL DEFAULT '[]',
+    destinos         JSONB NOT NULL DEFAULT '[]',
+    orden            INT NOT NULL DEFAULT 1,
     PRIMARY KEY (id, empresa_id),
-    FOREIGN KEY (proveedor_id, empresa_id) REFERENCES terceros(id, empresa_id) ON DELETE RESTRICT,
-    FOREIGN KEY (ref_ot, empresa_id)       REFERENCES ordenes_trabajo(id, empresa_id) ON DELETE SET NULL
+    FOREIGN KEY (ot_id, empresa_id) REFERENCES ordenes_trabajo(id, empresa_id) ON DELETE CASCADE,
+    FOREIGN KEY (tercero_id, empresa_id) REFERENCES terceros(id, empresa_id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_ot_trabajos_ot ON ot_trabajos(ot_id, empresa_id);
+
+-- Comprobantes: cabecera de movimiento, compartida por N líneas (movimientos).
+-- ref_ot_trabajo apunta al TRABAJO puntual que generó el consumo (no a la OT
+-- cabecera), porque el consumo/aplicación se cierra por labor, no por OT.
+CREATE TABLE comprobantes (
+    id              TEXT NOT NULL,
+    empresa_id      TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    fecha           DATE,
+    tipo            TEXT,
+    comp_tipo       TEXT,
+    comp_nro        TEXT,
+    proveedor_id    TEXT,
+    campania_id     TEXT REFERENCES campanias(id),
+    obs             TEXT,
+    ref_ot_trabajo  TEXT,
+    ref_ot_num      INTEGER,
+    PRIMARY KEY (id, empresa_id),
+    FOREIGN KEY (proveedor_id, empresa_id)   REFERENCES terceros(id, empresa_id)   ON DELETE RESTRICT,
+    FOREIGN KEY (ref_ot_trabajo, empresa_id) REFERENCES ot_trabajos(id, empresa_id) ON DELETE RESTRICT
 );
 CREATE INDEX idx_comprobantes_empresa ON comprobantes(empresa_id, campania_id);
 
