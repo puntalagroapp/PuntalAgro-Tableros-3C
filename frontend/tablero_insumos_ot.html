@@ -312,6 +312,31 @@ tbody tr:hover td{background:#FAFBFC}
 .modal-bg.on{display:flex}
 .modal{background:var(--card);border-radius:var(--radius);max-width:740px;width:100%;padding:18px;border:1px solid var(--border)}
 .modal.modal-lg{max-width:680px}
+.modal-bg:has(.modal-full){padding:12px;align-items:stretch}
+.modal.modal-full{max-width:none;width:100%;height:calc(100vh - 24px);overflow-y:auto;padding:20px 24px 0;display:flex;flex-direction:column}
+.modal.modal-full>*{flex:0 0 auto}
+.modal.modal-full h3{font-size:16px}
+.modal.modal-full .fact{position:sticky;bottom:0;background:var(--card);padding:12px 0 16px;margin-top:auto;border-top:1px solid var(--border);z-index:2}
+.hist-filtros{max-width:900px}
+.hist-cab{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:flex-end;border-bottom:2px solid #4A6533;padding:6px 0 12px;margin:8px 0 6px}
+.hist-cab-lote{font-size:22px;font-weight:600;color:var(--text);line-height:1.2}
+.hist-cab-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+.hist-cab-datos{display:flex;gap:24px;flex-wrap:wrap;font-size:13px}
+.hist-cab-datos span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:1px}
+.hist-camp{font-size:12px;font-weight:600;color:#4A6533;text-transform:uppercase;letter-spacing:.6px;margin:18px 0 2px;border-bottom:1px solid #C9D4BF;padding-bottom:4px}
+.hist-it{display:grid;grid-template-columns:84px 1fr;gap:16px;padding:14px 0;border-bottom:1px solid var(--border)}
+.hist-f{text-align:center;border-right:3px solid #9DB08E;padding-right:14px}
+.hist-d{display:block;font-size:15px;font-weight:600;line-height:1.2;color:#3B5226;white-space:nowrap}
+.hist-lab{font-size:14px;margin-bottom:8px}
+.hist-meta{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.hist-prod{width:100%;max-width:640px;border-collapse:collapse;font-size:12.5px}
+.hist-prod th{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);text-align:left;font-weight:500;padding:3px 8px;border-bottom:1px solid var(--border);background:none}
+.hist-prod th.num,.hist-prod td.num{text-align:right}
+.hist-prod td{padding:5px 8px;border-bottom:1px dashed #E2E6DC}
+.hist-prod tr:last-child td{border-bottom:none}
+.hist-tot{color:var(--muted)}
+.hist-obs{font-size:12px;color:var(--muted);font-style:italic;margin-top:6px}
+.hist-sin{font-size:12px;color:var(--muted)}
 .modal h3{font-size:14px;font-weight:600;margin-bottom:12px}
 .modal-danger{border:2px solid #FECACA;background:#FEF8F8}
 
@@ -594,6 +619,7 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
         <input type="date" id="consDesde" onchange="renderConsumos()" title="Desde">
         <input type="date" id="consHasta" onchange="renderConsumos()" title="Hasta">
         <button class="btn btn-sm" onclick="clearConsFilters()">Limpiar filtros</button>
+        <button class="btn btn-sm" onclick="openHistoriaLote()">📋 Historia del lote</button>
       </div>
     </div>
   </div>
@@ -1034,6 +1060,264 @@ function trabajosPorLote(o){
   return {mapa:m, orden:orden};
 }
 
+/* ================================================================
+   HISTORIA DEL LOTE: lo que se hizo en un lote, por fecha (labor, quién
+   la hizo, superficie, producto y dosis). Se descarga en PDF. Portado de
+   client-src/2026-10-30/tablero_insumos_ot.html.
+================================================================ */
+var histTmp=null;
+var JSPDF_URL='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+
+function openHistoriaLote(){
+  var fl=byId('consLoteFilter')?byId('consLoteFilter').value:'';
+  var lo=fl?getLoteById(fl):null;
+  var fc=byId('consCampoFilter')?byId('consCampoFilter').value:'';
+  histTmp={campoId: lo?lo.campoId:fc, loteId: lo?lo.id:'', campania: state.campaniaActivaId||''};
+  if(!histTmp.campoId && state.campos.length===1) histTmp.campoId=state.campos[0].id;
+  renderHistoriaLote();
+  byId('modalBg').classList.add('on');
+}
+function histSet(k, v){
+  histTmp[k]=v;
+  if(k==='campoId') histTmp.loteId='';
+  renderHistoriaLote();
+}
+// Registros aplicados de un lote, en orden cronológico.
+function datosHistoriaLote(loteId, campania){
+  var regs=[];
+  for(var i=0;i<state.ots.length;i++){
+    var o=state.ots[i]; if(o.estado==='Cancelada') continue;
+    if(campania && (o.campaniaId||'')!==campania) continue;
+    var pares=destinosDeOt(o);
+    for(var p=0;p<pares.length;p++){
+      var de=pares[p].destino, tr=pares[p].trabajo;
+      if(de.loteId!==loteId || de.estadoLote!=='Aplicado' || !destinoVisible(de)) continue;
+      var haR=(de.haReal!==undefined && de.haReal!==null && de.haReal!=='') ? Number(de.haReal) : (Number(de.ha)||0);
+      var prods=[];
+      for(var l=0;l<(de.lineas||[]).length;l++){
+        var ln=de.lineas[l], ins=getInsumo(ln.insumoId), usado=Number(ln.usado)||0;
+        if(!ins || usado<=0) continue;
+        var dos=(ln.dosisReal!==undefined && ln.dosisReal!==null) ? Number(ln.dosisReal) : (haR>0?usado/haR:0);
+        prods.push({nombre:ins.nombre, un:ins.un||'', dosis:dos, total:usado, orden:ordenMezcla(ins.id)});
+      }
+      prods.sort(function(a,b){ return a.orden!==b.orden ? a.orden-b.orden : a.nombre.localeCompare(b.nombre); });
+      var realizo = tr.laborTipo==='LP' ? 'Propia' : (tr.contratistaId ? getContratistaNombre(tr.contratistaId) : 'Contratada');
+      regs.push({fecha:de.fechaAplicReal||o.fecha||'', otNum:o.num, campania:o.campaniaId||'', labor:nombreLaborDeTrabajo(tr),
+        tipo:tr.laborTipo, realizo:realizo, ha:haR, cultivo:de.cultivo||'', resiembra:!!(tr.esResiembra||esLaborResiembra(tr.laborId, tr.laborTipo)),
+        obs:[de.obs||'', notaCambioCultivo(de)].filter(function(x){ return !!x; }).join(' · '), prods:prods});
+    }
+  }
+  var ordC={}; for(var oc=0;oc<(state.campanias||[]).length;oc++) ordC[state.campanias[oc].id]=oc;
+  regs.sort(function(a,b){
+    if(a.campania!==b.campania){ var ca=ordC.hasOwnProperty(a.campania)?ordC[a.campania]:999, cb=ordC.hasOwnProperty(b.campania)?ordC[b.campania]:999; if(ca!==cb) return ca-cb; return a.campania<b.campania?-1:1; }
+    if(a.fecha!==b.fecha) return a.fecha<b.fecha?-1:1;
+    return a.otNum-b.otNum;
+  });
+  return regs;
+}
+// Datos de cabecera: lote, campo, superficie y cultivo(s) del plan de uso.
+function cabeceraHistoria(loteId, campania){
+  var lo=getLoteById(loteId), cults=[], acts=actividadesDe(campania||'', loteId), vistos={};
+  for(var a=0;a<acts.length;a++){
+    var c=acts[a].cultivo; if(!c || vistos[c]) continue; vistos[c]=true;
+    cults.push(c+(campania?'':' ('+getCampaniaNombre(acts[a].campaniaId)+')'));
+  }
+  return {lote:lo?lo.nombre:'', campo:lo?getCampoNombre(lo.campoId):'', ha:lo?Number(lo.ha)||0:0,
+    campania:campania?getCampaniaNombre(campania):'Todas las campañas', cultivos:cults,
+    empresa:(root.espacios[root.activoId]&&root.espacios[root.activoId].nombre)||''};
+}
+function renderHistoriaLote(){
+  var t=histTmp;
+  var oc='<option value="">— Campo —</option>';
+  for(var c=0;c<state.campos.length;c++) oc+='<option value="'+esc(state.campos[c].id)+'"'+(state.campos[c].id===t.campoId?' selected':'')+'>'+esc(state.campos[c].nombre)+'</option>';
+  var ol='<option value="">— Lote —</option>';
+  var nLab={};
+  for(var o2=0;o2<state.ots.length;o2++){ var ox=state.ots[o2]; if(ox.estado==='Cancelada') continue; if(t.campania && (ox.campaniaId||'')!==t.campania) continue;
+    var px=destinosDeOt(ox); for(var q2=0;q2<px.length;q2++){ var dx=px[q2].destino; if(dx.estadoLote==='Aplicado') nLab[dx.loteId]=(nLab[dx.loteId]||0)+1; } }
+  var conL='', sinL='';
+  for(var l=0;l<state.lotes.length;l++){ var lo=state.lotes[l]; if(lo.campoId!==t.campoId) continue;
+    var nl=nLab[lo.id]||0, opt='<option value="'+esc(lo.id)+'"'+(lo.id===t.loteId?' selected':'')+(nl?'':' style="color:#9AA5B1"')+'>'+esc(lo.nombre)+(nl?' ('+nl+(nl===1?' labor)':' labores)'):' · sin labores')+'</option>';
+    if(nl) conL+=opt; else sinL+=opt; }
+  ol+=conL+(sinL?'<option disabled>──────────</option>'+sinL:'');
+  var cuerpo='';
+  if(!t.loteId) cuerpo='<p class="empty" style="padding:30px 10px">Elegí el campo y el lote.</p>';
+  else {
+    var cab=cabeceraHistoria(t.loteId, t.campania), regs=datosHistoriaLote(t.loteId, t.campania);
+    cuerpo='<div class="hist-cab">'+
+        '<div><div class="hist-cab-lote">'+esc(cab.lote)+'</div><div class="hist-cab-sub">'+esc(cab.campo)+(cab.empresa?' · '+esc(cab.empresa):'')+'</div></div>'+
+        '<div class="hist-cab-datos">'+
+          '<div><span>Campaña</span>'+esc(cab.campania)+'</div>'+
+          '<div><span>Superficie</span>'+f(cab.ha,1)+' ha</div>'+
+          '<div><span>Cultivo</span>'+(cab.cultivos.length?esc(cab.cultivos.join(' · ')):'—')+'</div>'+
+          '<div><span>Labores</span>'+regs.length+'</div>'+
+        '</div>'+
+      '</div>';
+    if(!regs.length) cuerpo+='<p class="empty" style="padding:24px 10px">No hay labores aplicadas en este lote'+(t.campania?' en la campaña '+esc(cab.campania):'')+'.</p>';
+    else {
+      var tl='', campAnt=null;
+      for(var r=0;r<regs.length;r++){
+        var x=regs[r];
+        if(!t.campania && x.campania!==campAnt){ tl+='<div class="hist-camp">Campaña '+esc(getCampaniaNombre(x.campania))+'</div>'; campAnt=x.campania; }
+        var prods='';
+        for(var q=0;q<x.prods.length;q++){
+          var pr=x.prods[q];
+          prods+='<tr><td>'+esc(pr.nombre)+'</td><td class="num"><strong>'+f(pr.dosis,pr.dosis<10?2:1)+'</strong> '+esc(pr.un)+'/ha</td><td class="num hist-tot">'+f(pr.total,1)+' '+esc(pr.un)+'</td></tr>';
+        }
+        tl+='<div class="hist-it">'+
+          '<div class="hist-f"><span class="hist-d">'+esc(fd(x.fecha)||'—')+'</span></div>'+
+          '<div class="hist-b">'+
+            '<div class="hist-lab"><strong>'+esc(x.labor)+'</strong>'+(x.resiembra?' <span class="bdg bn">Resiembra</span>':'')+
+              '<span class="hist-meta">'+esc(x.realizo)+' · '+f(x.ha,1)+' ha · '+esc(x.cultivo)+' · OT #'+x.otNum+'</span></div>'+
+            (prods?'<table class="hist-prod"><thead><tr><th>Producto</th><th class="num">Dosis</th><th class="num">Total</th></tr></thead><tbody>'+prods+'</tbody></table>':'<div class="hist-sin">Sin productos</div>')+
+            (x.obs?'<div class="hist-obs">'+esc(x.obs)+'</div>':'')+
+          '</div>'+
+        '</div>';
+      }
+      cuerpo+='<div class="hist-tl">'+tl+'</div>';
+    }
+  }
+  var mc=byId('modalContent'); mc.className='modal modal-full';
+  mc.innerHTML='<h3>Historia del lote</h3>'+
+    '<div class="form-row r4 hist-filtros">'+
+      '<div class="fld"><label>Campo</label><select onchange="histSet(\'campoId\',this.value)">'+oc+'</select></div>'+
+      '<div class="fld"><label>Lote</label><select onchange="histSet(\'loteId\',this.value)">'+ol+'</select></div>'+
+      '<div class="fld"><label>Campaña</label><select onchange="histSet(\'campania\',this.value)">'+campaniaOptions(t.campania,true)+'</select></div>'+
+    '</div>'+
+    '<div class="hist-cuerpo">'+cuerpo+'</div>'+
+    '<div class="fact"><button class="btn" onclick="closeModal()">Cerrar</button>'+
+      '<button class="btn btn-primary" onclick="descargarPdfHistoria()"'+(t.loteId?'':' disabled')+'>⬇ Descargar PDF</button></div>';
+}
+function cargarScript(url, ok, cb){
+  if(ok()) return cb(true);
+  var s=document.createElement('script'); s.src=url;
+  s.onload=function(){ cb(ok()); }; s.onerror=function(){ cb(false); };
+  document.head.appendChild(s);
+}
+function descargarPdfHistoria(){
+  if(!histTmp || !histTmp.loteId) return;
+  cargarScript(JSPDF_URL, function(){ return !!(window.jspdf && window.jspdf.jsPDF); }, function(ok){
+    if(!ok){ alert('No se pudo cargar el generador de PDF. Revisá la conexión y probá de nuevo.'); return; }
+    var doc=armarPdfHistoria(histTmp.loteId, histTmp.campania);
+    var cab=cabeceraHistoria(histTmp.loteId, histTmp.campania);
+    var nom=('Historia '+cab.lote+' '+cab.campo+' '+(histTmp.campania?cab.campania:'todas')).replace(/[^A-Za-z0-9áéíóúñÁÉÍÓÚÑ_-]+/g,'_');
+    doc.save(nom+'.pdf');
+  });
+}
+// El PDF usa las fuentes estándar (Helvetica): se evitan caracteres fuera de Latin-1.
+function pdfTxt(s){ return String(s==null?'':s).replace(/[—–]/g,'-').replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/[^\u0000-ÿ]/g,''); }
+function armarPdfHistoria(loteId, campania){
+  var J=window.jspdf.jsPDF, doc=new J({unit:'mm', format:'a4'});
+  var cab=cabeceraHistoria(loteId, campania), regs=datosHistoriaLote(loteId, campania);
+  var W=210, H=297, M=14, y=M;
+  var VERDE=[74,101,51], GRIS=[110,110,110], FONDO=[243,246,239], LINEA=[210,215,205];
+  var cols=[{t:'Fecha',w:20},{t:'Labor',w:40},{t:'Realizó',w:32},{t:'Ha',w:14,r:1},{t:'Producto',w:46},{t:'Dosis',w:30,r:1}];
+  var x0=M, xs=[]; for(var i=0;i<cols.length;i++){ xs.push(x0); x0+=cols[i].w; }
+  var LH=4.2;
+  function encabezadoTabla(){
+    doc.setFillColor(VERDE[0],VERDE[1],VERDE[2]); doc.rect(M, y, W-2*M, 7, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(255,255,255);
+    for(var c=0;c<cols.length;c++){
+      if(cols[c].r) doc.text(cols[c].t, xs[c]+cols[c].w-1.5, y+4.7, {align:'right'});
+      else doc.text(cols[c].t, xs[c]+1.5, y+4.7);
+    }
+    y+=7;
+  }
+  var campAct=null;
+  function rotuloCampania(txt){
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(VERDE[0],VERDE[1],VERDE[2]);
+    doc.text(pdfTxt(txt), M+1.5, y+5.2);
+    doc.setDrawColor(VERDE[0],VERDE[1],VERDE[2]); doc.setLineWidth(0.3); doc.line(M, y+7, W-M, y+7);
+    y+=8;
+  }
+  function nuevaHoja(){ doc.addPage(); y=M; encabezadoTabla(); if(!campania && campAct) rotuloCampania('Campaña '+getCampaniaNombre(campAct)+' (sigue)'); }
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(VERDE[0],VERDE[1],VERDE[2]);
+  doc.text('PUNTAL AGRO', M, y+3);
+  doc.setFont('helvetica','normal'); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+  doc.text(pdfTxt(cab.empresa), W-M, y+3, {align:'right'});
+  y+=10;
+  doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.setTextColor(30,30,30);
+  doc.text(pdfTxt('Historia del lote '+cab.lote), M, y);
+  y+=6;
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+  doc.text(pdfTxt(cab.campo), M, y);
+  y+=6;
+  doc.setDrawColor(LINEA[0],LINEA[1],LINEA[2]); doc.setLineWidth(0.3); doc.line(M, y, W-M, y);
+  y+=5;
+  var datos=[['Campaña', cab.campania], ['Superficie', f(cab.ha,1)+' ha'], ['Cultivo', cab.cultivos.length?cab.cultivos.join(' · '):'-'], ['Labores', String(regs.length)]];
+  var xd=M, anchos=[38,26,88,20];
+  for(var d=0;d<datos.length;d++){
+    doc.setFontSize(7.5); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]); doc.text(pdfTxt(datos[d][0]).toUpperCase(), xd, y);
+    doc.setFontSize(10); doc.setTextColor(30,30,30);
+    var vl=doc.splitTextToSize(pdfTxt(datos[d][1]), anchos[d]-3); doc.text(vl, xd, y+5);
+    xd+=anchos[d];
+  }
+  y+=14;
+  if(!regs.length){
+    doc.setFontSize(10); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+    doc.text(pdfTxt('No hay labores aplicadas en este lote'+(campania?' en la campaña '+cab.campania:'')+'.'), M, y+4);
+  } else {
+    encabezadoTabla();
+    var campAnt=null, par=false;
+    for(var r=0;r<regs.length;r++){
+      var x=regs[r];
+      if(!campania && x.campania!==campAnt){
+        campAct=null;
+        if(y+8+18>H-M-8) nuevaHoja();
+        rotuloCampania('Campaña '+getCampaniaNombre(x.campania));
+        campAnt=x.campania; campAct=x.campania;
+      }
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+      var lab=doc.splitTextToSize(pdfTxt(x.labor+(x.resiembra?' (resiembra)':'')), cols[1].w-3);
+      var rea=doc.splitTextToSize(pdfTxt(x.realizo), cols[2].w-3);
+      var filasP=[];
+      for(var q=0;q<x.prods.length;q++){
+        var pr=x.prods[q];
+        filasP.push({n:doc.splitTextToSize(pdfTxt(pr.nombre), cols[4].w-3), d:pdfTxt(f(pr.dosis, pr.dosis<10?2:1)+' '+pr.un+'/ha')});
+      }
+      var altP=0; for(var q2=0;q2<filasP.length;q2++) altP+=filasP[q2].n.length*LH;
+      if(!filasP.length) altP=LH;
+      var obs=x.obs?doc.splitTextToSize(pdfTxt('Obs.: '+x.obs), W-2*M-cols[0].w-3):[];
+      var contH=Math.max(lab.length*LH, rea.length*LH+LH, altP);
+      var alto=contH+(obs.length?obs.length*LH+1.5:0)+3;
+      if(y+alto>H-M-8) nuevaHoja();
+      if(par){ doc.setFillColor(FONDO[0],FONDO[1],FONDO[2]); doc.rect(M, y, W-2*M, alto, 'F'); }
+      par=!par;
+      var yt=y+4.3;
+      doc.setFont('helvetica','bold'); doc.setTextColor(30,30,30);
+      doc.text(pdfTxt(fd(x.fecha)), xs[0]+1.5, yt);
+      doc.text(lab, xs[1]+1.5, yt);
+      doc.setFont('helvetica','normal');
+      doc.text(rea, xs[2]+1.5, yt);
+      doc.setFontSize(7); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+      doc.text('OT #'+x.otNum, xs[2]+1.5, yt+rea.length*LH);
+      doc.setFontSize(8.5); doc.setTextColor(30,30,30);
+      doc.text(f(x.ha,1), xs[3]+cols[3].w-1.5, yt, {align:'right'});
+      if(!filasP.length){ doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]); doc.text('Sin productos', xs[4]+1.5, yt); doc.setTextColor(30,30,30); }
+      var yp=yt;
+      for(var q3=0;q3<filasP.length;q3++){
+        doc.text(filasP[q3].n, xs[4]+1.5, yp);
+        doc.setFont('helvetica','bold'); doc.text(filasP[q3].d, xs[5]+cols[5].w-1.5, yp, {align:'right'}); doc.setFont('helvetica','normal');
+        yp+=filasP[q3].n.length*LH;
+      }
+      if(obs.length){
+        doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+        doc.text(obs, xs[1]+1.5, y+4.3+contH+1.5);
+        doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(30,30,30);
+      }
+      y+=alto;
+      doc.setDrawColor(LINEA[0],LINEA[1],LINEA[2]); doc.setLineWidth(0.2); doc.line(M, y, W-M, y);
+    }
+  }
+  var n=doc.getNumberOfPages();
+  for(var pg=1;pg<=n;pg++){
+    doc.setPage(pg);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+    doc.text(pdfTxt('Puntal Agro · Historia del lote '+cab.lote+' · '+cab.campo+' · generado el '+fd(todayISO())), M, H-8);
+    doc.text('Página '+pg+' de '+n, W-M, H-8, {align:'right'});
+  }
+  return doc;
+}
+
 function _otPayload(o){
   // El backend espera la OT (cabecera) + su array trabajos[]. Este tablero
   // todavía arma 1 sola labor por OT: se manda como el único trabajo, con
@@ -1182,12 +1466,18 @@ function inyectarCatalogosDesdePA(empresaId){
   var lotesPA = PA.demo.listarLotes(empresaId) || [];
   var actsPA  = PA.demo.listarActividades(empresaId) || [];
   var actsPorLote={};
+  // state.planUso: la actividad real (campo+lote+campaña+cultivo) del Plan
+  // de Uso del Suelo — se usa para mostrar el cultivo en Historia del lote.
+  // Se arma acá reusando actsPA, sin pedirlo de nuevo.
+  state.planUso=[];
   for(var a=0;a<actsPA.length;a++){
     var ac=actsPA[a];
     var nom = byId[ac.tipoActividadId] || bySigla[ac.sigla] || ac.sigla || null;
     if(!nom) continue;
     if(!actsPorLote[ac.loteId]) actsPorLote[ac.loteId]={};
     actsPorLote[ac.loteId][nom]=true;
+    state.planUso.push({ id:ac.id, loteId:ac.loteId, campaniaId:ac.campaniaId,
+      tipoActividadId:ac.tipoActividadId, cultivo:nom, haNeta:Number(ac.ha)||0, seg:!!ac.esSegunda });
   }
   state.lotes = lotesPA.map(function(l){
     var acts = actsPorLote[l.id] ? Object.keys(actsPorLote[l.id]) : [];
@@ -1526,6 +1816,35 @@ function labelFormulacion(insumoId){
   var f=getFormulacion(ins.formulacionId);
   if(!f) return '';
   return f.codigo || f.descripcion || '';
+}
+// Actividades del Plan de Uso del Suelo para un lote/campaña (ver state.planUso).
+function actividadesDe(campaniaId, loteId){
+  var out=[], pu=state.planUso||[];
+  for(var i=0;i<pu.length;i++){
+    if(campaniaId && pu[i].campaniaId!==campaniaId) continue;
+    if(loteId && pu[i].loteId!==loteId) continue;
+    out.push(pu[i]);
+  }
+  return out;
+}
+// Nombre de la labor de un trabajo. Este tablero todavía no permite elegir
+// una labor específica por trabajo (laborId), solo el tipo propia/contratada
+// — por eso cae siempre al nombre genérico, sin romper si algún día sí lo hace.
+function nombreLaborDeTrabajo(tr){
+  if(!tr) return '—';
+  return tr.laborTipo==='LP' ? 'Labor propia' : 'Labor contratada';
+}
+// Resiembra: este tablero no distingue labores de resiembra todavía.
+function esLaborResiembra(laborId, tipo){ return false; }
+// Un destino deja de ser visible si su campo fue borrado (no debería pasar,
+// pero evita que un dato huérfano rompa la vista).
+function destinoVisible(de){ return !de || !de.campoId || !!getCampo(de.campoId); }
+// Nota de reasignación de cultivo (feature de Plan de Uso aún no portada
+// acá): sin datos de reasignación, no agrega nada — no rompe nada tampoco.
+function notaCambioCultivo(de){
+  var out=[], cc=de.cambiosCultivo||[];
+  for(var i=0;i<cc.length;i++) out.push('Reasignado de '+cc[i].de+' a '+cc[i].a+' el '+fd(cc[i].fecha)+' por cambio en el plan de uso');
+  return out.join(' · ');
 }
 // Campañas: helpers de nombre y de <option>s (etiqueta de gestión, global).
 function getCampaniaNombre(id){ if(!id) return ''; var cs=state.campanias||[]; for(var i=0;i<cs.length;i++) if(cs[i].id===id) return cs[i].nombre; return id; }
