@@ -227,6 +227,7 @@ function uniqueViolation(err) {
 const FK_ERROR_MESSAGES = {
   'empresas_cliente_id_fkey': 'No se puede borrar: el cliente tiene empresas asociadas',
   'usuarios_cliente_id_fkey': 'No se puede borrar: el cliente tiene usuarios asociados',
+  'comprobantes_ref_ot_trabajo_empresa_id_fkey': 'No se puede borrar: ya generó movimientos de stock (comprobantes)',
 };
 function fkViolation(err) {
   if (err.code !== '23503') return null;
@@ -2364,6 +2365,40 @@ app.get('/api/herramientas/:id/archivo', async (req, res) => {
 // El número de OT se asigna de forma atómica vía contadores_ot, dentro de la
 // misma transacción del INSERT — evita la carrera de asignarlo en el cliente.
 // ─────────────────────────────────────────────────────────────────────────────
+// Reemplaza TODOS los trabajos (labores) de una OT: borra e inserta de
+// nuevo, igual que _guardarLineasComprobante hace con las líneas de un
+// comprobante. El frontend manda siempre el conjunto completo de trabajos.
+async function _guardarTrabajosOt(client, otId, empresaId, trabajos) {
+  await client.query('DELETE FROM ot_trabajos WHERE ot_id=$1 AND empresa_id=$2', [otId, empresaId]);
+  const out = [];
+  let orden = 0;
+  for (const t of (trabajos || [])) {
+    orden++;
+    const id = t.id || (otId + '_tr' + orden);
+    await client.query(
+      `INSERT INTO ot_trabajos (id, empresa_id, ot_id, labor_tipo, labor_id, subactividad, tercero_id,
+                                tarifa, tarifa_moneda, monto_facturado, estado_fact, es_resiembra,
+                                plantilla, destinos, orden)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+      [id, empresaId, otId, t.laborTipo || null, t.laborId || null, t.subactividad || null,
+       t.contratistaId || null, t.tarifa || null, t.tarifaMoneda || 'ARS', t.montoFacturado || 0,
+       t.estadoFact || 'Sin facturar', t.esResiembra || false,
+       JSON.stringify(t.plantilla || []), JSON.stringify(t.destinos || []), orden]
+    );
+    out.push({ ...t, id, otId, empresaId, orden });
+  }
+  return out;
+}
+
+function _trabajoRow(r) {
+  return {
+    id: r.id, otId: r.ot_id, laborTipo: r.labor_tipo, laborId: r.labor_id, subactividad: r.subactividad,
+    contratistaId: r.tercero_id, tarifa: r.tarifa, tarifaMoneda: r.tarifa_moneda,
+    montoFacturado: r.monto_facturado, estadoFact: r.estado_fact, esResiembra: r.es_resiembra,
+    plantilla: r.plantilla, destinos: r.destinos, orden: r.orden,
+  };
+}
+
 app.get('/api/ordenes-trabajo', async (req, res) => {
   try {
     const sesion = await obtenerSesion(req);
@@ -2374,15 +2409,18 @@ app.get('/api/ordenes-trabajo', async (req, res) => {
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
 
     const params = [empresaId];
-    let sql = `SELECT id, num, campania_id AS "campaniaId", fecha, labor_tipo AS "laborTipo",
-                      tercero_id AS "contratistaId", obs, estado, estado_fact AS "estadoFact",
-                      tarifa, tarifa_moneda AS "tarifaMoneda", monto_facturado AS "montoFacturado",
-                      plantilla, destinos
+    let sql = `SELECT id, num, campania_id AS "campaniaId", fecha, obs, estado
                  FROM ordenes_trabajo WHERE empresa_id = $1`;
     if (req.query.campaniaId) { params.push(req.query.campaniaId); sql += ` AND campania_id = $${params.length}`; }
     sql += ' ORDER BY num DESC';
     const r = await pool.query(sql, params);
-    res.json(r.rows);
+    const trRes = await pool.query(
+      `SELECT * FROM ot_trabajos WHERE empresa_id = $1 ORDER BY ot_id, orden`,
+      [empresaId]
+    );
+    const porOt = {};
+    for (const row of trRes.rows) { (porOt[row.ot_id] = porOt[row.ot_id] || []).push(_trabajoRow(row)); }
+    res.json(r.rows.map(ot => ({ ...ot, trabajos: porOt[ot.id] || [] })));
   } catch (err) {
     console.error('/api/ordenes-trabajo GET error:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -2412,16 +2450,14 @@ app.post('/api/ordenes-trabajo', async (req, res) => {
     const num = numRes.rows[0].num;
     const id = o.id || ('ot_' + Date.now());
     await client.query(
-      `INSERT INTO ordenes_trabajo (id, empresa_id, num, campania_id, fecha, labor_tipo, tercero_id, obs, estado,
-                                    tarifa, tarifa_moneda, monto_facturado, plantilla, destinos)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-      [id, empresaId, num, o.campaniaId || null, o.fecha || null, o.laborTipo || null,
-       o.contratistaId || null, o.obs || null, o.estado || 'Pendiente',
-       o.tarifa || null, o.tarifaMoneda || 'ARS', o.montoFacturado || 0,
-       JSON.stringify(o.plantilla || []), JSON.stringify(o.destinos || [])]
+      `INSERT INTO ordenes_trabajo (id, empresa_id, num, campania_id, fecha, obs, estado)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, empresaId, num, o.campaniaId || null, o.fecha || null, o.obs || null, o.estado || 'Pendiente']
     );
+    const trabajos = await _guardarTrabajosOt(client, id, empresaId, o.trabajos);
     await client.query('COMMIT');
-    res.status(201).json({ ...o, id, num, empresaId });
+    res.status(201).json({ id, num, empresaId, campaniaId: o.campaniaId || null, fecha: o.fecha || null,
+      obs: o.obs || null, estado: o.estado || 'Pendiente', trabajos });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     console.error('/api/ordenes-trabajo POST error:', err);
@@ -2434,30 +2470,34 @@ app.post('/api/ordenes-trabajo', async (req, res) => {
 app.put('/api/ordenes-trabajo/:id', async (req, res) => {
   const o = req.body || {};
   const empresaId = o.empresaId;
+  const client = await pool.connect();
   try {
     const sesion = await obtenerSesion(req);
-    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
-    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
-    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
     const bloqueo = await verificarLockPropio('ordenes_trabajo', req.params.id, sesion);
-    if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
+    if (bloqueo) { client.release(); return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre }); }
 
-    await pool.query(
-      `UPDATE ordenes_trabajo
-          SET campania_id=$3, fecha=$4, labor_tipo=$5, tercero_id=$6, obs=$7,
-              estado=$8, estado_fact=$9, tarifa=$10, tarifa_moneda=$11, monto_facturado=$12,
-              plantilla=$13, destinos=$14
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE ordenes_trabajo SET campania_id=$3, fecha=$4, obs=$5, estado=$6
         WHERE id=$1 AND empresa_id=$2`,
-      [req.params.id, empresaId, o.campaniaId || null, o.fecha || null, o.laborTipo || null,
-       o.contratistaId || null, o.obs || null, o.estado || 'Pendiente', o.estadoFact || 'Sin facturar',
-       o.tarifa || null, o.tarifaMoneda || 'ARS', o.montoFacturado || 0,
-       JSON.stringify(o.plantilla || []), JSON.stringify(o.destinos || [])]
+      [req.params.id, empresaId, o.campaniaId || null, o.fecha || null, o.obs || null, o.estado || 'Pendiente']
     );
-    res.json({ ...o, id: req.params.id, empresaId });
+    const trabajos = await _guardarTrabajosOt(client, req.params.id, empresaId, o.trabajos);
+    await client.query('COMMIT');
+    res.json({ id: req.params.id, num: o.num, empresaId, campaniaId: o.campaniaId || null,
+      fecha: o.fecha || null, obs: o.obs || null, estado: o.estado || 'Pendiente', trabajos });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error('/api/ordenes-trabajo PUT error:', err);
+    const msg = fkViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
     res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
   }
 });
 
@@ -2472,10 +2512,16 @@ app.delete('/api/ordenes-trabajo/:id', async (req, res) => {
     const bloqueo = await verificarLockPropio('ordenes_trabajo', req.params.id, sesion);
     if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
 
+    // ot_trabajos se borra solo (ON DELETE CASCADE). Si alguno de sus trabajos
+    // ya generó un comprobante (consumo real de stock), el borrado se
+    // rechaza (RESTRICT) — no se puede borrar una orden que ya tuvo
+    // movimientos reales.
     await pool.query('DELETE FROM ordenes_trabajo WHERE id=$1 AND empresa_id=$2', [req.params.id, empresaId]);
     res.json({ status: 'ok' });
   } catch (err) {
     console.error('/api/ordenes-trabajo DELETE error:', err);
+    const msg = fkViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
@@ -2498,7 +2544,7 @@ app.get('/api/comprobantes', async (req, res) => {
     const params = [empresaId];
     let sql = `SELECT id, fecha, tipo, comp_tipo AS "compTipo", comp_nro AS "compNro",
                       proveedor_id AS "proveedorId", campania_id AS "campaniaId", obs,
-                      ref_ot AS "refOt", ref_ot_num AS "refOtNum"
+                      ref_ot_trabajo AS "refOtTrabajo", ref_ot_num AS "refOtNum"
                  FROM comprobantes WHERE empresa_id = $1`;
     if (req.query.campaniaId) { params.push(req.query.campaniaId); sql += ` AND campania_id = $${params.length}`; }
     const comps = await pool.query(sql, params);
@@ -2546,10 +2592,10 @@ app.post('/api/comprobantes', async (req, res) => {
     const id = c.id || ('comp_' + Date.now());
     await client.query('BEGIN');
     await client.query(
-      `INSERT INTO comprobantes (id, empresa_id, fecha, tipo, comp_tipo, comp_nro, proveedor_id, campania_id, obs, ref_ot, ref_ot_num)
+      `INSERT INTO comprobantes (id, empresa_id, fecha, tipo, comp_tipo, comp_nro, proveedor_id, campania_id, obs, ref_ot_trabajo, ref_ot_num)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [id, empresaId, c.fecha || null, c.tipo || null, c.compTipo || null, c.compNro || null,
-       c.proveedorId || null, c.campaniaId || null, c.obs || null, c.refOt || null, c.refOtNum || null]
+       c.proveedorId || null, c.campaniaId || null, c.obs || null, c.refOtTrabajo || null, c.refOtNum || null]
     );
     await _guardarLineasComprobante(client, id, empresaId, c.lineas);
     await client.query('COMMIT');
@@ -2579,10 +2625,10 @@ app.put('/api/comprobantes/:id', async (req, res) => {
     await client.query('BEGIN');
     await client.query(
       `UPDATE comprobantes
-          SET fecha=$3, tipo=$4, comp_tipo=$5, comp_nro=$6, proveedor_id=$7, campania_id=$8, obs=$9, ref_ot=$10, ref_ot_num=$11
+          SET fecha=$3, tipo=$4, comp_tipo=$5, comp_nro=$6, proveedor_id=$7, campania_id=$8, obs=$9, ref_ot_trabajo=$10, ref_ot_num=$11
         WHERE id=$1 AND empresa_id=$2`,
       [req.params.id, empresaId, c.fecha || null, c.tipo || null, c.compTipo || null, c.compNro || null,
-       c.proveedorId || null, c.campaniaId || null, c.obs || null, c.refOt || null, c.refOtNum || null]
+       c.proveedorId || null, c.campaniaId || null, c.obs || null, c.refOtTrabajo || null, c.refOtNum || null]
     );
     await _guardarLineasComprobante(client, req.params.id, empresaId, c.lineas);
     await client.query('COMMIT');
