@@ -342,6 +342,9 @@ tr.hist-subtot td{background:#F4F6F1;border-top:1px solid var(--border);border-b
 .grp-row td{font-weight:600;font-family:var(--sans);padding:6px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text);background:#F5F7FA}
 .grp-row td::before{content:"▸ ";color:var(--muted)}
 .grp-row.grp-campo td{color:var(--olive);background:#F0F4EC}
+.grp-row.grp-campo{cursor:pointer}
+.grp-row.grp-campo td::before{content:"▾ "}
+.grp-row.grp-campo.colapsado td::before{content:"▸ "}
 /* Bloque de actividad (Plan de uso): se distingue con borde izquierdo. */
 thead th.th-act{color:#8A4B24}
 thead th.th-act.act-start{border-left:2px solid #D8C9BE}
@@ -2603,7 +2606,7 @@ function renderPlan(){
       for(var ci=0; ci<ordenCampos.length; ci++){
         var campo = ordenCampos[ci];
         var grupo = porCampo[campo];
-        html += '<tr class="grp-row grp-campo"><td colspan="'+colspan+'">Campo '+campo+' · '+grupo.length+' lotes</td></tr>';
+        html += '<tr class="grp-row grp-campo" onclick="togCampoGrupo(this)"><td colspan="'+colspan+'">Campo '+campo+' · '+grupo.length+' lotes</td></tr>';
         html += renderRows(grupo, 'row-flat');
         html += filaCierrePlan(campo, grupo, colspan);
       }
@@ -3060,6 +3063,20 @@ function closeMasivo(){ var m=document.getElementById('modalMasivo'); if(m) m.cl
 // ────────────────────────────────────────────────────────────
 function abrirConciliar(){ alert('La conciliación de superficies todavía no está portada a esta versión.'); }
 
+// Colapsa/expande el grupo "Campo X · N lotes" del Plan o del Padrón: oculta
+// las filas entre este encabezado y el próximo (o el final de la tabla). No
+// depende de qué filas son (lotes, fila de cierre, historia…), solo de dónde
+// está el siguiente encabezado de grupo.
+function togCampoGrupo(tr){
+  var colapsar = !tr.classList.contains('colapsado');
+  tr.classList.toggle('colapsado', colapsar);
+  var sib = tr.nextElementSibling;
+  while(sib && !sib.classList.contains('grp-campo')){
+    sib.style.display = colapsar ? 'none' : '';
+    sib = sib.nextElementSibling;
+  }
+}
+
 
 // ────────────────────────────────────────────────────────────
 // RENDER PADRÓN
@@ -3182,7 +3199,7 @@ function renderPadron(){
   var nro = 0;
   for(var g=0; g<grupos.length; g++){
   var gl = porC[grupos[g]];
-  if(agrupar) html += '<tr class="grp-row grp-campo"><td colspan="9">Campo '+grupos[g]+' · '+gl.length+(gl.length===1?' lote':' lotes')+'</td></tr>';
+  if(agrupar) html += '<tr class="grp-row grp-campo" onclick="togCampoGrupo(this)"><td colspan="9">Campo '+grupos[g]+' · '+gl.length+(gl.length===1?' lote':' lotes')+'</td></tr>';
   for(var i=0;i<gl.length;i++){
     var l = gl[i];
     nro++;
