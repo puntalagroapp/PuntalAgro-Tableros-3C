@@ -651,7 +651,7 @@ function actualizarContadorPuntal() {
 }
 
 function aplicarCtx(ctx) {
-  var nivel = ctx.permiso ? ctx.permiso.nivel : 'usuario';
+  var nivel = !ctx.empresaActivaId ? 'sin empresa' : (ctx.permiso && ctx.permiso.nivel ? ctx.permiso.nivel : 'usuario');
   document.getElementById('huser').innerHTML = '<strong>' + ctx.usuario.nombre + '</strong> · ' + nivel;
 
   var sel = document.getElementById('hemp');
