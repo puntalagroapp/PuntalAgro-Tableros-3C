@@ -910,12 +910,17 @@ function syncRootConContexto(empresaId, nombreEmpresa, callback){
 function cargarOTsApi(callback){
   apiGet('/api/ordenes-trabajo?empresaId='+encodeURIComponent(CTX.empresaActivaId), function(err, data){
     if(err){ console.error('Error cargando OTs:', err); state.ots=[]; if(callback) callback(); return; }
+    // El backend modela N labores por OT (array trabajos[]); este tablero
+    // todavía solo arma OTs de 1 labor, así que se aplana el primer (único)
+    // trabajo sobre la OT, igual que antes de la migración a ot_trabajos.
     state.ots=(data||[]).map(function(o){
+      var t=(o.trabajos&&o.trabajos[0])||{};
       return {
         id:o.id, num:o.num, fecha:(o.fecha||'').slice(0,10), campaniaId:o.campaniaId||'',
-        laborTipo:o.laborTipo||'LP', contratistaId:o.contratistaId||'', obs:o.obs||'',
-        estado:o.estado||'Pendiente', estadoFact:o.estadoFact||'Sin facturar',
-        plantilla:o.plantilla||[], destinos:o.destinos||[], aplicaciones:[], _synced:true
+        laborTipo:t.laborTipo||'LP', contratistaId:t.contratistaId||'', obs:o.obs||'',
+        estado:o.estado||'Pendiente', estadoFact:t.estadoFact||'Sin facturar',
+        tarifa:t.tarifa||null, tarifaMoneda:t.tarifaMoneda||'ARS', montoFacturado:t.montoFacturado||0,
+        plantilla:t.plantilla||[], destinos:t.destinos||[], aplicaciones:[], _synced:true
       };
     });
     if(callback) callback();
@@ -929,7 +934,7 @@ function cargarComprobantesApi(callback){
       comps.push({
         id:c.id, fecha:(c.fecha||'').slice(0,10), tipo:c.tipo||'', comp_tipo:c.compTipo||'', comp_nro:c.compNro||'',
         proveedorId:c.proveedorId||'', campaniaId:c.campaniaId||'', obs:c.obs||'',
-        refOt:c.refOt||'', refOtNum:c.refOtNum||'', _synced:true
+        refOt:c.refOtTrabajo||'', refOtNum:c.refOtNum||'', _synced:true
       });
       (c.lineas||[]).forEach(function(m){
         movs.push({ id:m.id, comprobanteId:m.comprobanteId, insumoId:m.insumoId, cant:Number(m.cant)||0,
@@ -950,11 +955,17 @@ function cargarConfigOperativaApi(callback){
 }
 
 function _otPayload(o){
-  return { empresaId:CTX.empresaActivaId, campaniaId:o.campaniaId||null, fecha:o.fecha||null,
-    laborTipo:o.laborTipo||null, contratistaId:o.contratistaId||null, obs:o.obs||null,
-    estado:o.estado||'Pendiente', estadoFact:o.estadoFact||'Sin facturar',
-    tarifa:o.tarifa||null, tarifaMoneda:o.tarifaMoneda||'ARS', montoFacturado:o.montoFacturado||0,
-    plantilla:o.plantilla||[], destinos:o.destinos||[] };
+  // El backend espera la OT (cabecera) + su array trabajos[]. Este tablero
+  // todavía arma 1 sola labor por OT: se manda como el único trabajo, con
+  // id=o.id a propósito — así ot_trabajos.id queda igual al id de la OT,
+  // igual que antes de existir ot_trabajos, y comp.refOt (que en todo este
+  // archivo vale o.id) sigue apuntando al lugar correcto sin tocar nada más.
+  return { id:o.id, empresaId:CTX.empresaActivaId, campaniaId:o.campaniaId||null, fecha:o.fecha||null,
+    obs:o.obs||null, estado:o.estado||'Pendiente',
+    trabajos:[{ id:o.id, laborTipo:o.laborTipo||null, contratistaId:o.contratistaId||null,
+      estadoFact:o.estadoFact||'Sin facturar',
+      tarifa:o.tarifa||null, tarifaMoneda:o.tarifaMoneda||'ARS', montoFacturado:o.montoFacturado||0,
+      plantilla:o.plantilla||[], destinos:o.destinos||[] }] };
 }
 function guardarOTApi(o, callback){
   if (!_esModoApi() || !CTX) { if(callback) callback(); return; }
@@ -979,9 +990,18 @@ function _comprobantePayload(comp){
     var m=state.movtos[i];
     if(m.comprobanteId===comp.id) lineas.push({id:m.id, insumoId:m.insumoId, cant:m.cant, origenId:m.origenId||null, destinoId:m.destinoId||null, refDest:m.refDest||null});
   }
-  return { empresaId:CTX.empresaActivaId, fecha:comp.fecha||null, tipo:comp.tipo||null,
+  // comp.refOt vale siempre el id de la OT (ver _otPayload), y por
+  // convención ot_trabajos.id == ordenes_trabajo.id para toda OT armada por
+  // este tablero — así que sigue apuntando al trabajo correcto tal cual.
+  // Se manda id:comp.id explícito (bug preexistente: guardarComprobanteApi
+  // nunca releía el id real que devolvía el POST, así que un comprobante
+  // recién creado quedaba con el id del cliente en memoria pero otro
+  // distinto en la base — borrarlo sin recargar la página antes fallaba en
+  // silencio). Mandar el id hace que el backend lo use tal cual, igual que
+  // ya hace _otPayload con la OT.
+  return { id:comp.id, empresaId:CTX.empresaActivaId, fecha:comp.fecha||null, tipo:comp.tipo||null,
     compTipo:comp.comp_tipo||null, compNro:comp.comp_nro||null, proveedorId:comp.proveedorId||null,
-    campaniaId:comp.campaniaId||null, obs:comp.obs||null, refOt:comp.refOt||null, refOtNum:comp.refOtNum||null,
+    campaniaId:comp.campaniaId||null, obs:comp.obs||null, refOtTrabajo:comp.refOt||null, refOtNum:comp.refOtNum||null,
     lineas:lineas };
 }
 function guardarComprobanteApi(comp, callback){
@@ -4754,7 +4774,7 @@ function init(){
   loadRoot();
   // Boot del contexto Puntal Agro. Si PA está, carga sesión/empresa; si no, modo local.
   if(typeof PA!=='undefined'){
-    PA.init({}, function(){
+    PA.init({ modo:'backend' }, function(){
       var arrancar=function(){
         PA.loadContext(null, function(err, ctx){
           if(err && err.status===401){ location.href='login.html'; return; }
