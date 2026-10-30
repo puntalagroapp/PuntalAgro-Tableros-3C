@@ -519,6 +519,20 @@ CREATE TABLE tipo_cambio_mensual (
 );
 CREATE INDEX idx_tc_mensual_empresa ON tipo_cambio_mensual(empresa_id);
 
+-- Auditoría de "Carga de datos desde Excel" (cargar_datos.html): operación
+-- destructiva e irreversible, queda registrada quién/cuándo/qué empresa/qué
+-- partes importó y el resumen que vio en Revisión antes de confirmar.
+CREATE TABLE cargas_excel (
+    id          TEXT PRIMARY KEY,
+    empresa_id  TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    usuario_id  TEXT NOT NULL REFERENCES usuarios(id),
+    fecha       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    partes      JSONB NOT NULL DEFAULT '{}',
+    resumen     JSONB NOT NULL DEFAULT '[]',
+    avisos      JSONB NOT NULL DEFAULT '[]'
+);
+CREATE INDEX idx_cargas_excel_empresa ON cargas_excel(empresa_id, fecha DESC);
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECCIÓN 7: DATOS INICIALES (SEED)
 -- ─────────────────────────────────────────────────────────────────────────────
