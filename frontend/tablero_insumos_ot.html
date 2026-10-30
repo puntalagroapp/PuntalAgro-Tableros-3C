@@ -912,16 +912,26 @@ function cargarOTsApi(callback){
     if(err){ console.error('Error cargando OTs:', err); state.ots=[]; if(callback) callback(); return; }
     // El backend modela N labores por OT (array trabajos[]); este tablero
     // todavía solo arma OTs de 1 labor, así que se aplana el primer (único)
-    // trabajo sobre la OT, igual que antes de la migración a ot_trabajos.
+    // trabajo sobre la OT, igual que antes de la migración a ot_trabajos —
+    // pero ADEMÁS se deja un o.trabajos[] espejo (mismas referencias, no
+    // copias) para poder portar los reportes del cliente (buildOtPrint,
+    // historia de lote, etc.) tal cual los escribió, sin reescribirlos: esas
+    // funciones recorren o.trabajos, no los campos planos. Como plantilla y
+    // destinos son las MISMAS referencias en los dos lados, no hay riesgo de
+    // desincronizarlos editando uno u otro.
     state.ots=(data||[]).map(function(o){
       var t=(o.trabajos&&o.trabajos[0])||{};
-      return {
+      var ot={
         id:o.id, num:o.num, fecha:(o.fecha||'').slice(0,10), campaniaId:o.campaniaId||'',
         laborTipo:t.laborTipo||'LP', contratistaId:t.contratistaId||'', obs:o.obs||'',
         estado:o.estado||'Pendiente', estadoFact:t.estadoFact||'Sin facturar',
         tarifa:t.tarifa||null, tarifaMoneda:t.tarifaMoneda||'ARS', montoFacturado:t.montoFacturado||0,
         plantilla:t.plantilla||[], destinos:t.destinos||[], aplicaciones:[], _synced:true
       };
+      ot.trabajos=[{ laborTipo:ot.laborTipo, contratistaId:ot.contratistaId, estadoFact:ot.estadoFact,
+        tarifa:ot.tarifa, tarifaMoneda:ot.tarifaMoneda, montoFacturado:ot.montoFacturado,
+        plantilla:ot.plantilla, destinos:ot.destinos }];
+      return ot;
     });
     if(callback) callback();
   });
@@ -952,6 +962,76 @@ function cargarConfigOperativaApi(callback){
     state.tcApertura=Number(d.tcApertura)||0; state.tcCierre=Number(d.tcCierre)||0;
     if(callback) callback();
   });
+}
+
+/* ================================================================
+   HELPERS DE o.trabajos[] — portados del rediseño del cliente (ver
+   client-src/2026-10-30/tablero_insumos_ot.html). Un mismo lote puede
+   aparecer en VARIOS trabajos de la misma OT: por eso "cantidad de
+   destinos" no es "cantidad de lotes" — para eso están lotesDeOt()/
+   haDeOt(), no se cuenta o.destinos directo.
+   Con fallback a los campos planos (o.destinos/o.plantilla) para OTs
+   recién creadas en esta sesión que todavía no tienen o.trabajos armado
+   (ver cargarOTsApi) — así no hace falta tocar cada lugar del archivo
+   que construye una OT nueva.
+================================================================ */
+function esUN(de){ return !!de && String(de.loteId||'').indexOf('UN:')===0; }
+function destinosDeOt(o){
+  var trs=(o.trabajos&&o.trabajos.length) ? o.trabajos : [{ laborTipo:o.laborTipo, contratistaId:o.contratistaId,
+    tarifa:o.tarifa, tarifaMoneda:o.tarifaMoneda, plantilla:o.plantilla, destinos:o.destinos }];
+  var out=[];
+  for(var t=0;t<trs.length;t++){
+    var ds=trs[t].destinos||[];
+    for(var d=0;d<ds.length;d++) out.push({trabajo:trs[t], destino:ds[d], ti:t, di:d});
+  }
+  return out;
+}
+function lotesDeOt(o){
+  var set={}, out=[], pares=destinosDeOt(o);
+  for(var i=0;i<pares.length;i++){
+    var de=pares[i].destino, lid=de.loteId;
+    if(!lid || esUN(de) || set[lid]) continue;
+    set[lid]=true; out.push(lid);
+  }
+  return out;
+}
+function haDeOt(o){
+  var vistos={}, tot=0, pares=destinosDeOt(o);
+  for(var i=0;i<pares.length;i++){
+    var de=pares[i].destino;
+    if(!de.loteId || esUN(de) || vistos[de.loteId]) continue;
+    vistos[de.loteId]=true;
+    tot += Number(de.ha)||0;
+  }
+  return tot;
+}
+function tarifaDe(trabajo, destino){
+  if(destino && destino.tarifa!==undefined && destino.tarifa!==null && destino.tarifa!=='') return Number(destino.tarifa)||0;
+  return Number(trabajo.tarifa)||0;
+}
+function tarifaMonedaDe(trabajo, destino){
+  if(destino && destino.tarifaMoneda) return destino.tarifaMoneda;
+  return trabajo.tarifaMoneda||'ARS';
+}
+// Cantidad requerida de una línea: dosis × ha del lote (o cantidad fija si es UN).
+function cantReq(de, ln, ha){
+  if(esUN(de)) return Number(ln.dosis)||0;
+  return (Number(ln.dosis)||0)*(ha===undefined ? (Number(de.ha)||0) : (Number(ha)||0));
+}
+function buscarDestino(o, destId){
+  var pares=destinosDeOt(o);
+  for(var i=0;i<pares.length;i++) if(pares[i].destino.id===destId) return pares[i];
+  return null;
+}
+function trabajosPorLote(o){
+  var m={}, orden=[];
+  var pares=destinosDeOt(o);
+  for(var i=0;i<pares.length;i++){
+    var lid=pares[i].destino.loteId;
+    if(!m[lid]){ m[lid]=[]; orden.push(lid); }
+    m[lid].push(pares[i]);
+  }
+  return {mapa:m, orden:orden};
 }
 
 function _otPayload(o){
@@ -1162,7 +1242,10 @@ function inyectarCatalogosDesdePA(empresaId){
       deposito: prev.deposito || ((state.depositos[0]&&state.depositos[0].nombre)||''),
       stockMin: Number(prev.stockMin)||0,
       precioUnitario: Number(prev.precioUnitario)||0,
-      moneda: prev.moneda || 'ARS'
+      moneda: prev.moneda || 'ARS',
+      // Orden de mezclado al imprimir una OT (Maestros → Formulaciones);
+      // no es operativo de este tablero, se lee tal cual viene de Maestros.
+      formulacionId: ins.formulacionId || null
     };
   }).filter(function(x){ return x; });
 
@@ -1413,6 +1496,37 @@ function marcarFiltrosActivos(ids, clearBtnId){
 }
 function toast(msg){ var t=byId('toast'); t.textContent=msg; t.classList.add('on'); setTimeout(function(){ t.classList.remove('on'); }, 2000); }
 function getInsumo(id){ for(var i=0;i<state.insumos.length;i++) if(state.insumos[i].id===id) return state.insumos[i]; return null; }
+/* ================================================================
+   FORMULACIONES — orden de mezclado en tanque (ver client-src/2026-10-30).
+   El catálogo vive en Maestros (código CropLife/FAO + orden); acá se lee
+   para ordenar los insumos al imprimir una OT. PA.demo.listarFormulaciones
+   ya está expuesto en pa-core.js (funciona en modo demo y backend por
+   igual), así que a diferencia del archivo del cliente no hace falta
+   fallback a localStorage.
+================================================================ */
+function listarFormulaciones(){ return (PA.demo.listarFormulaciones()||[]).slice().sort(function(a,b){ return (a.orden||0)-(b.orden||0); }); }
+function hayFormulaciones(){ return listarFormulaciones().length>0; }
+function getFormulacion(id){
+  if(!id) return null;
+  var l=listarFormulaciones();
+  for(var i=0;i<l.length;i++) if(l[i].id===id) return l[i];
+  return null;
+}
+// Orden de mezclado de un insumo. Sin formulación cargada va al final (99).
+function ordenMezcla(insumoId){
+  var ins=getInsumo(insumoId);
+  if(!ins || !ins.formulacionId) return 99;
+  var f=getFormulacion(ins.formulacionId);
+  return f ? (Number(f.orden)||99) : 99;
+}
+// Etiqueta corta de la formulación: el código si lo tiene (WP, SC), si no la descripción.
+function labelFormulacion(insumoId){
+  var ins=getInsumo(insumoId);
+  if(!ins || !ins.formulacionId) return '';
+  var f=getFormulacion(ins.formulacionId);
+  if(!f) return '';
+  return f.codigo || f.descripcion || '';
+}
 // Campañas: helpers de nombre y de <option>s (etiqueta de gestión, global).
 function getCampaniaNombre(id){ if(!id) return ''; var cs=state.campanias||[]; for(var i=0;i<cs.length;i++) if(cs[i].id===id) return cs[i].nombre; return id; }
 function campaniaOptions(selId, incluirTodas){
@@ -2766,6 +2880,30 @@ function viewOT(id){
     '</div>';
   }
 
+  // Total de insumos de la orden, ordenado por formulación (orden de
+  // mezclado en el tanque) — portado del rediseño del cliente.
+  var totIns={}, paresTot=destinosDeOt(o);
+  for(var dt=0;dt<paresTot.length;dt++){
+    var lnsT=paresTot[dt].destino.lineas||[];
+    for(var jt=0;jt<lnsT.length;jt++) totIns[lnsT[jt].insumoId]=(totIns[lnsT[jt].insumoId]||0)+cantReq(paresTot[dt].destino, lnsT[jt]);
+  }
+  var idsTot=[];
+  for(var iidT in totIns){ if(totIns.hasOwnProperty(iidT) && getInsumo(iidT)) idsTot.push(iidT); }
+  idsTot.sort(function(a,b){ var oa=ordenMezcla(a), ob=ordenMezcla(b); if(oa!==ob) return oa-ob; return getInsumo(a).nombre.localeCompare(getInsumo(b).nombre); });
+  var totRows='';
+  for(var ti=0;ti<idsTot.length;ti++){
+    var iid=idsTot[ti], insT=getInsumo(iid), fmlT=labelFormulacion(iid);
+    totRows+='<tr><td class="tdname">'+esc(insT.nombre)+(fmlT?' <span class="bdg bn">'+esc(fmlT)+'</span>':'')+'</td>'+
+      '<td>'+esc(insT.un||'')+'</td><td class="num"><strong>'+f(totIns[iid],2)+'</strong></td></tr>';
+  }
+  if(!totRows) totRows='<tr><td colspan="3" class="empty">Sin insumos.</td></tr>';
+  var totalBlock='<div style="margin-top:16px">'+
+      '<div style="font-weight:600;margin-bottom:4px">Total de insumos de la orden'+
+        (hayFormulaciones()?'':' <span style="font-weight:400;color:var(--muted)">(sin formulaciones cargadas en Maestros: orden alfabético)</span>')+
+      '</div>'+
+      '<table><thead><tr><th>Insumo</th><th>Un.</th><th class="num">Requerimiento total</th></tr></thead><tbody>'+totRows+'</tbody></table>'+
+    '</div>';
+
   dv.innerHTML=
     '<div class="no-print" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
       '<button class="btn" onclick="renderOtList()">← Volver al listado</button>'+
@@ -2797,6 +2935,8 @@ function viewOT(id){
       '</div>'+
 
       destBlocks+
+
+      totalBlock+
 
       (o.obs ? '<div class="ot-obs" style="margin-top:12px"><strong>Observaciones:</strong> '+esc(o.obs)+'</div>' : '')+
 
