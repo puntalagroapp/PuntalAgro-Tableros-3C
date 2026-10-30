@@ -461,6 +461,8 @@ CREATE TABLE ot_trabajos (
     monto_facturado  NUMERIC(12,2) NOT NULL DEFAULT 0,
     estado_fact      TEXT NOT NULL DEFAULT 'Sin facturar'
                          CHECK (estado_fact IN ('Sin facturar','Parcial','Facturado')),
+    estado_pago      TEXT NOT NULL DEFAULT 'No',
+    monto_pagado     NUMERIC(12,2) NOT NULL DEFAULT 0,
     es_resiembra     BOOLEAN NOT NULL DEFAULT false,
     plantilla        JSONB NOT NULL DEFAULT '[]',
     destinos         JSONB NOT NULL DEFAULT '[]',
@@ -470,6 +472,18 @@ CREATE TABLE ot_trabajos (
     FOREIGN KEY (tercero_id, empresa_id) REFERENCES terceros(id, empresa_id) ON DELETE RESTRICT
 );
 CREATE INDEX idx_ot_trabajos_ot ON ot_trabajos(ot_id, empresa_id);
+
+-- Tarifa de referencia de una labor propia, por campaña: sugerencia para
+-- autocompletar al emitir una OT (el valor real queda en
+-- ot_trabajos.tarifa de cada OT ya emitida, editable ahí).
+CREATE TABLE tarifas_referencia_labor (
+    empresa_id   TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    labor_id     TEXT NOT NULL REFERENCES labores(id),
+    campania_id  TEXT NOT NULL REFERENCES campanias(id),
+    valor        NUMERIC(12,2) NOT NULL DEFAULT 0,
+    moneda       TEXT NOT NULL DEFAULT 'ARS',
+    PRIMARY KEY (empresa_id, labor_id, campania_id)
+);
 
 -- Comprobantes: cabecera de movimiento, compartida por N líneas (movimientos).
 -- ref_ot_trabajo apunta al TRABAJO puntual que generó el consumo (no a la OT

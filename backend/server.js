@@ -2377,12 +2377,12 @@ async function _guardarTrabajosOt(client, otId, empresaId, trabajos) {
     const id = t.id || (otId + '_tr' + orden);
     await client.query(
       `INSERT INTO ot_trabajos (id, empresa_id, ot_id, labor_tipo, labor_id, subactividad, tercero_id,
-                                tarifa, tarifa_moneda, monto_facturado, estado_fact, es_resiembra,
-                                plantilla, destinos, orden)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+                                tarifa, tarifa_moneda, monto_facturado, estado_fact, estado_pago, monto_pagado,
+                                es_resiembra, plantilla, destinos, orden)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
       [id, empresaId, otId, t.laborTipo || null, t.laborId || null, t.subactividad || null,
        t.contratistaId || null, t.tarifa || null, t.tarifaMoneda || 'ARS', t.montoFacturado || 0,
-       t.estadoFact || 'Sin facturar', t.esResiembra || false,
+       t.estadoFact || 'Sin facturar', t.estadoPago || 'No', t.montoPagado || 0, t.esResiembra || false,
        JSON.stringify(t.plantilla || []), JSON.stringify(t.destinos || []), orden]
     );
     out.push({ ...t, id, otId, empresaId, orden });
@@ -2394,7 +2394,8 @@ function _trabajoRow(r) {
   return {
     id: r.id, otId: r.ot_id, laborTipo: r.labor_tipo, laborId: r.labor_id, subactividad: r.subactividad,
     contratistaId: r.tercero_id, tarifa: r.tarifa, tarifaMoneda: r.tarifa_moneda,
-    montoFacturado: r.monto_facturado, estadoFact: r.estado_fact, esResiembra: r.es_resiembra,
+    montoFacturado: r.monto_facturado, estadoFact: r.estado_fact,
+    estadoPago: r.estado_pago, montoPagado: r.monto_pagado, esResiembra: r.es_resiembra,
     plantilla: r.plantilla, destinos: r.destinos, orden: r.orden,
   };
 }
@@ -2658,6 +2659,58 @@ app.delete('/api/comprobantes/:id', async (req, res) => {
     res.json({ status: 'ok' });
   } catch (err) {
     console.error('/api/comprobantes DELETE error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TARIFAS DE REFERENCIA DE LABOR (por empresa, labor y campaña)
+// Es solo una sugerencia para autocompletar al emitir una OT — el valor
+// real queda en ot_trabajos.tarifa de cada OT ya emitida, editable ahí.
+// GET devuelve { 'laborId||campaniaId': {v, m} }, listo para asignar
+// directo a state.tarifasLP en el frontend.
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/tarifas-referencia-labor', async (req, res) => {
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    const empresaId = req.query.empresaId;
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+
+    const r = await pool.query(
+      'SELECT labor_id AS "laborId", campania_id AS "campaniaId", valor, moneda FROM tarifas_referencia_labor WHERE empresa_id = $1',
+      [empresaId]
+    );
+    const out = {};
+    r.rows.forEach(row => { out[row.laborId + '||' + row.campaniaId] = { v: Number(row.valor), m: row.moneda }; });
+    res.json(out);
+  } catch (err) {
+    console.error('/api/tarifas-referencia-labor GET error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.put('/api/tarifas-referencia-labor', async (req, res) => {
+  const c = req.body || {};
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    if (!c.empresaId || !c.laborId || !c.campaniaId) return res.status(400).json({ error: 'Faltan datos' });
+    const permiso = await obtenerPermiso(req, c.empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (permiso.nivel !== 'administrar') return res.status(403).json({ error: 'Sin permiso' });
+
+    await pool.query(
+      `INSERT INTO tarifas_referencia_labor (empresa_id, labor_id, campania_id, valor, moneda)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (empresa_id, labor_id, campania_id) DO UPDATE SET valor=$4, moneda=$5`,
+      [c.empresaId, c.laborId, c.campaniaId, c.valor || 0, c.moneda || 'ARS']
+    );
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('/api/tarifas-referencia-labor PUT error:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });

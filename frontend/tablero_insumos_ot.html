@@ -922,7 +922,9 @@ function syncRootConContexto(empresaId, nombreEmpresa, callback){
   cargarOTsApi(function(){
     cargarComprobantesApi(function(){
       cargarConfigOperativaApi(function(){
-        if(callback) callback();
+        cargarTarifasRefApi(function(){
+          if(callback) callback();
+        });
       });
     });
   });
@@ -986,6 +988,41 @@ function cargarConfigOperativaApi(callback){
     var d=(!err && data) ? data : {};
     state.tcUSD=Number(d.tcUSD)||1000; state.tcMensual=d.tcMensual||{};
     state.tcApertura=Number(d.tcApertura)||0; state.tcCierre=Number(d.tcCierre)||0;
+    if(callback) callback();
+  });
+}
+function cargarTarifasRefApi(callback){
+  apiGet('/api/tarifas-referencia-labor?empresaId='+encodeURIComponent(CTX.empresaActivaId), function(err, data){
+    state.tarifasLP=(!err && data) ? data : {};
+    if(callback) callback();
+  });
+}
+/* ================================================================
+   TARIFA DE REFERENCIA de una labor propia, por campaña. Es un valor de
+   REFERENCIA, no la fuente del costo: al emitir una OT se copia a
+   trabajo.tarifa/tarifaMoneda y ahí queda editable. Por eso la clave es
+   {laborId, campaniaId} y no incluye campo. Portado de
+   client-src/2026-10-30/tablero_insumos_ot.html.
+   state.tarifasLP = { 'laborId||campaniaId': {v:Number, m:'ARS'|'USD'} }
+================================================================ */
+function tarifaKey(laborId, campaniaId){ return laborId+'||'+campaniaId; }
+// Nunca devuelve null: si no hay tarifa cargada, cae al precioRef (tarifaDefault) del catálogo.
+function getTarifaRef(laborId, campaniaId){
+  if(!state.tarifasLP) state.tarifasLP={};
+  var t=state.tarifasLP[tarifaKey(laborId, campaniaId)];
+  if(t) return {v:Number(t.v)||0, m:t.m||'ARS'};
+  for(var i=0;i<state.laboresLP.length;i++){
+    if(state.laboresLP[i].id===laborId) return {v:Number(state.laboresLP[i].tarifaDefault)||0, m:'ARS'};
+  }
+  return {v:0, m:'ARS'};
+}
+function setTarifaRef(laborId, campaniaId, valor, moneda, callback){
+  if(!state.tarifasLP) state.tarifasLP={};
+  state.tarifasLP[tarifaKey(laborId, campaniaId)]={v:Number(valor)||0, m:moneda||'ARS'};
+  if(!_esModoApi() || !CTX){ if(callback) callback(); return; }
+  apiPut('/api/tarifas-referencia-labor', { empresaId:CTX.empresaActivaId, laborId:laborId, campaniaId:campaniaId,
+    valor:Number(valor)||0, moneda:moneda||'ARS' }, function(err){
+    if(err) console.error('Error guardando tarifa de referencia:', err);
     if(callback) callback();
   });
 }
@@ -1502,8 +1539,11 @@ function inyectarCatalogosDesdePA(empresaId){
   // tarifaDefault) y LC (contratadas). Mapeamos la misma lista a ambas, preservando
   // tarifaDefault desde precioRef en LP.
   var labs = PA.demo.listarLabores() || [];
-  state.laboresLP = labs.map(function(l){ return { nombre:l.nombre, tarifaDefault:Number(l.precioRef)||0 }; });
-  state.laboresLC = labs.map(function(l){ return { nombre:l.nombre }; });
+  // id real (no solo nombre): hace falta para la tarifa de referencia por
+  // campaña (tarifas_referencia_labor.labor_id), que identifica la labor
+  // por id, no por nombre.
+  state.laboresLP = labs.map(function(l){ return { id:l.id, nombre:l.nombre, tarifaDefault:Number(l.precioRef)||0 }; });
+  state.laboresLC = labs.map(function(l){ return { id:l.id, nombre:l.nombre }; });
 
   // INSUMOS (híbrido): la IDENTIDAD (nombre, categoría, unidad) viene de pa-core y es
   // de solo lectura; los datos OPERATIVOS de stock (stockInicialPorDep, deposito, precio…)
@@ -5046,39 +5086,60 @@ function renderMSimple(key,titulo){
     head+
     '<div class="tw"><table><thead><tr><th>Nombre</th>'+(ro?'':'<th></th>')+'</tr></thead><tbody>'+(rows||'<tr><td colspan="'+cols+'" class="empty">Vacío.</td></tr>')+'</tbody></table></div>';
 }
+// Labores contratadas: sin cambios, solo lectura (la tarifa se carga en cada OT).
+// Labores propias (conTarifa): el NOMBRE viene de Maestros (solo lectura), pero
+// la TARIFA DE REFERENCIA y su MONEDA son del tablero y se cargan POR CAMPAÑA
+// (la activa del header) — portado de client-src/2026-10-30. Es una referencia:
+// al emitir la OT se copia a trabajo.tarifa y ahí queda editable.
 function renderMLabores(key, conTarifa){
-  var ro = state.catalogosReadOnly;
-  var rows='';
-  for(var i=0;i<state[key].length;i++){
-    var x=state[key][i];
-    // por compat, si viniera como string lo convertimos
-    if(typeof x==='string'){ x={nombre:x}; state[key][i]=x; }
-    if(ro){
-      var tCell = conTarifa
-        ? '<td class="num">'+f(x.tarifaDefault||0,2)+'</td>'
-        : '<td class="tdname" style="color:var(--muted);font-size:11px">se carga en cada OT</td>';
-      rows+='<tr><td style="padding:6px 8px">'+esc(x.nombre)+'</td>'+tCell+'</tr>';
-    } else {
-      var tarifaCell = conTarifa
-        ? '<td class="num"><input type="number" step="0.01" min="0" value="'+(x.tarifaDefault||0)+'" oninput="state.'+key+'['+i+'].tarifaDefault=Number(this.value);save()" style="width:100px;font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;text-align:right"></td>'
-        : '<td class="tdname" style="color:var(--muted);font-size:11px">se carga en cada OT</td>';
-      rows+='<tr>'+
-        '<td><input value="'+esc(x.nombre)+'" oninput="state.'+key+'['+i+'].nombre=this.value;save()" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px"></td>'+
-        tarifaCell+
-        '<td><button class="btn btn-sm btn-danger" onclick="state.'+key+'.splice('+i+',1);save();renderMaestros()">✕</button></td>'+
+  if(conTarifa){
+    var campId=state.campaniaActivaId||'';
+    if(!campId){
+      byId('maestrosCard').innerHTML=
+        '<div class="chd"><span class="ct-lg">Labores propias</span></div>'+
+        '<p style="font-size:12px;color:var(--muted)">Elegí una campaña en el selector de arriba para ver y cargar las tarifas de referencia. La tarifa es <strong>por campaña</strong>.</p>';
+      return;
+    }
+    var campNom=getCampaniaNombre(campId)||'';
+    var rowsT='';
+    for(var i=0;i<state[key].length;i++){
+      var x=state[key][i];
+      if(typeof x==='string'){ x={nombre:x}; state[key][i]=x; }
+      var t=getTarifaRef(x.id, campId);
+      var optsMon='<option value="ARS"'+(t.m==='ARS'?' selected':'')+'>$</option><option value="USD"'+(t.m==='USD'?' selected':'')+'>U$S</option>';
+      rowsT+='<tr>'+
+        '<td style="padding:6px 8px">'+esc(x.nombre)+'</td>'+
+        '<td class="num"><input type="number" step="0.01" min="0" value="'+t.v+'" onchange="onTarifaRefChange(\''+esc(x.id)+'\', this.value, null)" style="width:100px;font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;text-align:right"></td>'+
+        '<td><select onchange="onTarifaRefChange(\''+esc(x.id)+'\', null, this.value)" style="font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;background:var(--card)">'+optsMon+'</select></td>'+
         '</tr>';
     }
+    byId('maestrosCard').innerHTML=
+      '<div class="chd"><span class="ct-lg">Labores propias · Campaña '+esc(campNom)+'</span>'+
+        '<span class="bdg" style="background:#E8EDF2;color:#475569">Nombres: solo lectura</span></div>'+
+      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Las labores se administran en <strong>Maestros</strong>. Acá se carga la <strong>tarifa de referencia por campaña</strong>: se autocompleta al emitir una OT propia y queda editable en cada OT.</p>'+
+      '<div class="tw"><table><thead><tr><th>Nombre</th><th class="num">Tarifa de referencia $/ha</th><th style="width:70px">Moneda</th></tr></thead><tbody>'+
+        (rowsT||'<tr><td colspan="3" class="empty">Sin labores.</td></tr>')+'</tbody></table></div>';
+    return;
   }
-  var titulo = key==='laboresLP' ? 'Labores propias' : 'Labores contratadas';
-  var addObj = conTarifa ? "{nombre:'Nueva labor',tarifaDefault:0}" : "{nombre:'Nueva labor'}";
-  var head = ro
-    ? '<div class="chd"><span class="ct-lg">'+esc(titulo)+'</span><span class="bdg" style="background:#E8EDF2;color:#475569">Solo lectura</span></div>'+
-      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Las labores se editan en Maestros (nivel empresa). Acá se muestran para usarlas en las OT.</p>'
-    : '<div class="chd"><span class="ct-lg">'+esc(titulo)+'</span><button class="btn btn-sm btn-primary" onclick="state.'+key+'.push('+addObj+');save();renderMaestros()">+ Nueva labor</button></div>'+
-      (conTarifa?'<p style="font-size:11px;color:var(--muted);margin-bottom:10px">La tarifa default se autocompleta al emitir la OT. Es editable en cada OT.</p>':'<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Las labores contratadas no tienen tarifa default: se define en cada OT.</p>');
+  var rows='';
+  for(var j=0;j<state[key].length;j++){
+    var y=state[key][j];
+    if(typeof y==='string'){ y={nombre:y}; state[key][j]=y; }
+    rows+='<tr><td style="padding:6px 8px">'+esc(y.nombre)+'</td><td class="tdname" style="color:var(--muted);font-size:11px">se carga en cada OT</td></tr>';
+  }
   byId('maestrosCard').innerHTML=
-    head+
-    '<div class="tw"><table><thead><tr><th>Nombre</th><th class="num">Tarifa $/ha</th>'+(ro?'':'<th></th>')+'</tr></thead><tbody>'+(rows||'<tr><td colspan="'+(ro?2:3)+'" class="empty">Vacío.</td></tr>')+'</tbody></table></div>';
+    '<div class="chd"><span class="ct-lg">Labores contratadas</span><span class="bdg" style="background:#E8EDF2;color:#475569">Solo lectura</span></div>'+
+    '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Las labores se editan en Maestros (nivel empresa). Las contratadas no tienen tarifa default: se define en cada OT.</p>'+
+    '<div class="tw"><table><thead><tr><th>Nombre</th><th class="num">Tarifa $/ha</th></tr></thead><tbody>'+(rows||'<tr><td colspan="2" class="empty">Vacío.</td></tr>')+'</tbody></table></div>';
+}
+// Guarda tarifa y/o moneda de una labor en la campaña activa del header. Pasar null en el que no se toca.
+function onTarifaRefChange(laborId, valor, moneda){
+  var campId=state.campaniaActivaId||'';
+  if(!campId) return;
+  var actual=getTarifaRef(laborId, campId);
+  setTarifaRef(laborId, campId, valor===null?actual.v:valor, moneda===null?actual.m:moneda, function(){
+    if(curMTab==='laboresLP') renderMLabores('laboresLP', true);
+  });
 }
 
 /* ================================================================
