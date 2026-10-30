@@ -1996,13 +1996,20 @@ app.post('/api/carga-excel/plan', async (req, res) => {
     // Tipos de actividad nuevos (por empresa): solo agrega, nunca pisa existentes.
     // Se chequea por nombre (no solo por id): la tabla exige nombre único por
     // empresa, y el Excel puede traer un tipo cuyo nombre ya exista con otro
-    // id/sigla — insertarlo igual rompería esa restricción.
+    // id/sigla (o dos tipos nuevos del mismo Excel con el mismo nombre) —
+    // insertarlo igual rompería esa restricción. Cuando se saltea uno por
+    // nombre repetido, las actividades que iban a usar SU id tienen que usar
+    // el id real del tipo existente — si no, queda una referencia rota.
+    const tipoIdMap = {};
     for (const t of tiposNuevos) {
       const ex = await client.query(
-        `SELECT 1 FROM tipos_actividad WHERE empresa_id=$1 AND trim(lower(datos->>'nombre'))=trim(lower($2))`,
+        `SELECT id FROM tipos_actividad WHERE empresa_id=$1 AND trim(lower(datos->>'nombre'))=trim(lower($2))`,
         [empresaId, t.nombre || '']
       );
-      if (ex.rows.length) continue;
+      if (ex.rows.length) {
+        tipoIdMap[t.id] = ex.rows[0].id;
+        continue;
+      }
       await client.query(
         `INSERT INTO tipos_actividad (id, empresa_id, datos) VALUES ($1,$2,$3::jsonb)
          ON CONFLICT (id, empresa_id) DO NOTHING`,
@@ -2065,11 +2072,12 @@ app.post('/api/carga-excel/plan', async (req, res) => {
       );
     }
     for (const a of actividades) {
+      const tipoIdReal = (a.tipoActividadId && tipoIdMap[a.tipoActividadId]) || a.tipoActividadId;
       await client.query(
         `INSERT INTO actividades (id, empresa_id, lote_id, campania_id, tipo_actividad_id, ha, es_segunda, tenencia_id)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [a.id, empresaId, a.loteId || null, a.campaniaId || null,
-         a.tipoActividadId || null, a.ha != null ? a.ha : null, a.esSegunda || false, a.tenenciaId || null]
+         tipoIdReal || null, a.ha != null ? a.ha : null, a.esSegunda || false, a.tenenciaId || null]
       );
     }
 
