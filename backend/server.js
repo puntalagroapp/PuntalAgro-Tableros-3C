@@ -584,7 +584,15 @@ app.get('/api/context', async (req, res) => {
     const activaValida = sesion.empresa_id_activa && lista.some(function (e) { return e.id === sesion.empresa_id_activa; });
     const empresaId = req.query.empresaId || (activaValida ? sesion.empresa_id_activa : null) || (lista.length ? lista[0].id : null);
 
-    let permiso = { campoIds: [], herramientas: [], nivel: 'administrar' };
+    // Para 'usuario' el default es "sin acceso" (nivel null, herramientas=[]):
+    // si no hay empresaId (ej. le borraron todos sus permisos) o no hay fila
+    // en `permisos` para esa empresa, NO hay que caer en nivel='administrar'
+    // — ese default es correcto solo para admin_general/admin_cliente, que
+    // siempre administran. Antes se inicializaba en 'administrar' para todos
+    // y un 'usuario' sin ninguna empresa terminaba viendo todas las
+    // herramientas en el inicio (puedeVer trata nivel='administrar' como
+    // acceso total), aunque el selector de empresa quedara vacío.
+    let permiso = { campoIds: [], herramientas: [], nivel: sesion.rol === 'usuario' ? null : 'administrar' };
     if (sesion.rol === 'usuario' && empresaId) {
       const pRow = await pool.query(
         'SELECT campo_ids AS "campoIds", herramientas, nivel FROM permisos WHERE usuario_id = $1 AND empresa_id = $2',
