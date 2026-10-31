@@ -442,6 +442,49 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
 .btn-terra:hover{background:#A9521F;border-color:#A9521F;color:#fff}
 .bdg-falta{display:inline-block;padding:1px 7px;border-radius:9px;font-size:10px;font-weight:600;background:#FDF0E6;color:#9A4A16;border:1px solid #F0C9A8;white-space:nowrap;cursor:help}
 .det-orden{display:inline-block;min-width:20px;padding:0 6px;border-radius:9px;background:#EDEFE9;color:#3B5226;font-weight:700;font-size:11px;text-align:center}
+/* ── Registrar lo realizado (portado de client-src/2026-10-30) ── */
+.reg-pasos{display:flex;gap:8px;margin:2px 0 14px}
+.reg-paso{flex:1;display:flex;align-items:center;gap:8px;font-size:13px;padding:9px 12px;border-radius:8px;background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+.reg-paso span{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--card);border:1px solid var(--border);font-weight:600;font-size:12px}
+.reg-paso.act{background:#EEF3E8;color:#2E3D24;border-color:#9DB08E;font-weight:600}
+.reg-paso.act span{background:#4A6533;color:#fff;border-color:#4A6533}
+.reg-paso.ok{color:#3B5226}
+.reg-paso.ok span{background:#DCE7D2;border-color:#9DB08E;color:#3B5226}
+.reg-ayuda{font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:6px}
+.reg-tbl td{vertical-align:middle}
+.reg-fila-off td{background:#FAFAF7}
+.reg-pills{display:flex;gap:6px;flex-wrap:wrap}
+.reg-pill{font-size:12.5px;padding:6px 11px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;white-space:nowrap}
+.reg-pill:hover{border-color:#9DB08E}
+.reg-pill.on{background:#E3EED9;border-color:#4A6533;color:#2E3D24;font-weight:600}
+.reg-pill.pend{background:#FDF3E1;border-color:#D9A441;color:#7A5410;font-weight:600}
+.reg-pill.no{background:#FDECEC;border-color:#E08B8B;color:#8F2626;font-weight:600}
+.reg-tbl .bad-sum{color:#C0392B;font-weight:600}
+.reg-tbl .ok-sum{color:#3B5226}
+.reg-fecha-row{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin:10px 0 6px}
+.reg-fecha-row .fld{min-width:200px}
+.reg-tbl input[type=date]{font-family:var(--sans);font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card);width:150px}
+@media (max-width:600px){
+  .reg-p1 thead{display:none}
+  .reg-p1 tr{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;padding:10px 0;border-bottom:1px solid var(--border)}
+  .reg-p1 td{border:none!important;padding:0!important}
+  .reg-p1 td:nth-child(1),.reg-p1 td:nth-child(2),.reg-p1 td[colspan]{grid-column:1/-1}
+  .reg-p1 td.num{text-align:left}
+  .reg-tbl input[type=date]{width:100%}
+}
+.real-tbl td{vertical-align:top}
+.real-tbl tr.real-grp td{border-top:1px solid var(--border)}
+.real-tbl tr.real-sub td{border-top:1px dashed #E7EAE2}
+.real-tbl td.num{white-space:nowrap}
+.real-tbl .bad-sum{color:#C0392B;font-weight:600}
+.otreg{margin-top:6px}
+.reg-toggle{background:none;border:none;color:#3B5226;font:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:10px 2px 4px}
+.reg-toggle:hover{text-decoration:underline}
+.otreg .reg-fact{position:static;border-top:1px solid var(--border);margin-top:12px;padding-top:12px}
+.info-i{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid #7B9A6D;background:#F1F5EC;color:#3B5226;font:italic 700 10.5px/1 Georgia,'Times New Roman',serif;cursor:help;padding:0;margin-left:3px;vertical-align:middle;text-transform:none;letter-spacing:0}
+.banner-info{border-left:4px solid #7B9A6D;background:#F1F5EC;color:#2E3D24;padding:9px 12px;border-radius:0 8px 8px 0;font-size:12px;margin-bottom:12px;line-height:1.5}
+.ote-terra{border-color:#F0C9A8}
+.ote-terra .ote-ic{background:#FDF0E6;color:#C8642D}
 .trb-chip{display:inline-block;font-size:11px;padding:1px 8px;border-radius:9px;background:#EDEFE9;color:#3B5226;margin:0 4px 2px 0;white-space:nowrap}
 
 @media (max-width:768px){
@@ -1087,7 +1130,7 @@ function cargarOTsApi(callback){
     // receta y destinos propios). La fuente es o.trabajos[]; ver espejoLegacy().
     state.ots=(data||[]).map(function(o){
       var ot={ id:o.id, num:o.num, fecha:(o.fecha||'').slice(0,10), campaniaId:o.campaniaId||'',
-        obs:o.obs||'', estado:o.estado||'Pendiente', _synced:true };
+        obs:o.obs||'', estado:o.estado||'Pendiente', ultimoRegistro:o.ultimoRegistro||null, _synced:true };
       ot.trabajos=(o.trabajos||[]).map(function(t){
         return { id:t.id, laborId:t.laborId||'', laborTipo:t.laborTipo||'LP', contratistaId:t.contratistaId||'',
           tarifa:(t.tarifa===null||t.tarifa===undefined)?'':Number(t.tarifa), tarifaMoneda:t.tarifaMoneda||'ARS',
@@ -1499,7 +1542,7 @@ function armarPdfHistoria(loteId, campania){
 // tienen comprobantes apuntándoles — se reenvían intactos y no se recrean.
 function _otPayload(o){
   return { id:o.id, empresaId:CTX.empresaActivaId, campaniaId:o.campaniaId||null, fecha:o.fecha||null,
-    obs:o.obs||null, estado:o.estado||'Pendiente',
+    obs:o.obs||null, estado:o.estado||'Pendiente', ultimoRegistro:o.ultimoRegistro||null,
     trabajos:(o.trabajos||[]).map(function(t){
       return { id:t.id, laborId:t.laborId||null, laborTipo:t.laborTipo||null, contratistaId:t.contratistaId||null,
         estadoFact:t.estadoFact||'Sin facturar', estadoPago:t.estadoPago||'No', montoPagado:Number(t.montoPagado)||0,
@@ -3476,7 +3519,7 @@ function renderTrabajosAplicados(){
       '</div>'+
       '<div class="dest-body">'+
         '<div class="tw"><table><thead><tr><th>'+(un?'Campo':'Lote')+'</th><th>Estado</th><th class="num">Superficie</th><th>Insumos · '+(un?'cantidad':'dosis')+'</th><th>Observaciones</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
-        (hayPend?'<div class="trb-apl-sub" style="margin-top:6px">Lo pendiente de este trabajo se registra en <strong>Registrar aplicación</strong> (en el detalle de la OT).</div>':'')+
+        (hayPend?'<div class="trb-apl-sub" style="margin-top:6px">Lo pendiente de este trabajo se confirma en la ventana 4 (<strong>Lo realizado</strong>).</div>':'')+
       '</div>'+
     '</div>';
   }
@@ -3900,7 +3943,7 @@ function resetOtForm(){
    1 Datos · 2 Trabajos · 3 Revisar/Emitir · 4 Lo realizado. Es la misma pantalla
    para crear, ver y editar. Una OT cancelada se ve en solo lectura; el resto se
    edita (los trabajos con algo aplicado quedan en solo lectura, ver Etapa 1).
-   La ventana 4 usa por ahora el "Registrar aplicación" existente (renderAplicacion).
+   La ventana 4 registra lo realizado (iniciarRegistro/renderRegistro/confirmarRegistro).
 ================================================================ */
 var otPant={id:null, modo:'nueva', v:1};
 var OT_VENTANAS=[['Datos','fecha, campaña'],['Trabajos','labor, lotes, insumos'],['Revisar','totales, stock'],['Lo realizado','lo hecho en el campo']];
@@ -4036,7 +4079,7 @@ function otIr(v){
   if(v<1 || v>4) return;
   if(v===4 && otPant.modo==='nueva'){ alert('Primero emití la orden (ventana 3). Después, cuando se haga la labor, se registra acá.'); return; }
   if(otPant.v===2 && v>2 && otPant.modo!=='ver' && byId('o_subact').value && destinosTmp.length){ if(!addTrabajoALaOt()) return; }
-  otPant.v=v; otPant.recien=false; otPant.confirmada=null; mostrarPantallaOT();
+  otPant.v=v; otPant.recien=false; otPant.confirmada=null; otPant.resultado=null; mostrarPantallaOT();
   window.scrollTo(0,0);
 }
 // Acción sobre una OT (aplicar, deshacer, cancelar…): si su pantalla está abierta se
@@ -4056,16 +4099,21 @@ function mostrarPantallaOT(){
   // Recién emitida (o recién registrada una aplicación): solo el aviso y qué se puede hacer.
   var emi=byId('otEmitida');
   if(!emi){ emi=document.createElement('div'); emi.id='otEmitida'; byId('ot-pantalla').appendChild(emi); }
-  var soloEmitida = !!((otPant.recien || otPant.confirmada) && o);
+  var soloEmitida = !!((otPant.recien || otPant.confirmada || otPant.resultado) && o);
   emi.style.display = soloEmitida ? '' : 'none';
   byId('otTabs').style.display = soloEmitida ? 'none' : '';
   byId('otForm').style.display = soloEmitida ? 'none' : '';
+  if(soloEmitida && otPant.resultado){
+    var rs=otPant.resultado;
+    emi.innerHTML='<div class="ote-box'+(rs.terra?' ote-terra':'')+'"><div class="ote-ic">'+(rs.ic||'✓')+'</div><div class="ote-t">'+esc(rs.t)+'</div><div class="ote-s">'+esc(rs.s||'')+'</div><div class="ote-acc">'+rs.acc+'</div></div>';
+    return;
+  }
   if(soloEmitida && otPant.confirmada){
     var cf=otPant.confirmada;
     emi.innerHTML='<div class="ote-box">'+
         '<div class="ote-ic">✓</div>'+
-        '<div class="ote-t">'+(cf.pend ? 'Se registraron '+cf.n+(cf.n===1?' lote':' lotes')+' de la OT #'+o.num : 'Se completó la OT #'+o.num)+'</div>'+
-        '<div class="ote-s">Se descontó el stock y lo aplicado pasó a Consumos, Contratistas y Costos.'+
+        '<div class="ote-t">'+(!cf.n ? 'Se actualizó la OT #'+o.num : (cf.pend ? 'Se confirmaron '+cf.n+(cf.n===1?' labor':' labores')+' de la OT #'+o.num : 'Se confirmó la OT #'+o.num))+'</div>'+
+        '<div class="ote-s">'+(cf.n?'Se descontó el stock y lo aplicado pasó a Consumos, Contratistas y Costos.':'')+
           (cf.pend?' Quedan '+cf.pend+(cf.pend===1?' pendiente':' pendientes')+': registralos cuando se hagan.':'')+'</div>'+
         '<div class="ote-acc"><button type="button" class="btn btn-barra" onclick="otPant.confirmada=null; mostrarPantallaOT();">Ver lo registrado</button>'+
           '<button type="button" class="btn btn-primary btn-barra" onclick="otVolverListado()">Volver</button></div>'+
@@ -4093,7 +4141,7 @@ function mostrarPantallaOT(){
   var form=byId('otForm'); if(form) form.className = ro ? 'otp-ro' : '';
   otSoloLectura(ro);
   if(v===3) byId('otV3').innerHTML=htmlVentanaRevisar(o);
-  if(v===4){ byId('otV4').innerHTML=htmlVentanaRealizado(o); if(byId('aplicCard')) renderAplicacion(o.id); }
+  if(v===4){ byId('otV4').innerHTML=htmlVentanaRealizado(o); iniciarRegistroEnVentana(o); }
   otActualizarPie();
   if(!window._otPieOk){ window._otPieOk=true; var fm=byId('otForm'); fm.addEventListener('input', otActualizarPie); fm.addEventListener('change', otActualizarPie); }
 }
@@ -4125,21 +4173,22 @@ function barraEstadoOT(o){
   var id=o.id, est=o.estado, sigue='', acc='';
   var imp = otPant.recien ? '' : '<button type="button" class="btn btn-barra" onclick="viewOT(\''+id+'\')">🖨 Imprimir</button>';
   var nP=nPendientesOT(o);
-  if(otPant.recien || otPant.confirmada){
+  if(otPant.recien || otPant.confirmada || otPant.resultado){
     return '<div class="ot-barra no-print"><div class="ot-barra-l"><span class="ot-barra-num">OT #'+o.num+'</span>'+estadoBadge(est)+'</div><div class="ot-barra-sigue"></div>'+
-      '<div class="ot-barra-acc">'+(otPant.confirmada?'':'<button type="button" class="btn btn-barra" onclick="otVolverListado()">← Volver</button>')+'</div></div>';
+      '<div class="ot-barra-acc">'+(otPant.confirmada||otPant.resultado?'':'<button type="button" class="btn btn-barra" onclick="otVolverListado()">← Volver</button>')+'</div></div>';
   }
-  var aReg = otPant.v!==4 && nP ? '<button type="button" class="btn btn-primary btn-barra" onclick="otIr(4)">Registrar lo realizado</button>' : '';
+  var aReg = otPant.v!==4 && nP && otPant.modo==='editar' ? '<button type="button" class="btn btn-primary btn-barra" onclick="otIr(4)">Confirmar OT</button>' : '';
   if(est==='Cancelada'){
     sigue='OT cancelada: no figura en consumos, labores, costos ni stock comprometido.';
     acc='<button type="button" class="btn-link" onclick="delOT(\''+id+'\')" title="Borra la OT para siempre">Eliminar OT</button><button type="button" class="btn btn-primary btn-barra" onclick="reactivateOT(\''+id+'\')">Reactivar OT</button>';
   } else if(est==='Pendiente'){
     acc='<button type="button" class="btn btn-terra btn-barra" onclick="cancelOT(\''+id+'\')">Cancelar OT</button>'+aReg;
   } else if(est==='Parcial'){
-    sigue='Falta registrar '+nP+(nP===1?' lote':' lotes')+' (ventana 4). Lo ya aplicado se ve en solo lectura; para cambiarlo, deshacé la aplicación en la ventana 4.';
-    acc='<button type="button" class="btn btn-terra btn-barra" onclick="cancelOT(\''+id+'\')">Cancelar OT</button>'+aReg;
+    sigue='Falta confirmar '+nP+(nP===1?' labor':' labores')+' (ventana 4). Para cambiar algo de lo confirmado, volvé a pendiente.';
+    acc='<button type="button" class="btn btn-terra btn-barra" onclick="volverAPendiente(\''+id+'\')">↩ Volver a pendiente</button>'+aReg;
   } else {
-    sigue='Todo aplicado. Para cambiar algo, deshacé la aplicación en la ventana 4.';
+    sigue='Todo confirmado. Para cambiar algo, volvé a pendiente: se devuelve el stock y lo que cargaste queda guardado.';
+    acc='<button type="button" class="btn btn-terra btn-barra" onclick="volverAPendiente(\''+id+'\')">↩ Volver a pendiente</button>';
   }
   return '<div class="ot-barra no-print">'+
       '<div class="ot-barra-l"><span class="ot-barra-num">OT #'+o.num+'</span>'+estadoBadge(est)+'</div>'+
@@ -4194,16 +4243,20 @@ function htmlTotalesPlan(trs){
   return filas ? '<div class="ct" style="margin-bottom:6px">Total planificado por producto <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">— lo realizado está en la ventana 4</span></div><div class="tw"><table class="otv3-tbl"><thead><tr><th class="num" title="Orden de carga al tanque">Orden</th><th>Insumo</th><th>Un.</th><th class="num">Total planificado</th></tr></thead><tbody>'+filas+'</tbody></table></div>'
     : '<p class="trb-apl-sub">La orden no lleva insumos.</p>';
 }
-// Ventana 4: registrar lo realizado. Por ahora usa el "Registrar aplicación" por tandas.
+// Ventana 4: lo ya registrado (plan contra real) y la carga de lo que falta.
 function htmlVentanaRealizado(o){
   var head='<div class="paso-hd"><span class="paso-n">4</span><span class="paso-t">Lo realizado</span></div><div class="paso-bd">';
   if(!o) return head+'<div class="otv-vacio">Primero emití la orden.</div></div>';
-  if(o.estado==='Cancelada') return head+'<div class="otv-vacio">La orden está cancelada. Para volver a usarla, tocá «Reactivar OT» arriba.</div></div>';
-  if(otPant.modo==='editar' && otHayCambios()){
-    return head+'<div class="banner-warn" style="margin:6px 0">Hay cambios sin guardar en la orden (ventanas 1 a 3). Para registrar lo realizado, primero guardalos o descartalos.'+
-      '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-primary btn-barra" onclick="otGuardarYSeguir()">Guardar cambios y seguir</button><button type="button" class="btn btn-barra" onclick="otDescartar()">Descartar cambios</button></div></div></div>';
-  }
-  return head+'<div id="aplicCard"></div></div>';
+  var est=o.estado, cuerpo='';
+  var tabla = otTieneAplicados(o) ? htmlRealizado(o) : '';
+  if(est==='Cancelada') cuerpo='<div class="otv-vacio">La orden está cancelada. Para volver a usarla, tocá «Reactivar OT» arriba.</div>';
+  else if((est==='Pendiente' || est==='Parcial') && otPant.modo==='editar'){
+    if(otHayCambios()){
+      cuerpo='<div class="banner-warn" style="margin:6px 0">Hay cambios sin guardar en la orden (ventanas 1 a 3). Para registrar lo realizado, primero guardalos o descartalos.'+
+        '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-primary btn-barra" onclick="otGuardarYSeguir()">Guardar cambios y seguir</button><button type="button" class="btn btn-barra" onclick="otDescartar()">Descartar cambios</button></div></div>';
+    } else cuerpo=(tabla?'<div class="ct" style="margin:14px 0 6px">Falta confirmar</div>':'')+'<div id="otRegBox" class="otreg"></div>';
+  } else if(!tabla) cuerpo='<div class="otv-vacio">Todavía no se confirmó nada.</div>';
+  return head+tabla+cuerpo+'</div>';
 }
 function otGuardarYSeguir(){ saveOT(null, 4); }
 
@@ -4303,12 +4356,12 @@ function renderOtList(){
   marcarFiltrosActivos(['otSearch','otCampoFilter','otActFilter','otEstadoFilter','otDesde','otHasta'],'otClearBtn');
 }
 // Superficie del trabajo (ha de lotes, o unidades de labor de una UN).
-function haTrabajo(tr, soloAplicado){ var t=0, ds=tr.destinos||[]; for(var i=0;i<ds.length;i++){ if(soloAplicado && ds[i].estadoLote!=='Aplicado') continue; t+=Number(ds[i].ha)||0; } return t; }
+function haTrabajo(tr, soloAplicado){ var t=0, ds=tr.destinos||[]; for(var i=0;i<ds.length;i++){ if(soloAplicado && ds[i].estadoLote!=='Aplicado') continue; t+=soloAplicado?haAplicadaDe(ds[i]):(Number(ds[i].ha)||0); } return t; }
 // Ha de la OT sin contar dos veces un lote que está en varios trabajos.
 function otHaTotal(o){ return haDeOt(o); }
 function otHaAplicada(o){
   var vistos={}, t=0, p=destinosDeOt(o);
-  for(var i=0;i<p.length;i++){ var de=p[i].destino; if(de.estadoLote!=='Aplicado' || esUN(de) || vistos[de.loteId]) continue; vistos[de.loteId]=true; t+=Number(de.ha)||0; }
+  for(var i=0;i<p.length;i++){ var de=p[i].destino; if(de.estadoLote!=='Aplicado' || esUN(de) || vistos[de.loteId]) continue; vistos[de.loteId]=true; t+=haAplicadaDe(de); }
   return t;
 }
 function recalcEstadoOT(o){
@@ -4469,426 +4522,596 @@ function viewOT(id){
   byId('ot-pantalla').style.display='none';
 }
 
-// ===== Aplicación por tandas con prorrateo (Etapa C) =====
-// Estado temporal del cierre que se está armando: { otId, lotesSel:{destId:true}, fecha, consumos:{insumoId:{consumido,devStock,devBaja}} }
+// ===== Registrar lo realizado (ventana 4) — portado de client-src/2026-10-30 =====
+// Dos pasos: (a) qué se hizo — por destino: Se hizo / Queda pendiente / No se hace, con
+// superficie real y fecha —; (b) insumos: lo entregado por insumo+depósito, devoluciones y
+// bajas; el consumido es derivado. aplicTmp guarda la carga en curso; lotesSel = "Se hizo".
 var aplicTmp=null;
 
-// Destino en la aplicación: lote (o UN) + labor, porque un lote puede estar en varios trabajos.
-function etiquetaAplic(o, de){
-  var base = esUN(de) ? (de.cultivo+' · '+getCampoNombre(de.campoId)) : (getCampoNombre(de.campoId)+' · '+nombreDestino(de));
-  return base+' — '+nombreLaborDeTrabajo(trabajoDeDestino(o, de.id));
+function addDias(iso, n){ var d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()+n); var m=String(d.getMonth()+1); if(m.length<2) m='0'+m; var dd=String(d.getDate()); if(dd.length<2) dd='0'+dd; return d.getFullYear()+'-'+m+'-'+dd; }
+function r6(x){ return Math.round((Number(x)||0)*1e6)/1e6; }
+// Cierre de stock: este tablero todavía no guarda la fecha del último cierre (state.cierres
+// del cliente), así que no hay fechas bloqueadas. Si se agrega, va acá.
+function fechaBloqueo(){ return ''; }
+function bloqueoFecha(fecha, que){ return false; }
+// Cambio de cultivo en el plan de uso con labores ya cargadas: la reasignación del cliente
+// (cultivoMantenido / abrirCambioCultivo) no está portada; no se chequea.
+function cambiosDeCultivo(otId){ return []; }
+
+// Cada fila del consumo es un INSUMO + el DEPÓSITO planificado en sus líneas.
+function claveCons(ln){ return ln.insumoId+'@'+(ln.depositoId||''); }
+function insDeClave(k){ return String(k).split('@')[0]; }
+function depDeClave(k){ return String(k).split('@')[1]||''; }
+function depSugeridoClave(k){
+  var dp=depDeClave(k); if(dp && getDepositoById(dp)) return dp;
+  var ins=insDeClave(k), def=depDefaultDeInsumo(ins); if(def) return def;
+  var con=listDepositosConStock(ins); if(!con.length) return '';
+  var d=getDepositoByNombre(con[0]); return d?d.id:'';
 }
-function renderAplicacion(otId){
-  var o=null; for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===otId){ o=state.ots[i]; break; }
-  if(!o){ return; }
-  var card=byId('aplicCard'); if(!card) return;
-  var dests=todosDestinos(o);
-  var pendientes=[], aplicados=[];
-  for(var d=0;d<dests.length;d++){ (dests[d].estadoLote==='Aplicado'?aplicados:pendientes).push(dests[d]); }
-
-  // Inicializar aplicTmp si cambió de OT o no existe
-  if(!aplicTmp || aplicTmp.otId!==otId){
-    aplicTmp={otId:otId, lotesSel:{}, fecha:todayISO(), consumos:{}};
-    // por default, todos los pendientes seleccionados
-    for(var p=0;p<pendientes.length;p++) aplicTmp.lotesSel[pendientes[p].id]=true;
-  }
-
-  var html='<div class="chd"><span class="ct-lg">Registrar aplicación</span></div>';
-
-  // --- Lotes ya aplicados (lectura + deshacer) ---
-  if(aplicados.length){
-    html+='<div class="zona-aplic">';
-    html+='<div class="grp-aplic-tit"><span class="ic-ok">✓</span> Lotes ya aplicados <span class="grp-count grp-count-ok">'+aplicados.length+'</span></div>';
-    for(var a=0;a<aplicados.length;a++){
-      var de=aplicados[a]; var lo=getLoteById(de.loteId);
-      var lrows='';
-      var deLineasA=de.lineas||[];
-      for(var j=0;j<deLineasA.length;j++){
-        var ln=deLineasA[j], ins=getInsumo(ln.insumoId);
-        lrows+='<tr><td class="tdname">'+(ins?esc(ins.nombre):'—')+'</td><td>'+(ins?esc(ins.un):'')+'</td>'+
-          '<td class="num">'+f(ln.entregada,2)+'</td><td class="num"><strong>'+f(ln.usado,2)+'</strong></td>'+
-          '<td class="num">'+f(ln.devStock,2)+'</td><td class="num">'+f(ln.devBaja,2)+'</td></tr>';
-      }
-      html+='<div style="border:1px solid #E4E8EE;border-radius:8px;padding:8px;margin-bottom:6px;background:#FFFFFF">'+
-        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">'+
-          '<strong style="font-size:12px;color:#5F5E5A">'+esc(etiquetaAplic(o, de))+'</strong>'+
-          '<span class="bdg bn">'+(de.cultivo?esc(de.cultivo):'')+'</span>'+
-          '<span class="ot-row-meta">'+f(de.ha,1)+(esUN(de)?' unid.':' ha')+' · aplicado '+fd(de.fechaAplicReal)+'</span>'+
-          '<button class="btn btn-sm btn-danger" style="margin-left:auto" onclick="deshacerAplicLote(\''+otId+'\',\''+de.id+'\')">↩ Deshacer</button>'+
-        '</div>'+
-        '<div class="tw"><table><thead><tr><th>Insumo</th><th>Un.</th><th class="num">Entregada</th><th class="num">Usado</th><th class="num">Dev.stock</th><th class="num">Dev.baja</th></tr></thead><tbody>'+lrows+'</tbody></table></div>'+
-      '</div>';
-    }
-    html+='</div>';
-  }
-
-  if(!pendientes.length){
-    card.innerHTML=html+'<p style="font-size:12px;color:var(--muted);padding:6px 2px">Todos los lotes de esta OT ya fueron aplicados.</p>';
-    return;
-  }
-
-  // --- Paso 1: elegir lotes de la tanda ---
-  html+='<div class="zona-pend">';
-  html+='<div class="grp-aplic-tit"><span class="ic-pend">○</span> Lotes a cerrar en esta tanda <span class="grp-count grp-count-pend">'+pendientes.length+'</span></div>';
-  html+='<div class="lotes-pick lotes-pick-hi" style="margin-bottom:0">';
-  for(var q=0;q<pendientes.length;q++){
-    var pd=pendientes[q]; var plo=getLoteById(pd.loteId);
-    var checked=aplicTmp.lotesSel[pd.id]?' checked':'';
-    html+='<label class="lote-chk"><input type="checkbox"'+checked+' onchange="toggleAplicLote(\''+pd.id+'\',this.checked)"> '+
-      esc(etiquetaAplic(o, pd))+' ('+f(pd.ha,1)+(esUN(pd)?' unid.':' ha')+')</label>';
-  }
-  html+='</div>';
-  html+='</div>';
-  html+='<button type="button" class="btn btn-sm" style="margin-top:8px" onclick="selectAllAplicLotes(\''+otId+'\')">Seleccionar todos</button>';
-
-  // --- Paso 2: fecha ---
-  html+='<div class="form-row r3" style="margin-top:10px"><div class="fld"><label>Fecha de aplicación</label>'+
-    '<input type="date" id="aplic_fecha" value="'+aplicTmp.fecha+'" onchange="aplicTmp.fecha=this.value"></div></div>';
-
-  // --- Paso 3: consumo por insumo (entregado = suma de lotes tildados) ---
-  var agg=calcEntregadoPorInsumo(o); // {insumoId: entregadoTotalDeLotesTildados}
-  var insIds=[]; for(var k in agg){ if(agg.hasOwnProperty(k)) insIds.push(k); }
-  if(!insIds.length){
-    card.innerHTML=html+'<p style="font-size:12px;color:var(--muted);padding:8px 2px">Seleccioná al menos un lote con insumos para cargar el consumo.</p>';
-    return;
-  }
-  // asegurar defaults en consumos
-  for(var ii=0;ii<insIds.length;ii++){
-    var id=insIds[ii];
-    if(!aplicTmp.consumos[id]) aplicTmp.consumos[id]={consumido:agg[id], devStock:0, devBaja:0, deposito:''};
-    // default depósito: el planificado en la OT para ese insumo, el principal del insumo, o el primero con stock
-    if(!aplicTmp.consumos[id].deposito){
-      var depPlan='';
-      for(var dp=0;dp<dests.length && !depPlan;dp++){
-        if(dests[dp].estadoLote==='Aplicado' || !aplicTmp.lotesSel[dests[dp].id]) continue;
-        for(var lp=0;lp<(dests[dp].lineas||[]).length;lp++){ var lnp=dests[dp].lineas[lp]; if(lnp.insumoId===id && lnp.depositoId){ depPlan=getDepositoNombreById(lnp.depositoId); break; } }
-      }
-      var insx=getInsumo(id);
-      var depDef = depPlan || ((insx && insx.deposito) ? insx.deposito : '');
-      var conStock=listDepositosConStock(id);
-      if(!depPlan && depDef && conStock.indexOf(depDef)<0 && conStock.length) depDef=conStock[0];
-      if(!depDef && conStock.length) depDef=conStock[0];
-      aplicTmp.consumos[id].deposito=depDef;
-    }
-  }
-  html+='<div class="ct" style="margin:12px 0 4px">Consumo total por insumo</div>';
-  html+='<div class="tw"><table class="aplic-tbl"><thead><tr><th>Insumo</th><th>Un.</th><th>Depósito origen</th><th class="num">Previsto</th><th class="num">Entregado</th><th class="num">Consumido</th><th class="num">Dev. stock</th><th class="num">Dev. baja</th><th class="num">Σ</th></tr></thead><tbody>';
-  for(var m=0;m<insIds.length;m++){
-    var insId=insIds[m], ins=getInsumo(insId), c=aplicTmp.consumos[insId];
-    var previsto=agg[insId];
-    var entregado=entregadoEfectivo(insId, agg);
-    var sum=(Number(c.consumido)||0)+(Number(c.devStock)||0)+(Number(c.devBaja)||0);
-    var ok=Math.abs(sum-entregado)<0.01;
-    var optsDep='';
-    for(var dd=0;dd<state.depositos.length;dd++){
-      var dn=state.depositos[dd].nombre;
-      var stk=calcStockDep(insId, dn).actual;
-      optsDep+='<option value="'+esc(dn)+'"'+(dn===c.deposito?' selected':'')+'>'+esc(dn)+' · '+f(stk,0)+'</option>';
-    }
-    html+='<tr>'+
-      '<td class="tdname">'+(ins?esc(ins.nombre):'—')+'</td>'+
-      '<td>'+(ins?esc(ins.un):'')+'</td>'+
-      '<td><select onchange="updateConsumoDep(\''+insId+'\',this.value)" style="font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 8px;background:var(--card);min-width:180px;width:100%">'+optsDep+'</select></td>'+
-      '<td class="num" style="color:var(--muted)">'+f(previsto,2)+'</td>'+
-      '<td class="num"><input type="number" step="0.01" min="0" id="entr_'+insId+'" value="'+f(entregado,2)+'" oninput="updateEntregado(\''+insId+'\',this.value)" title="Editable: lo realmente entregado (default = previsto)"></td>'+
-      '<td class="num"><input type="number" step="0.01" min="0" id="cons_'+insId+'" value="'+c.consumido+'" oninput="updateConsumo(\''+insId+'\',\'consumido\',this.value)"></td>'+
-      '<td class="num"><input type="number" step="0.01" min="0" id="devs_'+insId+'" value="'+c.devStock+'" oninput="updateConsumo(\''+insId+'\',\'devStock\',this.value)"></td>'+
-      '<td class="num"><input type="number" step="0.01" min="0" id="devb_'+insId+'" value="'+c.devBaja+'" oninput="updateConsumo(\''+insId+'\',\'devBaja\',this.value)"></td>'+
-      '<td class="num" id="aplicSum_'+insId+'"><span class="'+(ok?'ok-sum':'bad-sum')+'">'+f(sum,2)+'</span></td>'+
-      '</tr>';
-  }
-  html+='</tbody></table></div>';
-
-  // --- Paso 4: preview prorrateo (solo si hay 2+ lotes seleccionados; colapsable, arranca plegado) ---
-  var nSel=0;
-  for(var ds3=0;ds3<dests.length;ds3++){ if(dests[ds3].estadoLote!=='Aplicado' && aplicTmp.lotesSel[dests[ds3].id]) nSel++; }
-  if(nSel>=2){
-    html+='<div class="prorr-tog" onclick="toggleProrrPreview()"><span class="caret" id="prorrCaret">▶</span> Ver prorrateo por lote <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">('+nSel+' lotes)</span></div>';
-    html+='<div id="aplicPreview" style="display:none;margin-top:6px">'+buildPreviewProrrateo(o)+'</div>';
-  } else {
-    html+='<div id="aplicPreview" style="display:none"></div>';
-  }
-
-  // --- Botón cerrar ---
-  html+='<div class="fact"><button type="button" class="btn btn-primary" onclick="cerrarTanda(\''+otId+'\')">Confirmar aplicación</button></div>';
-
-  card.innerHTML=html;
+// Ha real de un destino: la cargada en el registro, la guardada al aplicar, o la del plan.
+function haRealDe(de){
+  if(aplicTmp && aplicTmp.haReal && aplicTmp.haReal[de.id]!==undefined && aplicTmp.haReal[de.id]!=='') return Number(aplicTmp.haReal[de.id])||0;
+  if(de.haReal!==undefined && de.haReal!==null && de.haReal!=='') return Number(de.haReal)||0;
+  return Number(de.ha)||0;
+}
+// Superficie que cuenta de un destino ya aplicado (la real si se cargó).
+function haAplicadaDe(de){ return (de.haReal!==undefined && de.haReal!==null && de.haReal!=='') ? Number(de.haReal)||0 : Number(de.ha)||0; }
+function nombreDestinoCorto(de){ return esUN(de) ? (de.cultivo+' · '+getCampoNombre(de.campoId)) : nombreDestino(de); }
+function infoBtn(key){
+  var t={devolucion:'Devolución: lo que salió del depósito y volvió sin usar. Vuelve al stock y no va al costo del lote.',
+         baja:'Baja: lo que salió del depósito y se perdió (envase roto, vencido, derrame). Sale del stock como baja y no va al costo del lote.'}[key]||'';
+  return '<span class="info-i" title="'+esc(t)+'">i</span>';
 }
 
-// Entregado por insumo, sumando solo lotes tildados (entregado = dosis×ha)
+// Requerido por fila (insumo + depósito): dosis × superficie REAL (o cantidad fija en UN), solo lo marcado "Se hizo".
 function calcEntregadoPorInsumo(o){
-  var agg={};
-  var dests=todosDestinos(o);
-  for(var d=0;d<dests.length;d++){
-    var de=dests[d];
-    if(de.estadoLote==='Aplicado') continue;
-    if(!aplicTmp.lotesSel[de.id]) continue;
+  var agg={}, pares=destinosDeOt(o);
+  for(var d=0;d<pares.length;d++){
+    var de=pares[d].destino;
+    if(de.estadoLote==='Aplicado' || !aplicTmp.lotesSel[de.id]) continue;
+    var haR=haRealDe(de);
     for(var j=0;j<de.lineas.length;j++){
-      var ln=de.lineas[j];
-      var ent=cantReq(de, ln);
-      agg[ln.insumoId]=(agg[ln.insumoId]||0)+ent;
+      var ln=de.lineas[j]; if(!ln.insumoId) continue;
+      var k=claveCons(ln);
+      agg[k]=(agg[k]||0)+cantReq(de, ln, haR);
     }
   }
   return agg;
 }
-// Reparto del consumido de cada insumo entre los lotes tildados, proporcional a dosis×ha
+// Reparto POR LÍNEA, proporcional a su requerido: en cada línea cierra
+// entregada = usado + dev.stock + dev.baja. Resultado: {destId: {índiceDeLínea: {...}}}
 function calcProrrateo(o){
-  // resultado: {destId: {insumoId: {entregada, usado, devStock, devBaja}}}
-  var res={};
-  var dests=todosDestinos(o);
-  var pesoPorIns={}; // insumoId -> suma de (dosis×ha) entre lotes tildados
-  for(var d=0;d<dests.length;d++){
-    var de=dests[d];
-    if(de.estadoLote==='Aplicado' || !aplicTmp.lotesSel[de.id]) continue;
-    for(var j=0;j<de.lineas.length;j++){
-      var ln=de.lineas[j];
-      pesoPorIns[ln.insumoId]=(pesoPorIns[ln.insumoId]||0)+cantReq(de, ln);
-    }
+  var res={}, pares=destinosDeOt(o), agg=calcEntregadoPorInsumo(o), sel=[], k, d;
+  var sumHa={}, nLin={};
+  for(d=0;d<pares.length;d++){
+    var de0=pares[d].destino;
+    if(de0.estadoLote==='Aplicado' || !aplicTmp.lotesSel[de0.id]) continue;
+    sel.push(de0);
+    for(var j0=0;j0<de0.lineas.length;j0++){ var l0=de0.lineas[j0]; if(!l0.insumoId) continue; k=claveCons(l0); sumHa[k]=(sumHa[k]||0)+haRealDe(de0); nLin[k]=(nLin[k]||0)+1; }
   }
-  for(var d2=0;d2<dests.length;d2++){
-    var de2=dests[d2];
-    if(de2.estadoLote==='Aplicado' || !aplicTmp.lotesSel[de2.id]) continue;
+  for(d=0;d<sel.length;d++){
+    var de2=sel[d], haR2=haRealDe(de2);
     res[de2.id]={};
     for(var j2=0;j2<de2.lineas.length;j2++){
-      var ln2=de2.lineas[j2], insId=ln2.insumoId;
-      var previstaLote=cantReq(de2, ln2);
-      var peso=pesoPorIns[insId]||0;
-      var frac= peso>0 ? previstaLote/peso : 0;
-      var c=aplicTmp.consumos[insId]||{consumido:0,devStock:0,devBaja:0};
-      // entregado total efectivo del insumo (override manual o suma dosis×ha)
-      var entTotal = (c.entregadoOverride!==undefined && c.entregadoOverride!==null && c.entregadoOverride!=='') ? (Number(c.entregadoOverride)||0) : peso;
-      res[de2.id][insId]={
-        previstaLote:previstaLote,
-        entregada:entTotal*frac,
-        usado:(Number(c.consumido)||0)*frac,
-        devStock:(Number(c.devStock)||0)*frac,
-        devBaja:(Number(c.devBaja)||0)*frac
-      };
+      var ln2=de2.lineas[j2]; if(!ln2.insumoId) continue;
+      k=claveCons(ln2);
+      var requeridoLote=cantReq(de2, ln2, haR2), peso=agg[k]||0, frac;
+      if(peso>0) frac=requeridoLote/peso;
+      else frac = sumHa[k]>0 ? haR2/sumHa[k] : 1/(nLin[k]||1);
+      var c=aplicTmp.consumos[k]||{};
+      var usadoLote=consumidoCalc(k, agg)*frac;
+      res[de2.id][j2]={ clave:k, insumoId:ln2.insumoId, requerido:requeridoLote,
+        entregada:entregadoEfectivo(k, agg)*frac, usado:usadoLote,
+        devStock:(Number(c.devStock)||0)*frac, devBaja:(Number(c.devBaja)||0)*frac,
+        dosisReal: esUN(de2) ? null : (haR2>0 ? usadoLote/haR2 : 0) };
     }
   }
   return res;
 }
-// Entregado efectivo total de un insumo en la tanda (override si existe, sino dosis×ha)
-function entregadoEfectivo(insId, aggCalc){
-  var c=aplicTmp.consumos[insId];
+// Entregado efectivo (cargado a mano, o el requerido).
+function entregadoEfectivo(k, aggCalc){
+  var c=aplicTmp.consumos[k];
   if(c && c.entregadoOverride!==undefined && c.entregadoOverride!==null && c.entregadoOverride!==''){ return Number(c.entregadoOverride)||0; }
-  return Number(aggCalc[insId])||0;
+  return Number(aggCalc[k])||0;
 }
-function toggleProrrPreview(){
-  var pv=byId('aplicPreview'), c=byId('prorrCaret');
-  if(!pv) return;
-  var abierto=pv.style.display!=='none';
-  pv.style.display=abierto?'none':'block';
-  if(c) c.textContent=abierto?'▶':'▼';
+// El CONSUMIDO no se carga: es lo entregado menos lo que volvió (a stock o a baja).
+function consumidoCalc(k, aggCalc){
+  var c=aplicTmp.consumos[k]; if(!c) return 0;
+  return entregadoEfectivo(k, aggCalc) - (Number(c.devStock)||0) - (Number(c.devBaja)||0);
 }
-function buildPreviewProrrateo(o){  var prr=calcProrrateo(o);
-  var dests=todosDestinos(o);
-  var rows='';
-  for(var d=0;d<dests.length;d++){
-    var de=dests[d];
-    if(!prr[de.id]) continue;
-    var lo=getLoteById(de.loteId);
-    var parts='';
-    for(var insId in prr[de.id]){ if(prr[de.id].hasOwnProperty(insId)){
-      var ins=getInsumo(insId), x=prr[de.id][insId];
-      parts+='<tr><td class="tdname">'+(ins?esc(ins.nombre):'—')+'</td><td class="num">'+f(x.usado,2)+'</td><td class="num">'+f(x.devStock,2)+'</td><td class="num">'+f(x.devBaja,2)+'</td></tr>';
-    }}
-    rows+='<div style="margin-bottom:6px"><div style="font-size:12px;font-weight:600;margin-bottom:2px">'+esc(etiquetaAplic(o, de))+' ('+f(de.ha,1)+(esUN(de)?' unid.':' ha')+')</div>'+
-      '<table><thead><tr><th>Insumo</th><th class="num">Usado</th><th class="num">Dev.stock</th><th class="num">Dev.baja</th></tr></thead><tbody>'+parts+'</tbody></table></div>';
-  }
-  return rows || '<p style="font-size:12px;color:var(--muted)">Seleccioná lotes para ver el reparto.</p>';
+function updateConsumoDep(k, depId){
+  if(!aplicTmp.consumos[k]) aplicTmp.consumos[k]={devStock:0,devBaja:0,depositoId:''};
+  aplicTmp.consumos[k].depositoId=depId;
+  var r=byId('regResumen'); if(r) r.innerHTML=htmlResumenRegistro(getOtById(aplicTmp.otId));
 }
-function toggleAplicLote(destId, checked){
-  aplicTmp.lotesSel[destId]=checked;
-  aplicTmp.consumos={}; // recalcular defaults con el nuevo entregado
-  renderAplicacion(aplicTmp.otId);
-}
-function selectAllAplicLotes(otId){
-  var o=null; for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===otId){ o=state.ots[i]; break; }
-  if(!o) return;
-  var dests=todosDestinos(o);
-  for(var d=0;d<dests.length;d++){ if(dests[d].estadoLote!=='Aplicado') aplicTmp.lotesSel[dests[d].id]=true; }
-  aplicTmp.consumos={};
-  renderAplicacion(otId);
-}
-function updateConsumoDep(insId, dep){
-  if(!aplicTmp.consumos[insId]) aplicTmp.consumos[insId]={consumido:0,devStock:0,devBaja:0,deposito:''};
-  aplicTmp.consumos[insId].deposito=dep;
-}
-function updateEntregado(insId, val){
-  var o=null; for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===aplicTmp.otId){ o=state.ots[i]; break; }
-  if(!aplicTmp.consumos[insId]) aplicTmp.consumos[insId]={consumido:0,devStock:0,devBaja:0,deposito:''};
-  var c=aplicTmp.consumos[insId];
+function updateEntregado(k, val){
+  var o=getOtById(aplicTmp.otId);
+  if(!aplicTmp.consumos[k]) aplicTmp.consumos[k]={devStock:0,devBaja:0,depositoId:''};
+  var c=aplicTmp.consumos[k];
   var nuevoEnt=Number(val)||0; if(nuevoEnt<0) nuevoEnt=0;
   c.entregadoOverride=nuevoEnt;
-  // re-igualar consumido al nuevo entregado por default; sobrante a stock, baja se recorta si excede
-  c.consumido=nuevoEnt;
-  c.devStock=0; c.devBaja=0;
-  // refrescar inputs derivados (sin tocar el de entregado que tiene foco)
-  var ic=byId('cons_'+insId), is=byId('devs_'+insId), ib=byId('devb_'+insId);
-  if(ic) ic.value=Math.round(nuevoEnt*100)/100;
-  if(is) is.value=0;
-  if(ib) ib.value=0;
-  var cell=byId('aplicSum_'+insId);
-  if(cell) cell.innerHTML='<span class="ok-sum">'+f(nuevoEnt,2)+'</span>';
-  var pv=byId('aplicPreview'); if(pv) pv.innerHTML=buildPreviewProrrateo(o);
+  // Si bajó lo entregado, recortar devoluciones que ya no entran.
+  var totDev=(Number(c.devStock)||0)+(Number(c.devBaja)||0);
+  if(totDev>nuevoEnt){
+    var exceso=totDev-nuevoEnt, quitaB=Math.min(exceso, Number(c.devBaja)||0);
+    c.devBaja=(Number(c.devBaja)||0)-quitaB;
+    c.devStock=(Number(c.devStock)||0)-(exceso-quitaB);
+    if(c.devStock<0) c.devStock=0;
+  }
+  refrescarFilaConsumo(o, k);
 }
-function updateConsumo(insId, campo, val){
-  var o=null; for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===aplicTmp.otId){ o=state.ots[i]; break; }
-  var agg=calcEntregadoPorInsumo(o);
-  var entregado=entregadoEfectivo(insId, agg);
-  if(!aplicTmp.consumos[insId]) aplicTmp.consumos[insId]={consumido:0,devStock:0,devBaja:0};
-  var c=aplicTmp.consumos[insId];
+function updateConsumo(k, campo, val){
+  var o=getOtById(aplicTmp.otId);
+  var agg=calcEntregadoPorInsumo(o), entregado=entregadoEfectivo(k, agg);
+  if(!aplicTmp.consumos[k]) aplicTmp.consumos[k]={devStock:0,devBaja:0,depositoId:''};
+  var c=aplicTmp.consumos[k];
   var v=Number(val)||0; if(v<0) v=0;
   var avisoRecorte=false;
-
-  if(campo==='consumido'){
-    if(v>entregado){ v=entregado; avisoRecorte=true; }
-    c.consumido=v;
-    // sobrante por default a stock; baja se mantiene si cabe, si no se recorta
-    var sobrante=entregado-v;
-    if(c.devBaja>sobrante){ c.devBaja=sobrante; }
-    c.devStock=sobrante-c.devBaja;
-  } else if(campo==='devBaja'){
-    var sobranteB=entregado-(Number(c.consumido)||0);
-    if(v>sobranteB){ v=sobranteB; avisoRecorte=true; }
+  // Entre las dos devoluciones no pueden superar lo entregado.
+  if(campo==='devBaja'){
+    var topeB=entregado-(Number(c.devStock)||0);
+    if(v>topeB){ v=topeB<0?0:topeB; avisoRecorte=true; }
     c.devBaja=v;
-    c.devStock=sobranteB-v;
   } else if(campo==='devStock'){
-    var sobranteS=entregado-(Number(c.consumido)||0);
-    if(v>sobranteS){ v=sobranteS; avisoRecorte=true; }
+    var topeS=entregado-(Number(c.devBaja)||0);
+    if(v>topeS){ v=topeS<0?0:topeS; avisoRecorte=true; }
     c.devStock=v;
-    c.devBaja=sobranteS-v;
   }
-  // Reescribir los 3 inputs de la fila con los valores balanceados
+  refrescarFilaConsumo(o, k);
+  if(avisoRecorte) toast('Las devoluciones no pueden superar lo entregado ('+f(entregado,2)+')');
+}
+// Reescribe devoluciones (sin tocar el input con foco), el consumido, el reparto y el resumen.
+function refrescarFilaConsumo(o, k){
+  var c=aplicTmp.consumos[k], agg=calcEntregadoPorInsumo(o);
   var r2=function(x){ return Math.round(x*100)/100; };
-  var ic=byId('cons_'+insId), is=byId('devs_'+insId), ib=byId('devb_'+insId);
-  // Solo reescribo los que NO tienen foco para no cortar el tipeo
-  if(ic && document.activeElement!==ic) ic.value=r2(c.consumido);
+  var is=byId('devs_'+k), ib=byId('devb_'+k);
   if(is && document.activeElement!==is) is.value=r2(c.devStock);
   if(ib && document.activeElement!==ib) ib.value=r2(c.devBaja);
-  // Σ
-  var sum=(Number(c.consumido)||0)+(Number(c.devStock)||0)+(Number(c.devBaja)||0);
-  var ok=Math.abs(sum-entregado)<0.01;
-  var cell=byId('aplicSum_'+insId);
-  if(cell) cell.innerHTML='<span class="'+(ok?'ok-sum':'bad-sum')+'">'+f(sum,2)+'</span>';
-  var pv=byId('aplicPreview'); if(pv) pv.innerHTML=buildPreviewProrrateo(o);
-  if(avisoRecorte) toast('Valor recortado: la suma no puede superar lo entregado ('+f(entregado,2)+')');
+  var consumido=consumidoCalc(k, agg);
+  var cell=byId('aplicSum_'+k);
+  if(cell) cell.innerHTML='<span class="'+(consumido<-0.01?'bad-sum':'ok-sum')+'"><strong>'+f(consumido,2)+'</strong></span>';
+  var pv=byId('aplicPreview'); if(pv) pv.innerHTML=tablaPorLoteRegistro(o);
+  var r=byId('regResumen'); if(r) r.innerHTML=htmlResumenRegistro(o);
 }
-function cerrarTanda(otId){
-  var o=null; for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===otId){ o=state.ots[i]; break; }
-  if(!o) return;
-  var lotesSel=[]; var dests=todosDestinos(o);
-  for(var d=0;d<dests.length;d++){ if(dests[d].estadoLote!=='Aplicado' && aplicTmp.lotesSel[dests[d].id]) lotesSel.push(dests[d]); }
-  if(!lotesSel.length){ alert('Seleccioná al menos un lote para cerrar.'); return; }
-  // Validar cierre de sumas
+
+function regFecha(destId){ return (aplicTmp.fechas && aplicTmp.fechas[destId]) || aplicTmp.fecha; }
+function regSync(){ aplicTmp.lotesSel={}; for(var k in aplicTmp.est){ if(aplicTmp.est.hasOwnProperty(k) && aplicTmp.est[k]==='si') aplicTmp.lotesSel[k]=true; } }
+
+// Arma el estado de la carga (aplicTmp). false si no queda nada pendiente. Si la OT volvió
+// a pendiente, precarga lo guardado (o.ultimoRegistro).
+function iniciarRegistro(otId){
+  var o=getOtById(otId); if(!o || o.estado==='Cancelada') return false;
+  var pares=destinosDeOt(o), pend=[];
+  for(var i=0;i<pares.length;i++){ if(pares[i].destino.estadoLote!=='Aplicado') pend.push(pares[i]); }
+  if(!pend.length) return false;
+  var fb=fechaBloqueo(), hoy=todayISO();
+  aplicTmp={otId:otId, paso:1, fecha:(fb && hoy<=fb)?addDias(fb,1):hoy, est:{}, fechas:{}, haReal:{}, consumos:{}, lotesSel:{}, registro:true};
+  var ur=o.ultimoRegistro, nPre=0;
+  for(var p=0;p<pend.length;p++){
+    var de=pend[p].destino, s=ur && ur.dest && ur.dest[de.id];
+    if(s){ aplicTmp.est[de.id]='si'; aplicTmp.haReal[de.id]=s.haReal; aplicTmp.fechas[de.id]=s.fecha; nPre++; }
+    else aplicTmp.est[de.id]= ur ? 'pend' : 'si';
+  }
+  if(nPre){
+    // La fecha general es la más usada entre los lotes precargados.
+    var cnt={}, mejor='', mx=0;
+    for(var fk in aplicTmp.fechas){ if(aplicTmp.fechas.hasOwnProperty(fk)){ var fv=aplicTmp.fechas[fk]; cnt[fv]=(cnt[fv]||0)+1; if(cnt[fv]>mx){ mx=cnt[fv]; mejor=fv; } } }
+    aplicTmp.fecha=mejor||aplicTmp.fecha;
+    for(var fk2 in aplicTmp.fechas){ if(aplicTmp.fechas.hasOwnProperty(fk2) && aplicTmp.fechas[fk2]===aplicTmp.fecha) delete aplicTmp.fechas[fk2]; }
+    regSync();
+    var agg=calcEntregadoPorInsumo(o), nUr=0; for(var ku in ur.dest){ if(ur.dest.hasOwnProperty(ku)) nUr++; }
+    // Las cantidades son totales de todos los lotes guardados: solo se precargan si están todos.
+    var consOk = ur.consumos && nPre===nUr;
+    for(var k in (consOk?ur.consumos:{})){ if(!ur.consumos.hasOwnProperty(k) || !agg.hasOwnProperty(k)) continue;
+      var c=ur.consumos[k];
+      aplicTmp.consumos[k]={depositoId:(getDepositoById(c.depositoId)?c.depositoId:''), devStock:c.devStock, devBaja:c.devBaja};
+      // Lo entregado queda fijo solo si se había cargado a mano (distinto de dosis × superficie).
+      if(Math.abs((c.entregada||0)-(c.req||0))>0.005) aplicTmp.consumos[k].entregadoOverride=c.entregada;
+    }
+    aplicTmp.precargado=nPre;
+  } else regSync();
+  return true;
+}
+function regSetEst(destId, v){ if(aplicTmp.est[destId]===v) return; aplicTmp.est[destId]=v; regSync(); aplicTmp.consumos=limpiarConsumosReg(); renderRegistro(); }
+// Al cambiar lo marcado, lo entregado a mano deja de valer (cambió lo que se pide).
+function limpiarConsumosReg(){ var o=getOtById(aplicTmp.otId), agg=calcEntregadoPorInsumo(o), out={}; for(var k in aplicTmp.consumos){ if(aplicTmp.consumos.hasOwnProperty(k) && agg.hasOwnProperty(k)){ var c=aplicTmp.consumos[k]; out[k]={depositoId:c.depositoId, devStock:0, devBaja:0}; } } return out; }
+function regSetHa(destId, v){ aplicTmp.haReal[destId]=v; }
+function regSetFecha(destId, v){ if(v===aplicTmp.fecha) delete aplicTmp.fechas[destId]; else aplicTmp.fechas[destId]=v; }
+function regSetFechaGral(v){ aplicTmp.fecha=v; renderRegistro(); }
+function regTodos(v){
+  var cambia=false; for(var k in aplicTmp.est){ if(aplicTmp.est.hasOwnProperty(k) && aplicTmp.est[k]!==v){ aplicTmp.est[k]=v; cambia=true; } }
+  if(!cambia) return;
+  regSync(); aplicTmp.consumos=limpiarConsumosReg(); renderRegistro();
+}
+function regIr(paso){
+  var o=getOtById(aplicTmp.otId); if(!o) return;
+  if(paso>aplicTmp.paso && !regValidar(o, aplicTmp.paso)) return;
+  if(paso>2) paso=2;
+  aplicTmp.paso=paso; renderRegistro();
+  var bx=byId('otRegBox'); if(bx && bx.scrollIntoView) bx.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function regHaySi(){ for(var k in aplicTmp.est){ if(aplicTmp.est.hasOwnProperty(k) && aplicTmp.est[k]==='si') return true; } return false; }
+function regValidar(o, paso){
+  var pares=destinosDeOt(o), k;
+  if(paso===1){
+    var hay=false, sinHa=[], fb=fechaBloqueo(), nSi=0, nPe=0, nAp=0;
+    for(var i=0;i<pares.length;i++){
+      var de=pares[i].destino, e=aplicTmp.est[de.id];
+      if(de.estadoLote==='Aplicado'){ nAp++; continue; }
+      if(!e) continue;
+      if(e!=='pend') hay=true;
+      if(e==='si') nSi++; if(e==='pend') nPe++;
+      if(e==='si'){
+        if(!(haRealDe(de)>0)) sinHa.push('• '+nombreDestinoCorto(de)+' · '+nombreLaborDeTrabajo(pares[i].trabajo));
+        var fe=regFecha(de.id);
+        if(!fe){ alert('Falta la fecha de '+nombreDestinoCorto(de)+'.'); return false; }
+        if(fb && fe<=fb){ bloqueoFecha(fe,'no se pueden registrar labores'); return false; }
+      }
+    }
+    if(!hay){ alert('Marcá al menos una labor como «Se hizo» (o «No se hace» si ya no se va a hacer).'); return false; }
+    if(!nSi && !nPe && !nAp){ alert('Si no se va a hacer nada de esta orden, cancelala (botón «Cancelar OT», arriba).'); return false; }
+    if(sinHa.length){ alert('Falta la superficie realmente trabajada en:\n\n'+sinHa.join('\n')); return false; }
+  }
+  if(paso===2){
+    var agg=calcEntregadoPorInsumo(o);
+    for(k in agg){ if(!agg.hasOwnProperty(k)) continue;
+      var ins=getInsumo(insDeClave(k)), c=aplicTmp.consumos[k]||{};
+      if(consumidoCalc(k, agg)<-0.01){ alert('En '+(ins?ins.nombre:'un insumo')+' la devolución y la baja suman más que lo entregado.'); return false; }
+      if((!c.depositoId || !getDepositoById(c.depositoId)) && entregadoEfectivo(k, agg)>0){ alert('Elegí de qué depósito salió '+(ins?ins.nombre:'un insumo')+'.'); return false; }
+    }
+  }
+  return true;
+}
+function renderRegistro(){
+  var o=getOtById(aplicTmp.otId); if(!o) return;
+  var paso=aplicTmp.paso, pares=destinosDeOt(o), fb=fechaBloqueo();
+  var pasos=['Qué se hizo','Insumos y confirmar'], letras=['a','b'], stp='';
+  for(var s=0;s<2;s++) stp+='<div class="reg-paso'+(s+1===paso?' act':(s+1<paso?' ok':''))+'"><span>'+(s+1<paso?'✓':letras[s])+'</span>'+pasos[s]+'</div>';
+  var cuerpo='';
+  if(paso===1){
+    var rows='';
+    var pill=function(de, e, v, txt, cls){ return '<button type="button" class="reg-pill'+(e===v?' '+cls:'')+'" onclick="regSetEst(\''+de.id+'\',\''+v+'\')">'+txt+'</button>'; };
+    for(var i=0;i<pares.length;i++){
+      var de=pares[i].destino, tr=pares[i].trabajo; if(de.estadoLote==='Aplicado') continue;
+      var e=aplicTmp.est[de.id], un=esUN(de);
+      rows+='<tr class="reg-fila'+(e==='si'?'':' reg-fila-off')+'">'+
+        '<td class="tdname"><strong>'+esc(nombreDestinoCorto(de))+'</strong><div class="trb-apl-sub">'+esc(nombreLaborDeTrabajo(tr))+(un?'':' · '+esc(de.cultivo||''))+' · plan '+f(de.ha,1)+(un?' unid.':' ha')+'</div></td>'+
+        '<td><div class="reg-pills">'+pill(de,e,'si','Se hizo','on')+pill(de,e,'pend','Queda pendiente','pend')+pill(de,e,'no','No se hace','no')+'</div></td>'+
+        (e==='si'
+          ? '<td class="num"><input type="number" step="0.01" min="0" class="inp-num" style="width:90px" value="'+(aplicTmp.haReal[de.id]!==undefined?aplicTmp.haReal[de.id]:de.ha)+'" oninput="regSetHa(\''+de.id+'\',this.value)"> <span class="trb-apl-sub">'+(un?'unid.':'ha')+'</span></td>'+
+            '<td><input type="date" value="'+regFecha(de.id)+'"'+(fb?' min="'+addDias(fb,1)+'"':'')+' onchange="regSetFecha(\''+de.id+'\',this.value)"></td>'
+          : '<td colspan="2" class="trb-apl-sub">'+(e==='no'?'Sale de la orden: deja de estar comprometida.':'Sigue en la orden para registrarla más adelante.')+'</td>')+
+        '</tr>';
+    }
+    cuerpo='<div class="reg-ayuda">Por defecto está todo en <strong>Se hizo</strong>. Cambiá a <strong>Queda pendiente</strong> lo que todavía no se hizo, o a <strong>No se hace</strong> lo que ya no se va a hacer.</div>'+
+      '<div class="reg-fecha-row"><div class="fld"><label>Fecha de aplicación (para todos)</label><input type="date" id="reg_fecha" value="'+aplicTmp.fecha+'"'+(fb?' min="'+addDias(fb,1)+'"':'')+' onchange="regSetFechaGral(this.value)"></div>'+
+        '<span class="trb-apl-sub" style="padding-bottom:9px">Si algún lote se hizo otro día, cambiale la fecha en su fila.</span>'+
+        '<span style="flex:1"></span><button type="button" class="btn btn-sm" onclick="regTodos(\'si\')">Marcar todo «Se hizo»</button></div>'+
+      '<div class="tw"><table class="reg-tbl reg-p1"><thead><tr><th>Lote · labor</th><th>¿Se hizo?</th><th class="num">Superficie real</th><th>Fecha</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  } else if(paso===2){
+    var agg=calcEntregadoPorInsumo(o), ids=[]; for(var k in agg){ if(agg.hasOwnProperty(k)) ids.push(k); }
+    if(!ids.length) cuerpo='<p class="trb-apl-sub" style="padding:10px 2px">Lo que marcaste no lleva insumos.</p>';
+    else {
+      var porIns={}, filas='';
+      for(var a=0;a<ids.length;a++){ var ii=insDeClave(ids[a]); porIns[ii]=(porIns[ii]||0)+1;
+        if(!aplicTmp.consumos[ids[a]]) aplicTmp.consumos[ids[a]]={devStock:0, devBaja:0, depositoId:''};
+        if(!aplicTmp.consumos[ids[a]].depositoId || !getDepositoById(aplicTmp.consumos[ids[a]].depositoId)) aplicTmp.consumos[ids[a]].depositoId=depSugeridoClave(ids[a]); }
+      for(var m=0;m<ids.length;m++){
+        var key=ids[m], insId=insDeClave(key), ins=getInsumo(insId), c=aplicTmp.consumos[key];
+        var req=agg[key], ent=entregadoEfectivo(key, agg), cons=consumidoCalc(key, agg);
+        var od=c.depositoId?'':'<option value="">— Elegir —</option>';
+        for(var d=0;d<state.depositos.length;d++){ var dp=state.depositos[d], st=calcStockDepId(insId, dp.id).actual;
+          od+='<option value="'+esc(dp.id)+'"'+(dp.id===c.depositoId?' selected':'')+'>'+esc(dp.nombre)+' · hay '+f(st,0)+'</option>'; }
+        filas+='<tr><td class="tdname"><strong>'+(ins?esc(ins.nombre):'—')+'</strong> <span class="trb-apl-sub">'+(ins?esc(ins.un):'')+'</span>'+(porIns[insId]>1?'<div class="trb-apl-sub">planificado de '+esc(depDeClave(key)?getDepositoNombreById(depDeClave(key)):'sin depósito')+'</div>':'')+'</td>'+
+          '<td><select class="inp" style="min-width:170px" onchange="updateConsumoDep(\''+key+'\',this.value)">'+od+'</select></td>'+
+          '<td class="num trb-apl-sub">'+f(req,2)+'</td>'+
+          '<td class="num"><input type="number" step="0.01" min="0" class="inp-num" style="width:90px" id="entr_'+key+'" value="'+(Math.round(ent*100)/100)+'" oninput="updateEntregado(\''+key+'\',this.value)"></td>'+
+          '<td class="num"><input type="number" step="0.01" min="0" class="inp-num" style="width:80px" id="devs_'+key+'" value="'+c.devStock+'" oninput="updateConsumo(\''+key+'\',\'devStock\',this.value)"></td>'+
+          '<td class="num"><input type="number" step="0.01" min="0" class="inp-num" style="width:80px" id="devb_'+key+'" value="'+c.devBaja+'" oninput="updateConsumo(\''+key+'\',\'devBaja\',this.value)"></td>'+
+          '<td class="num" id="aplicSum_'+key+'"><span class="'+(cons<-0.01?'bad-sum':'ok-sum')+'"><strong>'+f(cons,2)+'</strong></span></td></tr>';
+      }
+      cuerpo=
+        '<div class="tw"><table class="reg-tbl"><thead><tr><th>Insumo</th><th>Salió del depósito</th><th class="num">Planificado</th><th class="num">Entregado</th><th class="num">Devolución '+infoBtn('devolucion')+'</th><th class="num">Baja '+infoBtn('baja')+'</th><th class="num">Consumido</th></tr></thead><tbody>'+filas+'</tbody></table></div>'+
+        '<button type="button" class="reg-toggle" onclick="regToggleLote()">'+(aplicTmp.verLote?'▾ Ocultar consumo por lote':'▸ Ver consumo por lote')+'</button>'+
+        '<div id="aplicPreview" style="display:'+(aplicTmp.verLote?'':'none')+'">'+tablaPorLoteRegistro(o)+'</div>';
+    }
+    cuerpo+='<div id="regResumen" style="margin-top:14px">'+htmlResumenRegistro(o)+'</div>';
+  }
+  var mc=byId('otRegBox'); if(!mc) return;
+  mc.innerHTML='<div class="reg-pasos">'+stp+'</div>'+
+    (aplicTmp.precargado&&paso===1?'<div class="banner-info" style="margin:0 0 8px">Están cargados los datos de la última vez. Si no cambiás nada, queda igual que antes.</div>':'')+
+    '<div class="reg-cuerpo">'+cuerpo+'</div>'+
+    '<div class="fact reg-fact">'+
+      '<span style="flex:1"></span>'+
+      (paso>1?'<button type="button" class="btn btn-barra" onclick="regIr('+(paso-1)+')">← Qué se hizo</button>':'')+
+      (paso<2?'<button type="button" class="btn btn-primary btn-barra" onclick="regIr(2)">Siguiente →</button>'
+             :'<button type="button" class="btn btn-primary btn-barra" onclick="confirmarRegistro()">✓ Confirmar OT</button>')+
+    '</div>';
+}
+function regFechaMax(o){ var mx='', p=destinosDeOt(o); for(var i=0;i<p.length;i++){ var id=p[i].destino.id; if(aplicTmp.est[id]==='si'){ var fe=regFecha(id); if(fe>mx) mx=fe; } } return mx||aplicTmp.fecha; }
+// Stock que sale por insumo y depósito (lo entregado menos lo que volvió a stock).
+function regSalidas(o){
+  var agg=calcEntregadoPorInsumo(o), sale={};
+  for(var k in agg){ if(!agg.hasOwnProperty(k)) continue;
+    var c=aplicTmp.consumos[k]||{}, v=entregadoEfectivo(k, agg)-(Number(c.devStock)||0);
+    if(v<=0 || !c.depositoId) continue;
+    var kd=insDeClave(k)+'||'+c.depositoId; sale[kd]=(sale[kd]||0)+v;
+  }
+  return sale;
+}
+function htmlResumenRegistro(o){
+  var pares=destinosDeOt(o), pe=[], no=[], i;
+  for(i=0;i<pares.length;i++){ var de=pares[i].destino; if(de.estadoLote==='Aplicado') continue;
+    var e=aplicTmp.est[de.id]; if(e==='si') continue; else if(e==='no') no.push(pares[i]); else pe.push(pares[i]); }
+  var sale=regSalidas(o), avisos=[];
+  for(var kd in sale){ if(!sale.hasOwnProperty(kd)) continue;
+    var pp=kd.split('||'), ins=getInsumo(pp[0]), hay=calcStockDepId(pp[0], pp[1]).actual;
+    if(sale[kd]>hay+0.01) avisos.push('Stock insuficiente: '+(ins?ins.nombre:'')+' en '+getDepositoNombreById(pp[1])+' (sale '+f(sale[kd],1)+', hay '+f(hay,1)+'). Va a quedar negativo.');
+  }
+  var antes=0; for(i=0;i<pares.length;i++){ var d0=pares[i].destino; if(d0.estadoLote!=='Aplicado' && aplicTmp.est[d0.id]==='si' && regFecha(d0.id)<(o.fecha||'')) antes++; }
+  if(antes) avisos.push(antes+(antes===1?' labor tiene':' labores tienen')+' fecha anterior a la de la OT ('+fd(o.fecha)+'). Revisá que sea correcta.');
+  var fb2=laboresFacturadasQueSeBorran(o);
+  if(fb2.length) avisos.push('Ojo: '+fb2.join(', ')+' se queda sin lotes y se borra de la orden, con la facturación y los pagos al contratista que tenía cargados.');
+  var lista=function(arr){ var r=[]; for(var q=0;q<arr.length;q++) r.push(esc(nombreDestinoCorto(arr[q].destino))+' <span class="trb-apl-sub">('+esc(nombreLaborDeTrabajo(arr[q].trabajo))+')</span>'); return r.join(' · '); };
+  var nAv=''; for(i=0;i<avisos.length;i++) nAv+='<div class="banner-warn" style="margin:0 0 6px">'+esc(avisos[i])+'</div>';
+  return nAv+
+    (pe.length?'<p class="trb-apl-sub" style="margin-top:8px"><strong>Queda pendiente:</strong> '+lista(pe)+'</p>':'')+
+    (no.length?'<p class="trb-apl-sub" style="margin-top:4px"><strong>Sale de la orden:</strong> '+lista(no)+'</p>':'')+
+    '<p class="reg-ayuda" style="margin-top:12px">Al confirmar se descuenta el stock y las labores pasan a Consumos, Contratistas, Costos y la historia del lote. Si después hay que cambiar algo, se vuelve la OT a pendiente.</p>';
+}
+// Labores con facturación o pagos que, con lo marcado "No se hace", se quedan sin ningún lote.
+function laboresFacturadasQueSeBorran(o){
+  var out=[];
+  for(var t=0;t<(o.trabajos||[]).length;t++){
+    var tr=o.trabajos[t], ds=tr.destinos||[], queda=false;
+    for(var d=0;d<ds.length;d++){ if(aplicTmp.est[ds[d].id]!=='no') queda=true; }
+    if(!queda && ((tr.estadoFact&&tr.estadoFact!=='Sin facturar')||(Number(tr.montoPagado)||0)>0||(Number(tr.montoFacturado)||0)>0)) out.push(nombreLaborDeTrabajo(tr));
+  }
+  return out;
+}
+// ¿Lo que se está por confirmar es exactamente lo que se guardó al volver a pendiente?
+function registroSinCambios(o){
+  var ur=o.ultimoRegistro; if(!ur || !ur.dest || !ur.consumos || !ur.movs) return false;
+  var pares=destinosDeOt(o), nSi=0, nUr=0, k;
+  for(k in ur.dest){ if(ur.dest.hasOwnProperty(k)) nUr++; }
+  for(var i=0;i<pares.length;i++){
+    var de=pares[i].destino; if(de.estadoLote==='Aplicado') continue;
+    var e=aplicTmp.est[de.id], s=ur.dest[de.id];
+    if(e==='no') return false;
+    if(e!=='si') continue;
+    nSi++;
+    if(!s || Math.abs(haRealDe(de)-s.haReal)>1e-9 || regFecha(de.id)!==s.fecha) return false;
+    if((de.lineas||[]).length!==s.lineas.length) return false;
+    for(var l=0;l<de.lineas.length;l++){ var a=de.lineas[l], b=s.lineas[l]; if(a.insumoId!==b.insumoId || (a.depositoId||'')!==(b.depositoId||'') || Math.abs((Number(a.dosis)||0)-(Number(b.dosis)||0))>1e-9) return false; }
+  }
+  if(nSi!==nUr) return false;
   var agg=calcEntregadoPorInsumo(o);
-  for(var insId in agg){ if(agg.hasOwnProperty(insId)){
-    var entEf=entregadoEfectivo(insId, agg);
-    var c=aplicTmp.consumos[insId]||{consumido:entEf,devStock:0,devBaja:0};
-    var sum=(Number(c.consumido)||0)+(Number(c.devStock)||0)+(Number(c.devBaja)||0);
-    if(Math.abs(sum-entEf)>0.01){
-      var ins=getInsumo(insId);
-      if(!confirm('La suma de Consumido + Dev. stock + Dev. baja de '+(ins?ins.nombre:'(?)')+' es '+f(sum,2)+' pero lo entregado es '+f(entEf,2)+'.\n\n¿Cerrar igual?')) return;
-      break;
-    }
-  }}
-  var prr=calcProrrateo(o);
-  var fecha=aplicTmp.fecha||todayISO();
-
-  // Validación de stock en el depósito de origen elegido (avisar, no bloquear)
-  // Necesidad por insumo+depósito = usado + devBaja (lo que efectivamente sale del depósito)
-  var necesidadDep={};
-  for(var insId2 in agg){ if(agg.hasOwnProperty(insId2)){
-    var c2=aplicTmp.consumos[insId2]||{};
-    var saleDelDep=(Number(c2.consumido)||0)+(Number(c2.devBaja)||0); // consumido + baja salen; devStock se queda
-    var dep2=c2.deposito||'';
-    if(saleDelDep>0 && dep2){
-      necesidadDep[insId2+'||'+dep2]=(necesidadDep[insId2+'||'+dep2]||0)+saleDelDep;
-    }
-  }}
-  var faltantes=[];
-  for(var key in necesidadDep){ if(necesidadDep.hasOwnProperty(key)){
-    var parts=key.split('||'); var insId3=parts[0], dep3=parts[1];
-    var disp=calcStockDep(insId3, dep3).actual;
-    if(necesidadDep[key]>disp+0.01){
-      var ins3=getInsumo(insId3);
-      faltantes.push((ins3?ins3.nombre:insId3)+' en '+dep3+': sale '+f(necesidadDep[key],1)+', hay '+f(disp,1));
-    }
-  }}
-  if(faltantes.length){
-    if(!confirm('⚠ Stock insuficiente en el depósito de origen para:\n\n'+faltantes.join('\n')+'\n\n¿Cerrar igual? (el stock quedará negativo)')) return;
+  for(k in agg){ if(!agg.hasOwnProperty(k)) continue;
+    var c=aplicTmp.consumos[k]||{}, u=ur.consumos[k]; if(!u) return false;
+    if((c.depositoId||'')!==(u.depositoId||'') || Math.abs(entregadoEfectivo(k, agg)-u.entregada)>0.005 || Math.abs((Number(c.devStock)||0)-u.devStock)>0.005 || Math.abs((Number(c.devBaja)||0)-u.devBaja)>0.005) return false;
   }
-
-  // Un comprobante por TRABAJO de la tanda (cabecera): el comprobante apunta al
-  // trabajo (comprobantes.ref_ot_trabajo), y en una OT con varias labores cada una
-  // tiene el suyo. Se crea solo si el trabajo generó movimientos.
-  var compsTr={}, ordenComps=[];
-  var compDeTrabajo=function(trId){
-    if(compsTr[trId]) return compsTr[trId];
-    var c={ id:uid(), fecha:fecha, tipo:'Consumo OT', comp_tipo:'OT', comp_nro:'#'+o.num,
-      proveedorId:'', campaniaId:o.campaniaId||'', obs:'Aplicación OT #'+o.num, refOt:trId, refOtNum:o.num };
-    compsTr[trId]=c; ordenComps.push(c); return c;
-  };
-  // Aplicar a cada destino seleccionado
-  for(var s=0;s<lotesSel.length;s++){
-    var de=lotesSel[s];
-    var trDe=trabajoDeDestino(o, de.id);
-    var rep=prr[de.id]||{};
-    for(var j=0;j<de.lineas.length;j++){
-      var ln=de.lineas[j];
-      var x=rep[ln.insumoId]||{entregada:cantReq(de, ln),usado:0,devStock:0,devBaja:0};
-      ln.entregada=x.entregada; ln.usado=x.usado; ln.devStock=x.devStock; ln.devBaja=x.devBaja;
-      var cIns=aplicTmp.consumos[ln.insumoId]||{};
-      var depOrigen=cIns.deposito||'';
-      var depOrigenId=(getDepositoByNombre(depOrigen)||{}).id||'';
-      ln.deposito=depOrigen; // guardar de qué depósito salió, para deshacer/trazar
-      // Movimiento Consumo OT por lo usado
-      if(ln.usado>0){
-        state.movtos.push({id:uid(), comprobanteId:compDeTrabajo(trDe.id).id, insumoId:ln.insumoId, cant:ln.usado, origenId:depOrigenId, destinoId:'', refDest:de.id});
-      }
-      // Movimiento Baja por lo de devBaja
-      if(ln.devBaja>0){
-        state.movtos.push({id:uid(), comprobanteId:compDeTrabajo(trDe.id).id, insumoId:ln.insumoId, cant:ln.devBaja, origenId:depOrigenId, destinoId:'', refDest:de.id});
-      }
-      // devStock: silencioso
-    }
-    de.estadoLote='Aplicado';
-    de.fechaAplicReal=fecha;
-  }
-  for(var oc=0;oc<ordenComps.length;oc++) state.comprobantes.push(ordenComps[oc]);
-  recalcEstadoOT(o);
-  aplicTmp=null; // resetear para la próxima
-  guardarOTApi(o);
-  for(var gc=0;gc<ordenComps.length;gc++) guardarComprobanteApi(ordenComps[gc]);
-  otTrasAccion(otId, 4, {confirmada:{n:lotesSel.length, pend:nPendientesOT(o)}});
-  toast(lotesSel.length+' lote(s) aplicado(s)');
+  for(k in ur.consumos){ if(ur.consumos.hasOwnProperty(k) && !agg.hasOwnProperty(k)) return false; }
+  return true;
 }
-function deshacerAplicLote(otId, destId){
-  if(!confirm('¿Deshacer la aplicación de este lote? Vuelve a Pendiente y se borran sus movimientos.')) return;
-  var o=null; for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===otId){ o=state.ots[i]; break; }
-  if(!o) return;
-  var parD=buscarDestino(o, destId); if(!parD) return;
-  var de=parD.destino;
-  // ids de comprobantes con líneas de este destino, antes de filtrar (para limpiar/sincronizar después)
-  var idsAfectados={};
-  for(var k=0;k<state.movtos.length;k++){ if(state.movtos[k].refDest===destId) idsAfectados[state.movtos[k].comprobanteId]=true; }
-  var idsAntes=Object.keys(idsAfectados);
-  // borrar líneas de ese destino
-  state.movtos=state.movtos.filter(function(m){ return m.refDest!==destId; });
-  // limpiar comprobantes que quedaron sin líneas; los que sobreviven con menos líneas se sincronizan
-  limpiarComprobantesHuerfanosApi(idsAntes, function(){
-    idsAntes.forEach(function(cid){
-      var c=getComprobanteById(cid);
-      if(c) guardarComprobanteApi(c);
-    });
-  });
-  // resetear líneas
-  for(var j=0;j<de.lineas.length;j++){ de.lineas[j].entregada=0; de.lineas[j].usado=0; de.lineas[j].devStock=0; de.lineas[j].devBaja=0; }
-  de.estadoLote='Pendiente'; de.fechaAplicReal='';
+function confirmarRegistro(){
+  var o=getOtById(aplicTmp.otId); if(!o || o.estado==='Cancelada') return;
+  if(!regValidar(o,1) || (regHaySi() && !regValidar(o,2))) return;
+  var pares=destinosDeOt(o), si=[], no=[], i;
+  for(i=0;i<pares.length;i++){ var de0=pares[i].destino; if(de0.estadoLote==='Aplicado') continue; if(aplicTmp.est[de0.id]==='si') si.push(pares[i]); else if(aplicTmp.est[de0.id]==='no') no.push(pares[i]); }
+  var sale=regSalidas(o), falt=[];
+  for(var kd in sale){ if(!sale.hasOwnProperty(kd)) continue; var pp=kd.split('||'); if(sale[kd]>calcStockDepId(pp[0], pp[1]).actual+0.01){ var ins=getInsumo(pp[0]); falt.push((ins?ins.nombre:pp[0])+' en '+getDepositoNombreById(pp[1])); } }
+  if(falt.length && !confirm('Stock insuficiente en: '+falt.join(', ')+'.\n\n¿Confirmar igual? El stock va a quedar negativo.')) return;
+  var fBorra=laboresFacturadasQueSeBorran(o);
+  if(no.length && !confirm('Vas a sacar de la orden '+no.length+(no.length===1?' labor que no se va a hacer':' labores que no se van a hacer')+'.'+
+    (fBorra.length?'\n\nOJO: '+fBorra.join(', ')+' se queda sin lotes y se borra, con la facturación y los pagos al contratista que tenía cargados.':'')+'\n\n¿Seguir?')) return;
+  var exacto=si.length && registroSinCambios(o);
+  var nuevos = exacto ? restaurarRegistro(o, si) : (si.length ? grabarRegistro(o, si) : []);
+  // "No se hace": sale de la orden (deja de estar comprometido); el trabajo que queda vacío se borra.
+  if(no.length){
+    var quitar={}; for(i=0;i<no.length;i++) quitar[no[i].destino.id]=true;
+    var quedan=[];
+    for(var t=0;t<(o.trabajos||[]).length;t++){ var tr=o.trabajos[t]; tr.destinos=(tr.destinos||[]).filter(function(d){ return !quitar[d.id]; }); if(tr.destinos.length) quedan.push(tr); }
+    o.trabajos=quedan;
+  }
+  // Borrador: se usa lo de los lotes recién registrados; lo de los que siguen pendientes se conserva.
+  if(o.ultimoRegistro){
+    var ur=o.ultimoRegistro, nQ=0;
+    if(exacto) ur.dest={};
+    else { for(i=0;i<si.length;i++) delete ur.dest[si[i].destino.id]; for(i=0;i<no.length;i++) delete ur.dest[no[i].destino.id]; delete ur.consumos; ur.movs=[]; }
+    for(var kq in ur.dest){ if(ur.dest.hasOwnProperty(kq)) nQ++; }
+    if(!nQ) o.ultimoRegistro=null;
+  }
   recalcEstadoOT(o);
+  reevaluarFacturacion(o);
   aplicTmp=null;
-  guardarOTApi(o); otTrasAccion(otId, 4); toast('Aplicación deshecha');
+  // Primero la OT (si un trabajo se borra, no tiene comprobantes); después los comprobantes nuevos.
+  guardarOTApi(o, function(){ for(var g=0;g<nuevos.length;g++) guardarComprobanteApi(nuevos[g]); });
+  otTrasAccion(o.id, 4, {confirmada:{n:si.length, pend:nPendientesOT(o)}});
+}
+// Comprobantes de un registro: uno por TRABAJO + tipo + fecha (+ tanda). El backend exige que
+// cada comprobante apunte a un trabajo (comprobantes.ref_ot_trabajo).
+function _compRegistro(o, comps, lista, trId, tipo, fecha, tanda){
+  var key=trId+'|'+tipo+'|'+fecha+'|'+tanda; if(comps[key]) return comps[key];
+  var c={id:uid(), fecha:fecha, tipo:tipo, comp_tipo:'OT', comp_nro:'#'+o.num, proveedorId:'', campaniaId:o.campaniaId||'',
+    obs:(tipo==='Consumo OT'?'Aplicación OT #':'Baja en aplicación OT #')+o.num, refOt:trId, refOtNum:o.num, refTanda:tanda};
+  comps[key]=c; state.comprobantes.push(c); lista.push(c); return c;
+}
+// Registro normal: prorrateo por dosis × superficie real; cada lote con su fecha. Devuelve los comprobantes creados.
+function grabarRegistro(o, si){
+  var prr=calcProrrateo(o), tanda='tnd_'+uid(), comps={}, lista=[], bajas={}, ordenB=[];
+  var fMax=regFechaMax(o);
+  for(var s=0;s<si.length;s++){
+    var de=si[s].destino, trId=si[s].trabajo.id, rep=prr[de.id]||{}, fe=regFecha(de.id);
+    de.haReal=haRealDe(de);
+    for(var j=0;j<(de.lineas||[]).length;j++){
+      var ln=de.lineas[j]; if(!ln.insumoId) continue;
+      var x=rep[j]||{clave:claveCons(ln), entregada:0, usado:0, devStock:0, devBaja:0, dosisReal:null};
+      var cIns=aplicTmp.consumos[x.clave]||{};
+      ln.entregada=x.entregada; ln.usado=x.usado; ln.devStock=x.devStock; ln.devBaja=x.devBaja;
+      if(x.dosisReal===null) delete ln.dosisReal; else ln.dosisReal=x.dosisReal;
+      ln.depositoId=cIns.depositoId||ln.depositoId||'';
+      if(ln.usado>0.0000001) state.movtos.push({id:uid(), comprobanteId:_compRegistro(o, comps, lista, trId, 'Consumo OT', fe, tanda).id, insumoId:ln.insumoId, cant:ln.usado, origenId:ln.depositoId, destinoId:'', refDest:de.id});
+      // Lo que se perdió se agrupa por trabajo + insumo + depósito (una línea, con la última fecha).
+      if(ln.devBaja>0.0000001){ var kb=trId+'|'+ln.insumoId+'|'+ln.depositoId; if(!bajas[kb]){ bajas[kb]={trId:trId, insumoId:ln.insumoId, dep:ln.depositoId, cant:0}; ordenB.push(kb); } bajas[kb].cant+=ln.devBaja; }
+    }
+    de.estadoLote='Aplicado'; de.fechaAplicReal=fe; de.tandaId=tanda;
+  }
+  for(var b=0;b<ordenB.length;b++){ var B=bajas[ordenB[b]];
+    state.movtos.push({id:uid(), comprobanteId:_compRegistro(o, comps, lista, B.trId, 'Baja por aplicación OT', fMax, tanda).id, insumoId:B.insumoId, cant:r6(B.cant), origenId:B.dep, destinoId:''}); }
+  return lista;
+}
+// Sin cambios respecto de lo guardado: vuelve exactamente lo que había (líneas y movimientos).
+function restaurarRegistro(o, si){
+  var ur=o.ultimoRegistro, comps={}, lista=[];
+  for(var s=0;s<si.length;s++){
+    var de=si[s].destino, sv=ur.dest[de.id];
+    de.haReal=sv.haReal; de.fechaAplicReal=sv.fecha; de.estadoLote='Aplicado'; de.tandaId=sv.tandaId;
+    for(var j=0;j<de.lineas.length;j++){
+      var ln=de.lineas[j], b=sv.lineas[j];
+      ln.entregada=b.entregada; ln.usado=b.usado; ln.devStock=b.devStock; ln.devBaja=b.devBaja; ln.depositoId=b.depositoId;
+      if(b.dosisReal===undefined || b.dosisReal===null) delete ln.dosisReal; else ln.dosisReal=b.dosisReal;
+    }
+  }
+  for(var m=0;m<ur.movs.length;m++){
+    var mv=ur.movs[m];
+    var c=_compRegistro(o, comps, lista, mv.trabajoId, mv.tipo, mv.fecha, mv.tanda||'');
+    var nm={id:uid(), comprobanteId:c.id, insumoId:mv.insumoId, cant:mv.cant, origenId:mv.origenId, destinoId:''};
+    if(mv.refDest) nm.refDest=mv.refDest;
+    state.movtos.push(nm);
+  }
+  return lista;
+}
+/* ===== Volver a pendiente: devuelve el stock y guarda lo cargado en o.ultimoRegistro ===== */
+function volverAPendiente(otId){
+  var o=getOtById(otId); if(!o) return;
+  var pares=destinosDeOt(o), apl=[], i, fb=fechaBloqueo();
+  for(i=0;i<pares.length;i++){ if(pares[i].destino.estadoLote==='Aplicado') apl.push(pares[i]); }
+  if(!apl.length) return;
+  for(i=0;i<apl.length;i++){ if(fb && apl[i].destino.fechaAplicReal && apl[i].destino.fechaAplicReal<=fb){ bloqueoFecha(apl[i].destino.fechaAplicReal, 'no se puede volver a pendiente'); return; } }
+  var vuelve={};
+  for(i=0;i<apl.length;i++){ var ls=apl[i].destino.lineas||[]; for(var l=0;l<ls.length;l++){ var q=(Number(ls[l].usado)||0)+(Number(ls[l].devBaja)||0); if(q>0){ var x=getInsumo(ls[l].insumoId); var nm=x?x.nombre+' ('+x.un+')':ls[l].insumoId; vuelve[nm]=(vuelve[nm]||0)+q; } } }
+  var vt=[]; for(var n in vuelve){ if(vuelve.hasOwnProperty(n)) vt.push('• '+n+': '+f(vuelve[n],1)); }
+  var fact=false; for(i=0;i<(o.trabajos||[]).length;i++){ var tr=o.trabajos[i]; if((tr.estadoFact&&tr.estadoFact!=='Sin facturar')||(Number(tr.montoPagado)||0)>0) fact=true; }
+  if(!confirm('¿Volver la OT #'+o.num+' a pendiente?\n\n'+
+    (vt.length?'Vuelve al stock lo que se descontó:\n'+vt.join('\n')+'\n\n':'')+
+    'Lo que cargaste (fechas, superficies y cantidades) queda guardado y aparece precargado cuando registres de nuevo.'+
+    (fact?'\n\nLa facturación y los pagos al contratista se conservan.':'')+'\n\nDespués podés editar la OT.')) return;
+  var ur={dest:{}, consumos:{}, movs:[]};
+  for(i=0;i<apl.length;i++){
+    var de=apl[i].destino, sv={fecha:de.fechaAplicReal, haReal:haRealDe(de), tandaId:de.tandaId||'', lineas:[]};
+    for(var j=0;j<(de.lineas||[]).length;j++){
+      var ln=de.lineas[j];
+      sv.lineas.push({insumoId:ln.insumoId, depositoId:ln.depositoId||'', dosis:Number(ln.dosis)||0, entregada:Number(ln.entregada)||0, usado:Number(ln.usado)||0, devStock:Number(ln.devStock)||0, devBaja:Number(ln.devBaja)||0, dosisReal:(ln.dosisReal===undefined?null:ln.dosisReal)});
+      if(!ln.insumoId) continue;
+      var k=claveCons(ln), c=ur.consumos[k]||(ur.consumos[k]={depositoId:ln.depositoId||'', entregada:0, devStock:0, devBaja:0, req:0});
+      c.req=r6(c.req+cantReq(de, ln, sv.haReal));
+      c.entregada=r6(c.entregada+(Number(ln.entregada)||0)); c.devStock=r6(c.devStock+(Number(ln.devStock)||0)); c.devBaja=r6(c.devBaja+(Number(ln.devBaja)||0));
+    }
+    ur.dest[de.id]=sv;
+  }
+  var destIds={}; for(i=0;i<pares.length;i++) destIds[pares[i].destino.id]=true;
+  var compsOT={}, compById={}, afectados={};
+  for(i=0;i<state.comprobantes.length;i++){ var cp=state.comprobantes[i]; compById[cp.id]=cp; if(compEsDeOt(cp, o) && (cp.tipo==='Consumo OT' || cp.tipo==='Baja por aplicación OT')) compsOT[cp.id]=true; }
+  for(i=0;i<state.movtos.length;i++){ var mv=state.movtos[i];
+    if(compsOT[mv.comprobanteId] || (mv.refDest && destIds[mv.refDest])){ var cc=compById[mv.comprobanteId]; if(!cc) continue;
+      afectados[cc.id]=true;
+      ur.movs.push({trabajoId:cc.refOt, fecha:cc.fecha, tipo:cc.tipo, tanda:cc.refTanda||'', insumoId:mv.insumoId, cant:mv.cant, origenId:mv.origenId, refDest:mv.refDest||''}); }
+  }
+  state.movtos=state.movtos.filter(function(m){ return !compsOT[m.comprobanteId] && !(m.refDest && destIds[m.refDest]); });
+  for(i=0;i<apl.length;i++){
+    var d=apl[i].destino;
+    for(var j2=0;j2<(d.lineas||[]).length;j2++){ var l2=d.lineas[j2]; l2.entregada=0; l2.usado=0; l2.devStock=0; l2.devBaja=0; delete l2.dosisReal; }
+    d.estadoLote='Pendiente'; d.fechaAplicReal=''; delete d.haReal; delete d.tandaId;
+  }
+  o.ultimoRegistro=ur;
+  recalcEstadoOT(o);
+  reevaluarFacturacion(o);
+  aplicTmp=null;
+  guardarOTApi(o);
+  // Comprobantes que quedaron sin líneas se borran; los que perdieron algunas se actualizan.
+  var idsAntes=Object.keys(afectados);
+  limpiarComprobantesHuerfanosApi(idsAntes, function(){ idsAntes.forEach(function(cid){ var c2=getComprobanteById(cid); if(c2) guardarComprobanteApi(c2); }); });
+  otTrasAccion(otId, 4, {resultado:{ic:'↩', terra:true, t:'La OT #'+o.num+' volvió a pendiente',
+    s:(vt.length?'Volvió al stock lo que se había descontado. ':'')+'Lo que habías cargado quedó guardado y aparece precargado al confirmar de nuevo.',
+    acc:'<button type="button" class="btn btn-barra" onclick="otPant.resultado=null; otIr(1)">✎ Editar la OT</button>'+
+        '<button type="button" class="btn btn-primary btn-barra" onclick="otVolverListado()">Volver</button>'}});
+}
+function regToggleLote(){ aplicTmp.verLote=!aplicTmp.verLote; renderRegistro(); }
+// Consumo por lote de lo que se está por confirmar.
+function tablaPorLoteRegistro(o){
+  var prr=calcProrrateo(o), pares=destinosDeOt(o), items=[];
+  for(var i=0;i<pares.length;i++){
+    var d2=pares[i].destino; if(d2.estadoLote==='Aplicado' || aplicTmp.est[d2.id]!=='si') continue;
+    var rep=prr[d2.id]||{}, it={fecha:regFecha(d2.id), lote:nombreDestinoCorto(d2), labor:nombreLaborDeTrabajo(pares[i].trabajo), ha:haRealDe(d2), haPlan:Number(d2.ha)||0, un:esUN(d2), prods:[]};
+    for(var li in rep){ if(!rep.hasOwnProperty(li)) continue; var x=rep[li], insx=getInsumo(x.insumoId);
+      it.prods.push({nombre:insx?insx.nombre:'—', unidad:insx?insx.un:'', real:x.dosisReal, plan:Number((d2.lineas[li]||{}).dosis)||0, usado:x.usado, baja:x.devBaja}); }
+    items.push(it);
+  }
+  return items.length ? tablaRealizado(items, 'reg-tbl') : '';
+}
+// Lo confirmado: por lote, fecha, superficie real y, por insumo, dosis real, plan y consumido.
+function htmlRealizado(o){
+  var pares=destinosDeOt(o), apl=[], items=[];
+  for(var i=0;i<pares.length;i++){ if(pares[i].destino.estadoLote==='Aplicado') apl.push(pares[i]); }
+  apl.sort(function(a,b){ var fa=a.destino.fechaAplicReal||'', fb=b.destino.fechaAplicReal||''; return fa<fb?-1:fa>fb?1:0; });
+  for(var a=0;a<apl.length;a++){
+    var de=apl[a].destino, un=esUN(de), haR=haAplicadaDe(de);
+    var it={fecha:de.fechaAplicReal, lote:nombreDestinoCorto(de), labor:nombreLaborDeTrabajo(apl[a].trabajo), ha:haR, haPlan:Number(de.ha)||0, un:un, prods:[]};
+    for(var j=0;j<(de.lineas||[]).length;j++){
+      var ln=de.lineas[j], x=getInsumo(ln.insumoId); if(!x) continue;
+      it.prods.push({nombre:x.nombre, unidad:x.un, real:ln.dosisReal!=null?ln.dosisReal:(haR>0?(Number(ln.usado)||0)/haR:0), plan:Number(ln.dosis)||0, usado:Number(ln.usado)||0, baja:Number(ln.devBaja)||0});
+    }
+    items.push(it);
+  }
+  return '<div class="chd" style="margin-top:4px"><span class="ct">Confirmado · '+apl.length+(apl.length===1?' labor':' labores')+'</span></div>'+tablaRealizado(items, '');
+}
+function tablaRealizado(items, cls){
+  var hayBaja=false, i, p;
+  for(i=0;i<items.length;i++){ for(p=0;p<items[i].prods.length;p++){ if((items[i].prods[p].baja||0)>0.0001) hayBaja=true; } }
+  var filas='';
+  for(i=0;i<items.length;i++){
+    var it=items[i], n=Math.max(1, it.prods.length);
+    var cab='<td class="otl-fecha" rowspan="'+n+'">'+fd(it.fecha)+'</td>'+
+      '<td class="tdname" rowspan="'+n+'"><strong>'+esc(it.lote)+'</strong><div class="trb-apl-sub">'+esc(it.labor)+'</div></td>'+
+      '<td class="num" rowspan="'+n+'">'+f(it.ha,1)+(it.un?' unid.':' ha')+(Math.abs(it.ha-it.haPlan)>0.01?'<div class="trb-apl-sub">plan '+f(it.haPlan,1)+'</div>':'')+'</td>';
+    if(!it.prods.length){ filas+='<tr class="real-grp">'+cab+'<td colspan="'+(hayBaja?5:4)+'" class="trb-apl-sub">sin insumos</td></tr>'; continue; }
+    for(p=0;p<it.prods.length;p++){
+      var x=it.prods[p], dif=!it.un && x.plan>0 && Math.abs(x.real-x.plan)/x.plan>0.02;
+      filas+='<tr class="'+(p===0?'real-grp':'real-sub')+'">'+(p===0?cab:'')+
+        '<td class="tdname">'+esc(x.nombre)+'</td>'+
+        '<td class="num">'+(it.un?'—':'<span class="'+(dif?'bad-sum':'')+'">'+f(x.real,2)+'</span> <span class="trb-apl-sub">'+esc(x.unidad)+'/ha</span>')+'</td>'+
+        '<td class="num trb-apl-sub">'+(it.un?'—':f(x.plan,2))+'</td>'+
+        '<td class="num"><strong>'+f(x.usado,1)+'</strong> <span class="trb-apl-sub">'+esc(x.unidad)+'</span></td>'+
+        (hayBaja?'<td class="num">'+((x.baja||0)>0.0001?f(x.baja,1)+' <span class="trb-apl-sub">'+esc(x.unidad)+'</span>':'<span class="trb-apl-sub">—</span>')+'</td>':'')+
+      '</tr>';
+    }
+  }
+  return '<div class="tw"><table class="real-tbl '+(cls||'')+'"><thead><tr><th>Fecha</th><th>Lote · labor</th><th class="num">Superficie</th><th>Insumo</th><th class="num">Dosis real</th><th class="num">Plan</th><th class="num">Consumido</th>'+(hayBaja?'<th class="num">Baja</th>':'')+'</tr></thead><tbody>'+filas+'</tbody></table></div>';
+}
+// Importe aplicado de un trabajo, en ARS: Σ superficie real × tarifa (TC de la fecha de la OT).
+function importeTrabajoARS(o, tr){
+  var t=0, ds=tr.destinos||[];
+  for(var i=0;i<ds.length;i++){ var de=ds[i]; if(de.estadoLote!=='Aplicado') continue;
+    var tar=tarifaDe(tr, de); if(tarifaMonedaDe(tr, de)==='USD') tar=tar*tcDeFecha(o.fecha||'');
+    t+=haAplicadaDe(de)*tar; }
+  return t;
+}
+// Si cambia lo aplicado de una labor contratada, lo marcado Facturado / Pagado en su
+// totalidad pasa a Parcial cuando el importe ya supera lo facturado / pagado.
+function reevaluarFacturacion(o){
+  var trs=(o&&o.trabajos)||[];
+  for(var t=0;t<trs.length;t++){
+    var tr=trs[t]; if(tr.laborTipo!=='LC') continue;
+    var imp=importeTrabajoARS(o, tr);
+    if(tr.estadoFact==='Facturado' && imp>(Number(tr.montoFacturado)||0)+0.5) tr.estadoFact='Parcial';
+    if(tr.estadoPago==='Sí' && imp>(Number(tr.montoPagado)||0)+0.5) tr.estadoPago='Parcial';
+  }
+}
+// Prepara (o retoma) la carga de lo realizado dentro de la ventana 4.
+function iniciarRegistroEnVentana(o){
+  var box=byId('otRegBox'); if(!box || !o) return;
+  if(!aplicTmp || aplicTmp.otId!==o.id || !aplicTmp.registro){ if(!iniciarRegistro(o.id)){ box.innerHTML=''; return; } }
+  renderRegistro();
 }
 
 function cancelOT(otId){
@@ -4998,14 +5221,15 @@ function renderConsumos(){
           var hay='OT'+o.num+' '+campoNom+' '+loteNom+' '+(de.cultivo||'')+' '+laborNom+' '+contrNom+' '+ins.nombre;
           if(hay.toLowerCase().indexOf(q)<0) continue;
         }
-        var dosisReal = esUN(de) ? usado : ((Number(de.ha)||0)>0 ? usado/(Number(de.ha)||0) : 0);
+        var haRc=haAplicadaDe(de);
+        var dosisReal = esUN(de) ? usado : (ln.dosisReal!=null ? Number(ln.dosisReal) : (haRc>0 ? usado/haRc : 0));
         rows+='<tr>'+
           '<td>#'+o.num+'</td>'+
           '<td>'+fd(fApp)+'</td>'+
           '<td class="tdname">'+esc(campoNom)+'</td>'+
           '<td class="tdname">'+esc(loteNom)+'</td>'+
           '<td class="tdname">'+esc(de.cultivo||'—')+'</td>'+
-          '<td class="num">'+f(Number(de.ha)||0,1)+'</td>'+
+          '<td class="num">'+f(haRc,1)+'</td>'+
           '<td class="tdname">'+esc(laborNom)+'</td>'+
           '<td class="tdname">'+esc(contrNom||'—')+'</td>'+
           '<td class="tdname">'+esc(ins.nombre)+'</td>'+
@@ -5016,7 +5240,7 @@ function renderConsumos(){
           '<td class="num">'+f(dosisReal,3)+'</td>'+
           '</tr>';
         nReg++;
-        if(!esUN(de)){ haSet[de.loteId]=Number(de.ha)||0; lotesSet[de.loteId]=true; }
+        if(!esUN(de)){ haSet[de.loteId]=haRc; lotesSet[de.loteId]=true; }
         insDistintos[ln.insumoId]=true;
       }
     }
@@ -5106,7 +5330,7 @@ function contrFilasFiltradas(){
         if(!subSet[laborNom]) subSet[laborNom]={tot:0,apl:0};
         subSet[laborNom].tot+=hh;
         haTot+=hh;
-        if(de.estadoLote==='Aplicado'){ subSet[laborNom].apl+=hh; haApl+=hh; }
+        if(de.estadoLote==='Aplicado'){ subSet[laborNom].apl+=haAplicadaDe(de); haApl+=haAplicadaDe(de); }
       }
       if(!hayDest) continue;
       var camposNom=[]; for(var ck in camposSet){ if(camposSet.hasOwnProperty(ck)) camposNom.push(getCampoNombre(ck)); }
@@ -5116,7 +5340,7 @@ function contrFilasFiltradas(){
       var tarMon=tr.tarifaMoneda||'ARS';
       var tcRef=tcDeFecha(o.fecha||'');
       var tarifaARS = (tarMon==='USD') ? tarifa*tcRef : tarifa;
-      var importe=haApl*tarifaARS;
+      var importe=importeTrabajoARS(o, tr);
       var tarifaOtraTxt;
       if(tarMon==='USD'){ tarifaOtraTxt = '$ '+f(tarifa*tcRef,0)+'/ha'; }
       else { tarifaOtraTxt = tcRef>0 ? ('U$S '+f(tarifa/tcRef,2)+'/ha') : '—'; }
@@ -5467,7 +5691,7 @@ function updateContrEstado(otId, trId, val){
     renderContratistas(); return;
   }
   tr.estadoFact=val;
-  if(val==='Facturado'){ tr.montoFacturado=haTrabajo(tr, true)*tarifaARSDeTrabajo(o, tr); }
+  if(val==='Facturado'){ tr.montoFacturado=importeTrabajoARS(o, tr); }
   else if(val==='Sin facturar'){ tr.montoFacturado=0; }
   if(_esModoApi()) guardarOTApi(o); else save();
   renderContratistas();
@@ -5475,7 +5699,7 @@ function updateContrEstado(otId, trId, val){
 function openMontoModal(otId, trId){
   var o=getOtById(otId), tr=getTrabajoById(o, trId); if(!tr) return;
   var haApl=haTrabajo(tr, true), tarifa=tarifaARSDeTrabajo(o, tr);
-  var importe=haApl*tarifa;
+  var importe=importeTrabajoARS(o, tr);
   var actual=Number(tr.montoFacturado)||0;
   var contrNom = tr.contratistaId ? getContratistaNombre(tr.contratistaId) : 'Labor propia';
   var mc=byId('modalContent');
@@ -5636,7 +5860,7 @@ function renderCostos(){
       if(fd1 && fApp<fd1) continue;
       if(fh && fApp>fh) continue;
 
-      var haDest=Number(de.ha)||0;
+      var haDest=haAplicadaDe(de);
       // Superficie: un lote con varias labores en la misma OT cuenta una vez; una UN no suma ha.
       if(!esUN(de) && !lotesContados[o.id+'|'+de.loteId]){ lotesContados[o.id+'|'+de.loteId]=true; totHa+=haDest; }
 

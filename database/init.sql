@@ -435,6 +435,9 @@ CREATE TABLE ordenes_trabajo (
     obs          TEXT,
     estado       TEXT NOT NULL DEFAULT 'Pendiente'
                      CHECK (estado IN ('Pendiente','Parcial','Aplicada','Cancelada')),
+    -- Lo registrado la última vez antes de "Volver a pendiente" (borrador para
+    -- precargar o restaurar igual): {dest:{destId:{...}}, consumos:{...}, movs:[...]}
+    ultimo_registro JSONB,
     PRIMARY KEY (id, empresa_id)
 );
 CREATE INDEX idx_ots_empresa ON ordenes_trabajo(empresa_id, campania_id);

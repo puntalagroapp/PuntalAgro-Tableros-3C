@@ -2431,7 +2431,7 @@ app.get('/api/ordenes-trabajo', async (req, res) => {
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
 
     const params = [empresaId];
-    let sql = `SELECT id, num, campania_id AS "campaniaId", fecha, obs, estado
+    let sql = `SELECT id, num, campania_id AS "campaniaId", fecha, obs, estado, ultimo_registro AS "ultimoRegistro"
                  FROM ordenes_trabajo WHERE empresa_id = $1`;
     if (req.query.campaniaId) { params.push(req.query.campaniaId); sql += ` AND campania_id = $${params.length}`; }
     sql += ' ORDER BY num DESC';
@@ -2472,9 +2472,10 @@ app.post('/api/ordenes-trabajo', async (req, res) => {
     const num = numRes.rows[0].num;
     const id = o.id || ('ot_' + Date.now());
     await client.query(
-      `INSERT INTO ordenes_trabajo (id, empresa_id, num, campania_id, fecha, obs, estado)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [id, empresaId, num, o.campaniaId || null, o.fecha || null, o.obs || null, o.estado || 'Pendiente']
+      `INSERT INTO ordenes_trabajo (id, empresa_id, num, campania_id, fecha, obs, estado, ultimo_registro)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [id, empresaId, num, o.campaniaId || null, o.fecha || null, o.obs || null, o.estado || 'Pendiente',
+       o.ultimoRegistro ? JSON.stringify(o.ultimoRegistro) : null]
     );
     const trabajos = await _guardarTrabajosOt(client, id, empresaId, o.trabajos);
     await client.query('COMMIT');
@@ -2504,9 +2505,10 @@ app.put('/api/ordenes-trabajo/:id', async (req, res) => {
 
     await client.query('BEGIN');
     await client.query(
-      `UPDATE ordenes_trabajo SET campania_id=$3, fecha=$4, obs=$5, estado=$6
+      `UPDATE ordenes_trabajo SET campania_id=$3, fecha=$4, obs=$5, estado=$6, ultimo_registro=$7
         WHERE id=$1 AND empresa_id=$2`,
-      [req.params.id, empresaId, o.campaniaId || null, o.fecha || null, o.obs || null, o.estado || 'Pendiente']
+      [req.params.id, empresaId, o.campaniaId || null, o.fecha || null, o.obs || null, o.estado || 'Pendiente',
+       o.ultimoRegistro ? JSON.stringify(o.ultimoRegistro) : null]
     );
     const trabajos = await _guardarTrabajosOt(client, req.params.id, empresaId, o.trabajos);
     await client.query('COMMIT');
