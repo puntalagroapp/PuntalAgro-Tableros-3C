@@ -656,6 +656,7 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
         <input type="date" id="contrDesde" onchange="renderContratistas()" title="Desde">
         <input type="date" id="contrHasta" onchange="renderContratistas()" title="Hasta">
         <button class="btn btn-sm" id="contrClearBtn" onclick="clearContrFilters()">Limpiar filtros</button>
+        <button class="btn btn-sm" onclick="descargarPdfContratistas()">⬇ Descargar PDF</button>
       </div>
     </div>
   </div>
@@ -4034,6 +4035,118 @@ function renderContratistas(){
 
   // Gráfico de avance (doble color)
   renderContrGrafico(filas);
+}
+/* ===== Reporte de labores en PDF (lo mismo que ya muestra la pantalla,
+   agrupado por contratista). Portado/adaptado de client-src/2026-10-30
+   (el original agrupa también por labor específica y suma pagado/
+   adeudado — este tablero todavía no tiene esa UI, se agrega cuando una
+   OT permita elegir una labor puntual y cargar pagos). ===== */
+function descargarPdfContratistas(){
+  cargarScript(JSPDF_URL, function(){ return !!(window.jspdf && window.jspdf.jsPDF); }, function(ok){
+    if(!ok){ alert('No se pudo cargar el generador de PDF. Revisá la conexión y probá de nuevo.'); return; }
+    var filas=contrFilasFiltradas();
+    if(!filas.length){ alert('No hay labores para los filtros elegidos.'); return; }
+    filas.sort(function(a,b){ if(a.contrNom!==b.contrNom) return a.contrNom<b.contrNom?-1:1; return a.o.num-b.o.num; });
+    var doc=armarPdfContratistas(filas);
+    var nom=('Labores '+(state.campaniaActivaId?getCampaniaNombre(state.campaniaActivaId):'todas')).replace(/[^A-Za-z0-9áéíóúñÁÉÍÓÚÑ_-]+/g,'_');
+    doc.save(nom+'.pdf');
+  });
+}
+function armarPdfContratistas(filas){
+  var J=window.jspdf.jsPDF, doc=new J({unit:'mm', format:'a4', orientation:'landscape'});
+  var W=297, H=210, M=12, y=M;
+  var VERDE=[74,101,51], GRIS=[110,110,110], FONDO=[243,246,239], LINEA=[210,215,205];
+  var empresa=(root.espacios[root.activoId]&&root.espacios[root.activoId].nombre)||'';
+  var cols=[{t:'OT',w:16},{t:'Tipo',w:26},{t:'Campos',w:48},{t:'Cultivos',w:40},{t:'Ha tot.',w:22,r:1},{t:'Ha apl.',w:22,r:1},{t:'Tarifa $/ha',w:30,r:1},{t:'Importe',w:34,r:1},{t:'Facturado',w:34,r:1}];
+  var x0=M, xs=[]; for(var i=0;i<cols.length;i++){ xs.push(x0); x0+=cols[i].w; }
+  function encabezadoTabla(){
+    doc.setFillColor(VERDE[0],VERDE[1],VERDE[2]); doc.rect(M, y, W-2*M, 7, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(255,255,255);
+    for(var c=0;c<cols.length;c++){
+      if(cols[c].r) doc.text(cols[c].t, xs[c]+cols[c].w-1.5, y+4.7, {align:'right'});
+      else doc.text(cols[c].t, xs[c]+1.5, y+4.7);
+    }
+    y+=7;
+  }
+  function nuevaHoja(){ doc.addPage(); y=M; encabezadoTabla(); }
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(VERDE[0],VERDE[1],VERDE[2]);
+  doc.text('PUNTAL AGRO', M, y+3);
+  doc.setFont('helvetica','normal'); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+  doc.text(pdfTxt(empresa), W-M, y+3, {align:'right'});
+  y+=10;
+  doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.setTextColor(30,30,30);
+  doc.text('Labores por contratista', M, y);
+  y+=6;
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+  doc.text(pdfTxt(state.campaniaActivaId?('Campaña '+getCampaniaNombre(state.campaniaActivaId)):'Todas las campañas'), M, y);
+  y+=6;
+  doc.setDrawColor(LINEA[0],LINEA[1],LINEA[2]); doc.setLineWidth(0.3); doc.line(M, y, W-M, y);
+  y+=6;
+  // Agrupar por contratista, igual que ya calcula la pantalla.
+  var grupos={}, orden=[];
+  for(var fi=0;fi<filas.length;fi++){
+    var x=filas[fi], k=x.contrNom;
+    if(!grupos[k]){ grupos[k]={filas:[], imp:0, fact:0, haTot:0, haApl:0}; orden.push(k); }
+    var est=x.o.estadoFact||'Sin facturar';
+    var fact=est==='Facturado' ? x.importe : (est==='Parcial' ? (Number(x.o.montoFacturado)||0) : 0);
+    grupos[k].filas.push(x); grupos[k].imp+=x.importe; grupos[k].fact+=fact; grupos[k].haTot+=x.haTot; grupos[k].haApl+=x.haApl;
+  }
+  orden.sort();
+  var totImp=0, totFact=0;
+  encabezadoTabla();
+  var par=false;
+  for(var g=0;g<orden.length;g++){
+    var nom=orden[g], G=grupos[nom];
+    if(y+10>H-M-14) nuevaHoja();
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(VERDE[0],VERDE[1],VERDE[2]);
+    doc.text(pdfTxt(nom), M+1.5, y+5);
+    y+=7;
+    for(var r=0;r<G.filas.length;r++){
+      var row=G.filas[r], o=row.o, est2=o.estadoFact||'Sin facturar';
+      var fact2=est2==='Facturado' ? row.importe : (est2==='Parcial' ? (Number(o.montoFacturado)||0) : 0);
+      if(y+6>H-M-14) nuevaHoja();
+      if(par){ doc.setFillColor(FONDO[0],FONDO[1],FONDO[2]); doc.rect(M, y, W-2*M, 6, 'F'); }
+      par=!par;
+      var yt=y+4.1;
+      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(30,30,30);
+      doc.text('#'+o.num, xs[0]+1.5, yt);
+      doc.text(pdfTxt(o.laborTipo==='LP'?'Propia':'Contratada'), xs[1]+1.5, yt);
+      doc.text(doc.splitTextToSize(pdfTxt(row.camposNom.join(', ')||'—'), cols[2].w-3), xs[2]+1.5, yt);
+      doc.text(doc.splitTextToSize(pdfTxt(row.cultNom.join(', ')||'—'), cols[3].w-3), xs[3]+1.5, yt);
+      doc.text(f(row.haTot,1), xs[4]+cols[4].w-1.5, yt, {align:'right'});
+      doc.text(f(row.haApl,1), xs[5]+cols[5].w-1.5, yt, {align:'right'});
+      doc.text(pdfTxt(f(row.tarifa,2)), xs[6]+cols[6].w-1.5, yt, {align:'right'});
+      doc.setFont('helvetica','bold');
+      doc.text(pdfTxt(fm(row.importe)), xs[7]+cols[7].w-1.5, yt, {align:'right'});
+      doc.setFont('helvetica','normal');
+      doc.text(pdfTxt(fm(fact2)), xs[8]+cols[8].w-1.5, yt, {align:'right'});
+      y+=6;
+    }
+    doc.setDrawColor(LINEA[0],LINEA[1],LINEA[2]); doc.setLineWidth(0.2); doc.line(M, y, W-M, y);
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+    doc.text(pdfTxt('Subtotal '+nom), xs[3]+1.5, y+4.3);
+    doc.text(f(G.haTot,1), xs[4]+cols[4].w-1.5, y+4.3, {align:'right'});
+    doc.text(f(G.haApl,1), xs[5]+cols[5].w-1.5, y+4.3, {align:'right'});
+    doc.text(pdfTxt(fm(G.imp)), xs[7]+cols[7].w-1.5, y+4.3, {align:'right'});
+    doc.text(pdfTxt(fm(G.fact)), xs[8]+cols[8].w-1.5, y+4.3, {align:'right'});
+    y+=8;
+    totImp+=G.imp; totFact+=G.fact;
+  }
+  if(y+14>H-M-14) nuevaHoja();
+  doc.setDrawColor(VERDE[0],VERDE[1],VERDE[2]); doc.setLineWidth(0.5); doc.line(M, y, W-M, y);
+  y+=6;
+  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(30,30,30);
+  doc.text('TOTAL', xs[3]+1.5, y);
+  doc.text(pdfTxt(fm(totImp)), xs[7]+cols[7].w-1.5, y, {align:'right'});
+  doc.text(pdfTxt(fm(totFact)), xs[8]+cols[8].w-1.5, y, {align:'right'});
+  var n=doc.getNumberOfPages();
+  for(var pg=1;pg<=n;pg++){
+    doc.setPage(pg);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+    doc.text(pdfTxt('Puntal Agro · Labores por contratista · generado el '+fd(todayISO())), M, H-8);
+    doc.text('Página '+pg+' de '+n, W-M, H-8, {align:'right'});
+  }
+  return doc;
 }
 function renderContrChips(){
   var cont=byId('contrFiltrosActivos'); if(!cont) return;
