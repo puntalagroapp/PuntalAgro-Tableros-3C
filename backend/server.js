@@ -2368,18 +2368,39 @@ app.get('/api/herramientas/:id/archivo', async (req, res) => {
 // Reemplaza TODOS los trabajos (labores) de una OT: borra e inserta de
 // nuevo, igual que _guardarLineasComprobante hace con las líneas de un
 // comprobante. El frontend manda siempre el conjunto completo de trabajos.
+// Upsert por id, no "borrar todo y reinsertar": el flujo real de edición de
+// una OT reenvía TAMBIÉN los trabajos ya aplicados (los que generaron un
+// comprobante) junto con los nuevos/editados — y esos tienen
+// comprobantes.ref_ot_trabajo con ON DELETE RESTRICT. Un DELETE sobre esos
+// ids rompería la edición. Por eso: UPDATE si el id ya existe, INSERT si es
+// nuevo, y DELETE solo de los que NO vienen en el array nuevo (el usuario
+// los sacó del formulario) — si alguno de esos tiene comprobantes, el
+// RESTRICT lo frena con un error claro en vez de un borrado silencioso.
 async function _guardarTrabajosOt(client, otId, empresaId, trabajos) {
-  await client.query('DELETE FROM ot_trabajos WHERE ot_id=$1 AND empresa_id=$2', [otId, empresaId]);
+  const incoming = trabajos || [];
+  const incomingIds = incoming.filter(t => t.id).map(t => t.id);
+  if (incomingIds.length) {
+    await client.query(
+      `DELETE FROM ot_trabajos WHERE ot_id=$1 AND empresa_id=$2 AND id <> ALL($3::text[])`,
+      [otId, empresaId, incomingIds]
+    );
+  } else {
+    await client.query('DELETE FROM ot_trabajos WHERE ot_id=$1 AND empresa_id=$2', [otId, empresaId]);
+  }
   const out = [];
   let orden = 0;
-  for (const t of (trabajos || [])) {
+  for (const t of incoming) {
     orden++;
     const id = t.id || (otId + '_tr' + orden);
     await client.query(
       `INSERT INTO ot_trabajos (id, empresa_id, ot_id, labor_tipo, labor_id, subactividad, tercero_id,
                                 tarifa, tarifa_moneda, monto_facturado, estado_fact, estado_pago, monto_pagado,
                                 es_resiembra, plantilla, destinos, orden)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+       ON CONFLICT (id, empresa_id) DO UPDATE SET
+         ot_id=$3, labor_tipo=$4, labor_id=$5, subactividad=$6, tercero_id=$7,
+         tarifa=$8, tarifa_moneda=$9, monto_facturado=$10, estado_fact=$11, estado_pago=$12, monto_pagado=$13,
+         es_resiembra=$14, plantilla=$15, destinos=$16, orden=$17`,
       [id, empresaId, otId, t.laborTipo || null, t.laborId || null, t.subactividad || null,
        t.contratistaId || null, t.tarifa || null, t.tarifaMoneda || 'ARS', t.montoFacturado || 0,
        t.estadoFact || 'Sin facturar', t.estadoPago || 'No', t.montoPagado || 0, t.esResiembra || false,
