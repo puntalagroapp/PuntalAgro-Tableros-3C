@@ -438,6 +438,7 @@ CREATE TABLE ordenes_trabajo (
     -- Lo registrado la última vez antes de "Volver a pendiente" (borrador para
     -- precargar o restaurar igual): {dest:{destId:{...}}, consumos:{...}, movs:[...]}
     ultimo_registro JSONB,
+    impresa      BOOLEAN NOT NULL DEFAULT false,  -- ya se imprimió (aviso al editarla)
     PRIMARY KEY (id, empresa_id)
 );
 CREATE INDEX idx_ots_empresa ON ordenes_trabajo(empresa_id, campania_id);
@@ -503,6 +504,7 @@ CREATE TABLE comprobantes (
     obs             TEXT,
     ref_ot_trabajo  TEXT,
     ref_ot_num      INTEGER,
+    ref_tanda       TEXT,   -- tanda de aplicación de la OT que generó el comprobante
     PRIMARY KEY (id, empresa_id),
     FOREIGN KEY (proveedor_id, empresa_id)   REFERENCES terceros(id, empresa_id)   ON DELETE RESTRICT,
     FOREIGN KEY (ref_ot_trabajo, empresa_id) REFERENCES ot_trabajos(id, empresa_id) ON DELETE RESTRICT

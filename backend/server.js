@@ -2431,7 +2431,7 @@ app.get('/api/ordenes-trabajo', async (req, res) => {
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
 
     const params = [empresaId];
-    let sql = `SELECT id, num, campania_id AS "campaniaId", fecha, obs, estado, ultimo_registro AS "ultimoRegistro"
+    let sql = `SELECT id, num, campania_id AS "campaniaId", fecha, obs, estado, ultimo_registro AS "ultimoRegistro", impresa
                  FROM ordenes_trabajo WHERE empresa_id = $1`;
     if (req.query.campaniaId) { params.push(req.query.campaniaId); sql += ` AND campania_id = $${params.length}`; }
     sql += ' ORDER BY num DESC';
@@ -2472,10 +2472,10 @@ app.post('/api/ordenes-trabajo', async (req, res) => {
     const num = numRes.rows[0].num;
     const id = o.id || ('ot_' + Date.now());
     await client.query(
-      `INSERT INTO ordenes_trabajo (id, empresa_id, num, campania_id, fecha, obs, estado, ultimo_registro)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      `INSERT INTO ordenes_trabajo (id, empresa_id, num, campania_id, fecha, obs, estado, ultimo_registro, impresa)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
       [id, empresaId, num, o.campaniaId || null, o.fecha || null, o.obs || null, o.estado || 'Pendiente',
-       o.ultimoRegistro ? JSON.stringify(o.ultimoRegistro) : null]
+       o.ultimoRegistro ? JSON.stringify(o.ultimoRegistro) : null, !!o.impresa]
     );
     const trabajos = await _guardarTrabajosOt(client, id, empresaId, o.trabajos);
     await client.query('COMMIT');
@@ -2505,10 +2505,10 @@ app.put('/api/ordenes-trabajo/:id', async (req, res) => {
 
     await client.query('BEGIN');
     await client.query(
-      `UPDATE ordenes_trabajo SET campania_id=$3, fecha=$4, obs=$5, estado=$6, ultimo_registro=$7
+      `UPDATE ordenes_trabajo SET campania_id=$3, fecha=$4, obs=$5, estado=$6, ultimo_registro=$7, impresa=$8
         WHERE id=$1 AND empresa_id=$2`,
       [req.params.id, empresaId, o.campaniaId || null, o.fecha || null, o.obs || null, o.estado || 'Pendiente',
-       o.ultimoRegistro ? JSON.stringify(o.ultimoRegistro) : null]
+       o.ultimoRegistro ? JSON.stringify(o.ultimoRegistro) : null, !!o.impresa]
     );
     const trabajos = await _guardarTrabajosOt(client, req.params.id, empresaId, o.trabajos);
     await client.query('COMMIT');
@@ -2568,7 +2568,7 @@ app.get('/api/comprobantes', async (req, res) => {
     const params = [empresaId];
     let sql = `SELECT id, fecha, tipo, comp_tipo AS "compTipo", comp_nro AS "compNro",
                       proveedor_id AS "proveedorId", campania_id AS "campaniaId", obs,
-                      ref_ot_trabajo AS "refOtTrabajo", ref_ot_num AS "refOtNum"
+                      ref_ot_trabajo AS "refOtTrabajo", ref_ot_num AS "refOtNum", ref_tanda AS "refTanda"
                  FROM comprobantes WHERE empresa_id = $1`;
     if (req.query.campaniaId) { params.push(req.query.campaniaId); sql += ` AND campania_id = $${params.length}`; }
     const comps = await pool.query(sql, params);
@@ -2616,10 +2616,10 @@ app.post('/api/comprobantes', async (req, res) => {
     const id = c.id || ('comp_' + Date.now());
     await client.query('BEGIN');
     await client.query(
-      `INSERT INTO comprobantes (id, empresa_id, fecha, tipo, comp_tipo, comp_nro, proveedor_id, campania_id, obs, ref_ot_trabajo, ref_ot_num)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      `INSERT INTO comprobantes (id, empresa_id, fecha, tipo, comp_tipo, comp_nro, proveedor_id, campania_id, obs, ref_ot_trabajo, ref_ot_num, ref_tanda)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
       [id, empresaId, c.fecha || null, c.tipo || null, c.compTipo || null, c.compNro || null,
-       c.proveedorId || null, c.campaniaId || null, c.obs || null, c.refOtTrabajo || null, c.refOtNum || null]
+       c.proveedorId || null, c.campaniaId || null, c.obs || null, c.refOtTrabajo || null, c.refOtNum || null, c.refTanda || null]
     );
     await _guardarLineasComprobante(client, id, empresaId, c.lineas);
     await client.query('COMMIT');
@@ -2649,10 +2649,10 @@ app.put('/api/comprobantes/:id', async (req, res) => {
     await client.query('BEGIN');
     await client.query(
       `UPDATE comprobantes
-          SET fecha=$3, tipo=$4, comp_tipo=$5, comp_nro=$6, proveedor_id=$7, campania_id=$8, obs=$9, ref_ot_trabajo=$10, ref_ot_num=$11
+          SET fecha=$3, tipo=$4, comp_tipo=$5, comp_nro=$6, proveedor_id=$7, campania_id=$8, obs=$9, ref_ot_trabajo=$10, ref_ot_num=$11, ref_tanda=$12
         WHERE id=$1 AND empresa_id=$2`,
       [req.params.id, empresaId, c.fecha || null, c.tipo || null, c.compTipo || null, c.compNro || null,
-       c.proveedorId || null, c.campaniaId || null, c.obs || null, c.refOtTrabajo || null, c.refOtNum || null]
+       c.proveedorId || null, c.campaniaId || null, c.obs || null, c.refOtTrabajo || null, c.refOtNum || null, c.refTanda || null]
     );
     await _guardarLineasComprobante(client, req.params.id, empresaId, c.lineas);
     await client.query('COMMIT');

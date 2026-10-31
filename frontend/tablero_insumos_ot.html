@@ -485,6 +485,25 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
 .banner-info{border-left:4px solid #7B9A6D;background:#F1F5EC;color:#2E3D24;padding:9px 12px;border-radius:0 8px 8px 0;font-size:12px;margin-bottom:12px;line-height:1.5}
 .ote-terra{border-color:#F0C9A8}
 .ote-terra .ote-ic{background:#FDF0E6;color:#C8642D}
+/* ── Cambio de cultivo y tandas (portado de client-src/2026-10-30) ── */
+.cc-aviso{display:flex;align-items:center;gap:14px;background:#FDF0E6;border:1px solid #F0C9A8;border-left:4px solid #C8642D;border-radius:10px;padding:12px 16px;margin:0 0 14px}
+.cc-aviso-t{flex:1;font-size:13px;color:#5A2E10;line-height:1.45}
+.cc-intro{font-size:12.5px;color:var(--muted);margin:0 0 14px}
+.cc-grupo{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px;background:var(--card)}
+.cc-tit{font-size:14px}
+.cc-sub{color:var(--muted);font-size:12px;margin-left:4px}
+.cc-cambio{font-size:13px;margin:4px 0 8px}
+.cc-tbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px}
+.cc-tbl th{font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);font-weight:600}
+.cc-tbl td{padding:5px 6px;border-bottom:1px solid #EEF0EA}
+.cc-tbl .num{text-align:right}
+.cc-tot td{font-weight:700;border-bottom:none}
+.cc-ops{margin-bottom:6px}
+.cc-expl{font-size:12px;color:var(--muted)}
+.modal.modal-cc{max-width:900px}
+.tanda-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 6px;padding:6px 10px;background:#F4F6F1;border-radius:8px;font-size:12px}
+.mb-fuera td{background:#FDF6EF}
+.mb-fuera-sub{font-size:11px;color:var(--muted);font-weight:400}
 .trb-chip{display:inline-block;font-size:11px;padding:1px 8px;border-radius:9px;background:#EDEFE9;color:#3B5226;margin:0 4px 2px 0;white-space:nowrap}
 
 @media (max-width:768px){
@@ -1130,7 +1149,7 @@ function cargarOTsApi(callback){
     // receta y destinos propios). La fuente es o.trabajos[]; ver espejoLegacy().
     state.ots=(data||[]).map(function(o){
       var ot={ id:o.id, num:o.num, fecha:(o.fecha||'').slice(0,10), campaniaId:o.campaniaId||'',
-        obs:o.obs||'', estado:o.estado||'Pendiente', ultimoRegistro:o.ultimoRegistro||null, _synced:true };
+        obs:o.obs||'', estado:o.estado||'Pendiente', ultimoRegistro:o.ultimoRegistro||null, impresa:!!o.impresa, _synced:true };
       ot.trabajos=(o.trabajos||[]).map(function(t){
         return { id:t.id, laborId:t.laborId||'', laborTipo:t.laborTipo||'LP', contratistaId:t.contratistaId||'',
           tarifa:(t.tarifa===null||t.tarifa===undefined)?'':Number(t.tarifa), tarifaMoneda:t.tarifaMoneda||'ARS',
@@ -1152,7 +1171,7 @@ function cargarComprobantesApi(callback){
       comps.push({
         id:c.id, fecha:(c.fecha||'').slice(0,10), tipo:c.tipo||'', comp_tipo:c.compTipo||'', comp_nro:c.compNro||'',
         proveedorId:c.proveedorId||'', campaniaId:c.campaniaId||'', obs:c.obs||'',
-        refOt:c.refOtTrabajo||'', refOtNum:c.refOtNum||'', _synced:true
+        refOt:c.refOtTrabajo||'', refOtNum:c.refOtNum||'', refTanda:c.refTanda||'', _synced:true
       });
       (c.lineas||[]).forEach(function(m){
         movs.push({ id:m.id, comprobanteId:m.comprobanteId, insumoId:m.insumoId, cant:Number(m.cant)||0,
@@ -1542,7 +1561,7 @@ function armarPdfHistoria(loteId, campania){
 // tienen comprobantes apuntándoles — se reenvían intactos y no se recrean.
 function _otPayload(o){
   return { id:o.id, empresaId:CTX.empresaActivaId, campaniaId:o.campaniaId||null, fecha:o.fecha||null,
-    obs:o.obs||null, estado:o.estado||'Pendiente', ultimoRegistro:o.ultimoRegistro||null,
+    obs:o.obs||null, estado:o.estado||'Pendiente', ultimoRegistro:o.ultimoRegistro||null, impresa:!!o.impresa,
     trabajos:(o.trabajos||[]).map(function(t){
       return { id:t.id, laborId:t.laborId||null, laborTipo:t.laborTipo||null, contratistaId:t.contratistaId||null,
         estadoFact:t.estadoFact||'Sin facturar', estadoPago:t.estadoPago||'No', montoPagado:Number(t.montoPagado)||0,
@@ -1601,7 +1620,7 @@ function _comprobantePayload(comp){
   // ya hace _otPayload con la OT.
   return { id:comp.id, empresaId:CTX.empresaActivaId, fecha:comp.fecha||null, tipo:comp.tipo||null,
     compTipo:comp.comp_tipo||null, compNro:comp.comp_nro||null, proveedorId:comp.proveedorId||null,
-    campaniaId:comp.campaniaId||null, obs:comp.obs||null, refOtTrabajo:comp.refOt||null, refOtNum:comp.refOtNum||null,
+    campaniaId:comp.campaniaId||null, obs:comp.obs||null, refOtTrabajo:comp.refOt||null, refOtNum:comp.refOtNum||null, refTanda:comp.refTanda||null,
     lineas:lineas };
 }
 function guardarComprobanteApi(comp, callback){
@@ -2132,6 +2151,7 @@ function destinoVisible(de){ return !de || !de.campoId || !!getCampo(de.campoId)
 function notaCambioCultivo(de){
   var out=[], cc=de.cambiosCultivo||[];
   for(var i=0;i<cc.length;i++) out.push('Reasignado de '+cc[i].de+' a '+cc[i].a+' el '+fd(cc[i].fecha)+' por cambio en el plan de uso');
+  if(de.cultivoMantenido && de.cultivoMantenido===de.cultivo) out.push('Queda como gasto de '+de.cultivo+(de.cultivoMantenidoAhora?' (el lote pasó a '+de.cultivoMantenidoAhora+')':' (el cultivo no se hizo)')+(de.cultivoMantenidoFecha?', decidido el '+fd(de.cultivoMantenidoFecha):''));
   return out.join(' · ');
 }
 // Campañas: helpers de nombre y de <option>s (etiqueta de gestión, global).
@@ -3488,6 +3508,13 @@ function renderTrabajosAplicados(){
       for(var c=0;c<state.contratistas.length;c++) oc+='<option value="'+esc(state.contratistas[c].id)+'"'+(state.contratistas[c].id===ta.contratistaId?' selected':'')+'>'+esc(state.contratistas[c].nombre)+'</option>';
       contr='<label class="trb-apl-contr">Contratista <select onchange="setAplContr('+i+',this.value)">'+oc+'</select></label>';
     } else contr='<span class="dest-sub">Labor propia</span>';
+    var paresTr=[]; for(var pt=0;pt<ds.length;pt++) paresTr.push({trabajo:tr, destino:ds[pt]});
+    var tsA=tandasDe(paresTr), fbA=fechaBloqueo(), botones='';
+    for(var tt=0;tt<tsA.length;tt++){
+      botones+= (fbA && tsA[tt].fecha && tsA[tt].fecha<=fbA)
+        ? '<span class="bdg bn">aplicación del '+fd(tsA[tt].fecha)+' · cerrada</span>'
+        : '<button type="button" class="btn btn-sm" onclick="corregirTanda(\''+o.id+'\',\''+esc(tsA[tt].id)+'\')" title="Deshace esta aplicación y la vuelve a abrir con los mismos datos cargados">✎ Corregir aplicación del '+fd(tsA[tt].fecha)+'</button>';
+    }
     var rows='';
     for(d=0;d<ds.length;d++){
       var de=ds[d], apl=de.estadoLote==='Aplicado', haR=(de.haReal!==undefined && de.haReal!==null && de.haReal!=='')?Number(de.haReal):Number(de.ha)||0;
@@ -3516,6 +3543,7 @@ function renderTrabajosAplicados(){
         '<span class="bdg '+(tr.laborTipo==='LP'?'bg':'bv')+'">'+(tr.laborTipo==='LP'?'Propia':'Contratada')+'</span>'+
         (un?'<span class="bdg by">'+esc(ds[0].cultivo)+' · sin lote</span>':'')+
         contr+
+        '<span class="trb-apl-btns">'+botones+'</span>'+
       '</div>'+
       '<div class="dest-body">'+
         '<div class="tw"><table><thead><tr><th>'+(un?'Campo':'Lote')+'</th><th>Estado</th><th class="num">Superficie</th><th>Insumos · '+(un?'cantidad':'dosis')+'</th><th>Observaciones</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
@@ -3886,7 +3914,9 @@ function saveOT(e, vSig){
     }
     var faltaDesc=descripcionesUNFaltantes(existente);
     if(faltaDesc){ alert(faltaDesc); return; }
-    if(!resumenCambiosOT(existente, campaniaOt, nuevos).length){ toast('Sin cambios'); if(vSig){ otPant.v=vSig; mostrarPantallaOT(); } return; }
+    var cambios=resumenCambiosOT(existente, campaniaOt, nuevos);
+    if(!cambios.length){ toast('Sin cambios'); if(vSig){ otPant.v=vSig; mostrarPantallaOT(); } return; }
+    if(existente.impresa && !confirm('La OT #'+existente.num+' ya se imprimió.\n\nCambios:\n• '+cambios.join('\n• ')+'\n\nSi la orden ya está en el campo, avisá al operario. ¿Guardar los cambios?')) return;
     existente.fecha=fechaOt;
     existente.campaniaId=campaniaOt;
     existente.obs=byId('o_obs').value;
@@ -3921,6 +3951,7 @@ function startEditOT(id){
 }
 function resetOtForm(){
   byId('otForm').reset();
+  var bnR=byId('otEditBanner'); if(bnR){ bnR.style.display='none'; bnR.innerHTML=''; }
   editOtId=null;
   byId('o_fecha').value=todayISO();
   populateOtSelects();
@@ -4004,6 +4035,8 @@ function cargarFormDesdeOT(o, editable){
   renderTrabajos();
   var tit=byId('otFormTitle'); if(tit) tit.textContent=(editable?'Editando OT #':'OT #')+o.num;
   byId('o_num').textContent='OT #'+o.num;
+  var bn=byId('otEditBanner');
+  if(bn){ if(editable && o.impresa){ bn.style.display=''; bn.innerHTML='<strong>Ya se imprimió esta OT.</strong> Si salió al campo, avisá al operario de los cambios que hagas.'; } else { bn.style.display='none'; bn.innerHTML=''; } }
 }
 
 // Resumen de lo que cambia al guardar una OT editada.
@@ -4095,7 +4128,7 @@ function mostrarPantallaOT(){
   byId('ot-detail-view').style.display='none';
   byId('ot-pantalla').style.display='';
   var o=otPant.id?getOtById(otPant.id):null, v=otPant.v, ro=otPant.modo==='ver';
-  byId('otPantHd').innerHTML = o ? barraEstadoOT(o) : barraNuevaOT();
+  byId('otPantHd').innerHTML = o ? barraEstadoOT(o)+htmlAvisoCultivo(o.id) : barraNuevaOT();
   // Recién emitida (o recién registrada una aplicación): solo el aviso y qué se puede hacer.
   var emi=byId('otEmitida');
   if(!emi){ emi=document.createElement('div'); emi.id='otEmitida'; byId('ot-pantalla').appendChild(emi); }
@@ -4297,6 +4330,7 @@ function renderOtList(){
   byId('ot-list-view').style.display='';
   byId('ot-detail-view').style.display='none';
   byId('ot-pantalla').style.display='none';
+  pintarAvisoCultivo('ot-list-view');
   var q=(byId('otSearch').value||'').toLowerCase();
   var fa=byId('otActFilter').value;
   var fe=byId('otEstadoFilter').value;
@@ -4480,7 +4514,7 @@ function viewOT(id){
     '<div class="no-print" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
       '<button class="btn" onclick="volverDeDocumento(\''+o.id+'\')">← Volver a la OT</button>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
-        '<button class="btn" onclick="window.print()">🖨 Imprimir</button>'+
+        '<button class="btn" onclick="marcarImpresa(\''+o.id+'\')">🖨 Imprimir</button>'+
 
       '</div>'+
     '</div>'+
@@ -4534,9 +4568,6 @@ function r6(x){ return Math.round((Number(x)||0)*1e6)/1e6; }
 // del cliente), así que no hay fechas bloqueadas. Si se agrega, va acá.
 function fechaBloqueo(){ return ''; }
 function bloqueoFecha(fecha, que){ return false; }
-// Cambio de cultivo en el plan de uso con labores ya cargadas: la reasignación del cliente
-// (cultivoMantenido / abrirCambioCultivo) no está portada; no se chequea.
-function cambiosDeCultivo(otId){ return []; }
 
 // Cada fila del consumo es un INSUMO + el DEPÓSITO planificado en sus líneas.
 function claveCons(ln){ return ln.insumoId+'@'+(ln.depositoId||''); }
@@ -4709,6 +4740,7 @@ function iniciarRegistro(otId){
       if(Math.abs((c.entregada||0)-(c.req||0))>0.005) aplicTmp.consumos[k].entregadoOverride=c.entregada;
     }
     aplicTmp.precargado=nPre;
+    if(ur.correccion) aplicTmp.correccion=ur.correccion;
   } else regSync();
   return true;
 }
@@ -4796,11 +4828,12 @@ function renderRegistro(){
       for(var a=0;a<ids.length;a++){ var ii=insDeClave(ids[a]); porIns[ii]=(porIns[ii]||0)+1;
         if(!aplicTmp.consumos[ids[a]]) aplicTmp.consumos[ids[a]]={devStock:0, devBaja:0, depositoId:''};
         if(!aplicTmp.consumos[ids[a]].depositoId || !getDepositoById(aplicTmp.consumos[ids[a]].depositoId)) aplicTmp.consumos[ids[a]].depositoId=depSugeridoClave(ids[a]); }
+      var fMax=regFechaMax(o);
       for(var m=0;m<ids.length;m++){
         var key=ids[m], insId=insDeClave(key), ins=getInsumo(insId), c=aplicTmp.consumos[key];
         var req=agg[key], ent=entregadoEfectivo(key, agg), cons=consumidoCalc(key, agg);
         var od=c.depositoId?'':'<option value="">— Elegir —</option>';
-        for(var d=0;d<state.depositos.length;d++){ var dp=state.depositos[d], st=calcStockDepId(insId, dp.id).actual;
+        for(var d=0;d<state.depositos.length;d++){ var dp=state.depositos[d], st=stockDe(insId, dp.id, {desde:'', hasta:fMax}).real;
           od+='<option value="'+esc(dp.id)+'"'+(dp.id===c.depositoId?' selected':'')+'>'+esc(dp.nombre)+' · hay '+f(st,0)+'</option>'; }
         filas+='<tr><td class="tdname"><strong>'+(ins?esc(ins.nombre):'—')+'</strong> <span class="trb-apl-sub">'+(ins?esc(ins.un):'')+'</span>'+(porIns[insId]>1?'<div class="trb-apl-sub">planificado de '+esc(depDeClave(key)?getDepositoNombreById(depDeClave(key)):'sin depósito')+'</div>':'')+'</td>'+
           '<td><select class="inp" style="min-width:170px" onchange="updateConsumoDep(\''+key+'\',this.value)">'+od+'</select></td>'+
@@ -4819,7 +4852,8 @@ function renderRegistro(){
   }
   var mc=byId('otRegBox'); if(!mc) return;
   mc.innerHTML='<div class="reg-pasos">'+stp+'</div>'+
-    (aplicTmp.precargado&&paso===1?'<div class="banner-info" style="margin:0 0 8px">Están cargados los datos de la última vez. Si no cambiás nada, queda igual que antes.</div>':'')+
+    (aplicTmp.correccion&&paso===1?'<div class="banner-warn" style="margin:0 0 8px"><strong>Corrigiendo la aplicación del '+fd(aplicTmp.correccion)+'.</strong> Están cargados los datos que tenía: fecha, superficie real, depósito, entregado y devoluciones. Cambiá lo que estaba mal y confirmá. Si hay que cambiar un insumo, una dosis planificada o un lote, primero editá la OT (los datos cargados se conservan).</div>'
+      :(aplicTmp.precargado&&paso===1?'<div class="banner-info" style="margin:0 0 8px">Están cargados los datos de la última vez. Si no cambiás nada, queda igual que antes.</div>':''))+
     '<div class="reg-cuerpo">'+cuerpo+'</div>'+
     '<div class="fact reg-fact">'+
       '<span style="flex:1"></span>'+
@@ -4843,10 +4877,10 @@ function htmlResumenRegistro(o){
   var pares=destinosDeOt(o), pe=[], no=[], i;
   for(i=0;i<pares.length;i++){ var de=pares[i].destino; if(de.estadoLote==='Aplicado') continue;
     var e=aplicTmp.est[de.id]; if(e==='si') continue; else if(e==='no') no.push(pares[i]); else pe.push(pares[i]); }
-  var sale=regSalidas(o), avisos=[];
+  var sale=regSalidas(o), fMax=regFechaMax(o), avisos=[];
   for(var kd in sale){ if(!sale.hasOwnProperty(kd)) continue;
-    var pp=kd.split('||'), ins=getInsumo(pp[0]), hay=calcStockDepId(pp[0], pp[1]).actual;
-    if(sale[kd]>hay+0.01) avisos.push('Stock insuficiente: '+(ins?ins.nombre:'')+' en '+getDepositoNombreById(pp[1])+' (sale '+f(sale[kd],1)+', hay '+f(hay,1)+'). Va a quedar negativo.');
+    var pp=kd.split('||'), ins=getInsumo(pp[0]), hay=stockDe(pp[0], pp[1], {desde:'', hasta:fMax}).real;
+    if(sale[kd]>hay+0.01) avisos.push('Stock insuficiente: '+(ins?ins.nombre:'')+' en '+getDepositoNombreById(pp[1])+' (sale '+f(sale[kd],1)+', hay '+f(hay,1)+' al '+fd(fMax)+'). Va a quedar negativo.');
   }
   var antes=0; for(i=0;i<pares.length;i++){ var d0=pares[i].destino; if(d0.estadoLote!=='Aplicado' && aplicTmp.est[d0.id]==='si' && regFecha(d0.id)<(o.fecha||'')) antes++; }
   if(antes) avisos.push(antes+(antes===1?' labor tiene':' labores tienen')+' fecha anterior a la de la OT ('+fd(o.fecha)+'). Revisá que sea correcta.');
@@ -4895,11 +4929,12 @@ function registroSinCambios(o){
 }
 function confirmarRegistro(){
   var o=getOtById(aplicTmp.otId); if(!o || o.estado==='Cancelada') return;
+  if(cambiosDeCultivo(o.id).length){ alert('Cambió el plan de uso en lotes de esta OT: el cultivo de la orden ya no está en el plan.\n\nAntes de confirmar, elegí a qué cultivo va cada lote.'); abrirCambioCultivo(o.id); return; }
   if(!regValidar(o,1) || (regHaySi() && !regValidar(o,2))) return;
   var pares=destinosDeOt(o), si=[], no=[], i;
   for(i=0;i<pares.length;i++){ var de0=pares[i].destino; if(de0.estadoLote==='Aplicado') continue; if(aplicTmp.est[de0.id]==='si') si.push(pares[i]); else if(aplicTmp.est[de0.id]==='no') no.push(pares[i]); }
-  var sale=regSalidas(o), falt=[];
-  for(var kd in sale){ if(!sale.hasOwnProperty(kd)) continue; var pp=kd.split('||'); if(sale[kd]>calcStockDepId(pp[0], pp[1]).actual+0.01){ var ins=getInsumo(pp[0]); falt.push((ins?ins.nombre:pp[0])+' en '+getDepositoNombreById(pp[1])); } }
+  var sale=regSalidas(o), fMax=regFechaMax(o), falt=[];
+  for(var kd in sale){ if(!sale.hasOwnProperty(kd)) continue; var pp=kd.split('||'); if(sale[kd]>stockDe(pp[0], pp[1], {desde:'', hasta:fMax}).real+0.01){ var ins=getInsumo(pp[0]); falt.push((ins?ins.nombre:pp[0])+' en '+getDepositoNombreById(pp[1])); } }
   if(falt.length && !confirm('Stock insuficiente en: '+falt.join(', ')+'.\n\n¿Confirmar igual? El stock va a quedar negativo.')) return;
   var fBorra=laboresFacturadasQueSeBorran(o);
   if(no.length && !confirm('Vas a sacar de la orden '+no.length+(no.length===1?' labor que no se va a hacer':' labores que no se van a hacer')+'.'+
@@ -4919,6 +4954,7 @@ function confirmarRegistro(){
     if(exacto) ur.dest={};
     else { for(i=0;i<si.length;i++) delete ur.dest[si[i].destino.id]; for(i=0;i<no.length;i++) delete ur.dest[no[i].destino.id]; delete ur.consumos; ur.movs=[]; }
     for(var kq in ur.dest){ if(ur.dest.hasOwnProperty(kq)) nQ++; }
+    delete ur.correccion;
     if(!nQ) o.ultimoRegistro=null;
   }
   recalcEstadoOT(o);
@@ -4996,41 +5032,12 @@ function volverAPendiente(otId){
     (vt.length?'Vuelve al stock lo que se descontó:\n'+vt.join('\n')+'\n\n':'')+
     'Lo que cargaste (fechas, superficies y cantidades) queda guardado y aparece precargado cuando registres de nuevo.'+
     (fact?'\n\nLa facturación y los pagos al contratista se conservan.':'')+'\n\nDespués podés editar la OT.')) return;
-  var ur={dest:{}, consumos:{}, movs:[]};
-  for(i=0;i<apl.length;i++){
-    var de=apl[i].destino, sv={fecha:de.fechaAplicReal, haReal:haRealDe(de), tandaId:de.tandaId||'', lineas:[]};
-    for(var j=0;j<(de.lineas||[]).length;j++){
-      var ln=de.lineas[j];
-      sv.lineas.push({insumoId:ln.insumoId, depositoId:ln.depositoId||'', dosis:Number(ln.dosis)||0, entregada:Number(ln.entregada)||0, usado:Number(ln.usado)||0, devStock:Number(ln.devStock)||0, devBaja:Number(ln.devBaja)||0, dosisReal:(ln.dosisReal===undefined?null:ln.dosisReal)});
-      if(!ln.insumoId) continue;
-      var k=claveCons(ln), c=ur.consumos[k]||(ur.consumos[k]={depositoId:ln.depositoId||'', entregada:0, devStock:0, devBaja:0, req:0});
-      c.req=r6(c.req+cantReq(de, ln, sv.haReal));
-      c.entregada=r6(c.entregada+(Number(ln.entregada)||0)); c.devStock=r6(c.devStock+(Number(ln.devStock)||0)); c.devBaja=r6(c.devBaja+(Number(ln.devBaja)||0));
-    }
-    ur.dest[de.id]=sv;
-  }
-  var destIds={}; for(i=0;i<pares.length;i++) destIds[pares[i].destino.id]=true;
-  var compsOT={}, compById={}, afectados={};
-  for(i=0;i<state.comprobantes.length;i++){ var cp=state.comprobantes[i]; compById[cp.id]=cp; if(compEsDeOt(cp, o) && (cp.tipo==='Consumo OT' || cp.tipo==='Baja por aplicación OT')) compsOT[cp.id]=true; }
-  for(i=0;i<state.movtos.length;i++){ var mv=state.movtos[i];
-    if(compsOT[mv.comprobanteId] || (mv.refDest && destIds[mv.refDest])){ var cc=compById[mv.comprobanteId]; if(!cc) continue;
-      afectados[cc.id]=true;
-      ur.movs.push({trabajoId:cc.refOt, fecha:cc.fecha, tipo:cc.tipo, tanda:cc.refTanda||'', insumoId:mv.insumoId, cant:mv.cant, origenId:mv.origenId, refDest:mv.refDest||''}); }
-  }
-  state.movtos=state.movtos.filter(function(m){ return !compsOT[m.comprobanteId] && !(m.refDest && destIds[m.refDest]); });
-  for(i=0;i<apl.length;i++){
-    var d=apl[i].destino;
-    for(var j2=0;j2<(d.lineas||[]).length;j2++){ var l2=d.lineas[j2]; l2.entregada=0; l2.usado=0; l2.devStock=0; l2.devBaja=0; delete l2.dosisReal; }
-    d.estadoLote='Pendiente'; d.fechaAplicReal=''; delete d.haReal; delete d.tandaId;
-  }
+  var ur=deshacerConBorrador(o, apl, null);
   o.ultimoRegistro=ur;
   recalcEstadoOT(o);
   reevaluarFacturacion(o);
   aplicTmp=null;
   guardarOTApi(o);
-  // Comprobantes que quedaron sin líneas se borran; los que perdieron algunas se actualizan.
-  var idsAntes=Object.keys(afectados);
-  limpiarComprobantesHuerfanosApi(idsAntes, function(){ idsAntes.forEach(function(cid){ var c2=getComprobanteById(cid); if(c2) guardarComprobanteApi(c2); }); });
   otTrasAccion(otId, 4, {resultado:{ic:'↩', terra:true, t:'La OT #'+o.num+' volvió a pendiente',
     s:(vt.length?'Volvió al stock lo que se había descontado. ':'')+'Lo que habías cargado quedó guardado y aparece precargado al confirmar de nuevo.',
     acc:'<button type="button" class="btn btn-barra" onclick="otPant.resultado=null; otIr(1)">✎ Editar la OT</button>'+
@@ -5063,7 +5070,16 @@ function htmlRealizado(o){
     }
     items.push(it);
   }
-  return '<div class="chd" style="margin-top:4px"><span class="ct">Confirmado · '+apl.length+(apl.length===1?' labor':' labores')+'</span></div>'+tablaRealizado(items, '');
+  var tbar='';
+  if(otPant.modo==='editar' && otPant.id===o.id){
+    var ts=tandasDe(pares), fb=fechaBloqueo();
+    for(var t=0;t<ts.length;t++){
+      var cerrada=fb && ts[t].fecha && ts[t].fecha<=fb;
+      tbar+='<div class="tanda-hd"><span>Tanda del <strong>'+fd(ts[t].fecha)+'</strong> · '+ts[t].pares.length+' '+(ts[t].pares.length===1?'labor':'labores')+'</span>'+
+        (cerrada?'<span class="bdg bn">cerrada</span>':'<button type="button" class="btn btn-sm" onclick="corregirTanda(\''+o.id+'\',\''+esc(ts[t].id)+'\')" title="Deshace la tanda y la vuelve a abrir con los mismos datos cargados, para corregir y confirmar de nuevo">✎ Corregir aplicación</button>')+'</div>';
+    }
+  }
+  return '<div class="chd" style="margin-top:4px"><span class="ct">Confirmado · '+apl.length+(apl.length===1?' labor':' labores')+'</span></div>'+tbar+tablaRealizado(items, '');
 }
 function tablaRealizado(items, cls){
   var hayBaja=false, i, p;
@@ -5114,6 +5130,347 @@ function iniciarRegistroEnVentana(o){
   renderRegistro();
 }
 
+/* ================================================================
+   STOCK A UNA FECHA (portado de client-src/2026-10-30): saldo por depósito
+   en una ventana Desde/Hasta. Lo usa el registro de lo realizado para mirar
+   el stock al día de la aplicación. Las vistas de Stock siguen con calcStockDepId.
+================================================================ */
+function stockWin(w){
+  w=w||{desde:'', hasta:''};
+  var comp={}, tipo={}, por={}, posteriores=0, i;
+  for(i=0;i<(state.comprobantes||[]).length;i++) comp[state.comprobantes[i].id]=state.comprobantes[i];
+  for(i=0;i<(state.tiposMov||[]).length;i++) tipo[state.tiposMov[i].nombre]=state.tiposMov[i];
+  function mover(insId, depId, fase, entra, c){
+    if(!depId) return;
+    if(!por[insId]) por[insId]={};
+    if(!por[insId][depId]) por[insId][depId]={ini:0, ent:0, sal:0};
+    var x=por[insId][depId];
+    if(fase==='cur'){ if(entra) x.ent+=c; else x.sal+=c; }
+    else x.ini += entra ? c : -c;
+  }
+  for(i=0;i<state.movtos.length;i++){
+    var m=state.movtos[i], cab=comp[m.comprobanteId]||null;
+    var tipoN=(cab&&cab.tipo)||m.tipo||'', t=tipo[tipoN]; if(!t) continue;
+    var fe=(cab&&cab.fecha)||m.fecha||'';
+    if(w.hasta && fe>w.hasta){ posteriores++; continue; }
+    var fase = ((w.desde && fe<w.desde) || tipoN==='Stock inicial') ? 'ini' : 'cur';
+    var c=Number(m.cant)||0;
+    var oId=m.origenId || (m.origen?((getDepositoByNombre(m.origen)||{}).id||''):'');
+    var dId=m.destinoId || (m.destino?((getDepositoByNombre(m.destino)||{}).id||''):'');
+    if(t.signo===1) mover(m.insumoId, dId, fase, true, c);
+    else if(t.signo===-1) mover(m.insumoId, oId, fase, false, c);
+    else if(t.signo===0){ mover(m.insumoId, oId, fase, false, c); mover(m.insumoId, dId, fase, true, c); }
+  }
+  return {por:por, posteriores:posteriores};
+}
+// Comprometido = lo pendiente de las OT vigentes, por insumo y depósito.
+function comprometido(){
+  var por={}, nOts=0;
+  for(var i=0;i<state.ots.length;i++){
+    var o=state.ots[i]; if(o.estado==='Cancelada') continue;
+    var pares=destinosDeOt(o), tiene=false;
+    for(var p=0;p<pares.length;p++){
+      var de=pares[p].destino; if(de.estadoLote==='Aplicado') continue;
+      var ls=de.lineas||[];
+      for(var j=0;j<ls.length;j++){
+        var ln=ls[j]; if(!ln.insumoId) continue;
+        var cant=cantReq(de, ln); if(cant<=0) continue;
+        var dep=ln.depositoId||DEP_SIN;
+        if(!por[ln.insumoId]) por[ln.insumoId]={};
+        if(!por[ln.insumoId][dep]) por[ln.insumoId][dep]={cant:0, ots:{}};
+        por[ln.insumoId][dep].cant+=cant; por[ln.insumoId][dep].ots[o.num]=true; tiene=true;
+      }
+    }
+    if(tiene) nOts++;
+  }
+  return {por:por, nOts:nOts};
+}
+// Stock de un insumo en un depósito para una ventana {desde, hasta}.
+function stockDe(insId, depId, w){
+  var S=stockWin(w), C=comprometido();
+  var x=(S.por[insId]&&S.por[insId][depId])||{ini:0,ent:0,sal:0};
+  var cp=(C.por[insId]&&C.por[insId][depId])||{cant:0, ots:{}};
+  var real=x.ini+x.ent-x.sal;
+  var ots=[]; for(var n in cp.ots){ if(cp.ots.hasOwnProperty(n)) ots.push(Number(n)); } ots.sort(function(a,b){return a-b;});
+  return {ini:x.ini, ent:x.ent, sal:x.sal, real:real, comp:cp.cant, disp:real-cp.cant, ots:ots};
+}
+
+/* ================================================================
+   CAMBIO DE CULTIVO EN EL PLAN DE USO (portado de client-src/2026-10-30):
+   si un lote tiene labores a nombre de un cultivo que salió del plan, se avisa
+   y se elige: pasar los costos al nuevo cultivo o dejarlos como gasto del original.
+================================================================ */
+function cultivoEnPlan(campaniaId, loteId, cultivo){
+  var acts=actividadesDe(campaniaId, loteId);
+  for(var i=0;i<acts.length;i++){ if(acts[i].cultivo===cultivo) return true; }
+  return false;
+}
+// Labores de un cultivo que salió del plan y que se decidió dejar como gasto de ese cultivo.
+function destinoFueraDePlanMantenido(o, de){
+  return !esUN(de) && !!de.cultivo && de.cultivoMantenido===de.cultivo && !cultivoEnPlan(o.campaniaId||'', de.loteId, de.cultivo);
+}
+// Lotes de OT cuyo cultivo ya no está en el plan, agrupados por campaña, lote y cultivo.
+// Solo se mira una campaña con plan cargado (si no, todo saldría como cambiado).
+function cambiosDeCultivo(otId){
+  var grupos={}, orden=[], conPlan={}, out=[];
+  for(var i=0;i<state.ots.length;i++){
+    var o=state.ots[i]; if(o.estado==='Cancelada') continue;
+    if(otId && o.id!==otId) continue;
+    var camp=o.campaniaId||''; if(!camp) continue;
+    if(!conPlan.hasOwnProperty(camp)) conPlan[camp]=actividadesDe(camp).length>0;
+    if(!conPlan[camp]) continue;
+    var pares=destinosDeOt(o);
+    for(var p=0;p<pares.length;p++){
+      var de=pares[p].destino;
+      if(esUN(de) || !de.cultivo || de.cultivoMantenido===de.cultivo) continue;
+      if(!getLoteById(de.loteId) || cultivoEnPlan(camp, de.loteId, de.cultivo)) continue;
+      var key=camp+'|'+de.loteId+'|'+de.cultivo;
+      if(!grupos[key]){
+        var acts=actividadesDe(camp, de.loteId), nuevos=[], vistos={};
+        for(var a=0;a<acts.length;a++){ var c=acts[a].cultivo; if(c && !vistos[c]){ vistos[c]=true; nuevos.push(c); } }
+        grupos[key]={key:key, camp:camp, loteId:de.loteId, campoId:de.campoId, cultivo:de.cultivo, nuevos:nuevos, items:[]};
+        orden.push(key);
+      }
+      grupos[key].items.push({o:o, tr:pares[p].trabajo, de:de});
+    }
+  }
+  for(var k=0;k<orden.length;k++) out.push(grupos[orden[k]]);
+  return out;
+}
+function textoNuevosCultivos(g){
+  if(!g.nuevos.length) return 'ya no figura en el plan de uso';
+  return (g.nuevos.length===1 ? 'ahora es ' : 'ahora tiene ')+g.nuevos.join(' y ');
+}
+// Costo en $ de lo confirmado en un destino (labor + insumos).
+function costoDestinoARS(o, tr, de){
+  var r={v:0, falta:false};
+  if(de.estadoLote!=='Aplicado') return r;
+  var fApp=de.fechaAplicReal||'', haD=haAplicadaDe(de);
+  var tar=tarifaDe(tr, de);
+  if(tar>0){ if(tarifaMonedaDe(tr, de)==='USD'){ var tc=tcDeFecha(fApp); if(!(tc>0)) r.falta=true; else r.v+=tar*tc*haD; } else r.v+=tar*haD; }
+  var lns=de.lineas||[];
+  for(var j=0;j<lns.length;j++){
+    var us=Number(lns[j].usado)||0; if(us<=0) continue;
+    var ins=getInsumo(lns[j].insumoId); if(!ins) continue;
+    var vi=valorizarInsumo(ins, us, fApp); if(vi.sinPrecio) r.falta=true; r.v+=vi.costo;
+  }
+  return r;
+}
+// Aviso naranja (listado de OT, Consumos, Costos y la propia OT).
+function htmlAvisoCultivo(otId){
+  var gs=cambiosDeCultivo(otId||''); if(!gs.length) return '';
+  var det=[];
+  for(var i=0;i<gs.length && i<3;i++){ var lo=getLoteById(gs[i].loteId); det.push((lo?lo.nombre:'')+' tenía '+gs[i].cultivo+', '+textoNuevosCultivos(gs[i])); }
+  var txt=det.join(' · ')+(gs.length>3?' · y '+(gs.length-3)+' más':'')+'.';
+  return '<div class="cc-aviso no-print"><div class="cc-aviso-t"><strong>Cambió el plan de uso en '+gs.length+(gs.length===1?' lote':' lotes')+' con labores cargadas.</strong> '+esc(txt)+
+      (otId?' Resolvelo antes de confirmar.':'')+'</div>'+
+    '<button type="button" class="btn btn-terra btn-barra" onclick="abrirCambioCultivo(\''+(otId||'')+'\')">Resolver</button>'+
+  '</div>';
+}
+function pintarAvisoCultivo(contId){
+  var cont=byId(contId); if(!cont) return;
+  var box=byId('ccAv-'+contId);
+  if(!box){ box=document.createElement('div'); box.id='ccAv-'+contId; cont.insertBefore(box, cont.firstChild); }
+  box.innerHTML=htmlAvisoCultivo('');
+}
+var ccTmp=null;
+function abrirCambioCultivo(otId){
+  if(otHayCambios()){ alert('Primero guardá o descartá los cambios de la OT que tenés abierta.'); return; }
+  var gs=cambiosDeCultivo(otId||'');
+  if(!gs.length){ toast('No hay cambios de cultivo para resolver.'); return; }
+  ccTmp={otId:otId||'', elec:{}};
+  for(var i=0;i<gs.length;i++) ccTmp.elec[gs[i].key] = gs[i].nuevos.length ? 'a:'+gs[i].nuevos[0] : 'mantener';
+  renderCambioCultivo();
+  byId('modalBg').classList.add('on');
+}
+function ccElegir(key, val){ ccTmp.elec[key]=val; renderCambioCultivo(); }
+function renderCambioCultivo(){
+  var gs=cambiosDeCultivo(ccTmp.otId), h='';
+  for(var i=0;i<gs.length;i++){
+    var g=gs[i], lo=getLoteById(g.loteId), el=ccTmp.elec[g.key], filas='', tot=0, falta=false;
+    for(var t=0;t<g.items.length;t++){
+      var it=g.items[t], ap=it.de.estadoLote==='Aplicado', cs=costoDestinoARS(it.o, it.tr, it.de), ins=[];
+      for(var l=0;l<(it.de.lineas||[]).length;l++){ var iN=getInsumo(it.de.lineas[l].insumoId); if(iN) ins.push(iN.nombre); }
+      tot+=cs.v; if(cs.falta) falta=true;
+      filas+='<tr><td>OT #'+it.o.num+'</td><td class="tdname">'+esc(nombreLaborDeTrabajo(it.tr))+'</td>'+
+        '<td>'+(ap?'<span class="bdg bg">Confirmada</span>':'<span class="bdg by">Pendiente</span>')+'</td>'+
+        '<td class="tdname" style="font-size:12px;color:var(--muted)">'+esc(ins.join(', ')||'—')+'</td>'+
+        '<td class="num">'+(ap?fm(cs.v)+(cs.falta?' <span class="bdg-falta">+ s/v</span>':''):'—')+'</td></tr>';
+    }
+    var pills='';
+    for(var n=0;n<g.nuevos.length;n++){
+      var v='a:'+g.nuevos[n];
+      pills+='<button type="button" class="reg-pill'+(el===v?' on':'')+'" onclick="ccElegir(\''+g.key+'\',\''+v.replace(/'/g,"\\'")+'\')">Pasar a '+esc(g.nuevos[n])+'</button>';
+    }
+    pills+='<button type="button" class="reg-pill'+(el==='mantener'?' pend':'')+'" onclick="ccElegir(\''+g.key+'\',\'mantener\')">Dejar como gasto del '+esc(g.cultivo)+'</button>';
+    var expl = el==='mantener'
+      ? 'Queda imputado al '+g.cultivo+'. En Costos va en una fila aparte («cultivos que no se hicieron»): suma al total pero no entra en el costo por ha.'
+      : 'Los costos, consumos y la historia del lote pasan a '+el.slice(2)+'.';
+    h+='<div class="cc-grupo">'+
+        '<div class="cc-tit"><strong>'+esc(lo?lo.nombre:'')+'</strong> <span class="cc-sub">'+esc(getCampoNombre(g.campoId))+' · Campaña '+esc(getCampaniaNombre(g.camp))+'</span></div>'+
+        '<div class="cc-cambio">Tenía <strong>'+esc(g.cultivo)+'</strong> → '+esc(textoNuevosCultivos(g))+'</div>'+
+        '<table class="cc-tbl"><thead><tr><th>OT</th><th>Labor</th><th>Estado</th><th>Insumos</th><th class="num">Costo</th></tr></thead><tbody>'+filas+
+          '<tr class="cc-tot"><td colspan="4">Total confirmado</td><td class="num">'+fm(tot)+(falta?' <span class="bdg-falta">+ s/v</span>':'')+'</td></tr></tbody></table>'+
+        '<div class="reg-pills cc-ops">'+pills+'</div>'+
+        '<div class="cc-expl">'+esc(expl)+'</div>'+
+      '</div>';
+  }
+  var mc=byId('modalContent');
+  mc.className='modal modal-cc';
+  mc.innerHTML='<h3>Cambió el cultivo en el plan de uso</h3>'+
+    '<p class="cc-intro">Estos lotes tienen labores cargadas a nombre de un cultivo que ya no está en el Plan de Uso. Elegí qué hacer con cada uno. El stock no cambia: solo a qué cultivo se imputa.</p>'+
+    h+
+    '<div class="fact"><span style="flex:1"></span><button class="btn btn-barra" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-barra" onclick="aplicarCambioCultivo()">✓ Aplicar</button></div>';
+}
+function aplicarCambioCultivo(){
+  if(!ccTmp) return;
+  var gs=cambiosDeCultivo(ccTmp.otId), hoy=todayISO(), nP=0, nM=0, otsTocadas={};
+  for(var i=0;i<gs.length;i++){
+    var g=gs[i], el=ccTmp.elec[g.key]||'mantener';
+    for(var t=0;t<g.items.length;t++){
+      var de=g.items[t].de; otsTocadas[g.items[t].o.id]=g.items[t].o;
+      if(el.indexOf('a:')===0){
+        var nuevo=el.slice(2);
+        de.cambiosCultivo=(de.cambiosCultivo||[]).concat([{de:de.cultivo, a:nuevo, fecha:hoy}]);
+        de.cultivo=nuevo;
+        delete de.cultivoMantenido; delete de.cultivoMantenidoFecha; delete de.cultivoMantenidoAhora;
+        if(de.estadoLote!=='Aplicado'){ var hn=haNetaDe(g.camp, g.loteId, nuevo); if(hn>0) de.ha=hn; }
+        nP++;
+      } else {
+        de.cultivoMantenido=de.cultivo; de.cultivoMantenidoFecha=hoy; de.cultivoMantenidoAhora=g.nuevos.join(' y ');
+        nM++;
+      }
+    }
+  }
+  for(var oid in otsTocadas){ if(otsTocadas.hasOwnProperty(oid)) guardarOTApi(otsTocadas[oid]); }
+  closeModal();
+  ccTmp=null;
+  toast('Listo: '+(nP?nP+(nP===1?' labor pasó':' labores pasaron')+' al nuevo cultivo':'')+(nP&&nM?' · ':'')+(nM?nM+(nM===1?' labor queda':' labores quedan')+' como gasto del cultivo original':''));
+  refrescarTrasCambioCultivo();
+}
+function refrescarTrasCambioCultivo(){
+  var pant=byId('ot-pantalla');
+  if(currentTab==='ot' && pant && pant.style.display!=='none' && otPant.id){
+    var keep=(otPant.v===4 && aplicTmp && aplicTmp.otId===otPant.id) ? aplicTmp : null;
+    abrirOT(otPant.id, otPant.v, true, function(){ if(keep && byId('otRegBox')){ aplicTmp=keep; renderRegistro(); } });
+  }
+  else if(currentTab==='ot') renderOtList();
+  else if(currentTab==='consumos') renderConsumos();
+  else if(currentTab==='costos') renderCostos();
+}
+// Al volver a esta pestaña se relee el plan de uso (pudo cambiar en Plan de Uso del Suelo):
+// si cambió, se refresca la vista y aparece el aviso. No se toca nada si hay algo a medio cargar.
+var _planReleidoEn=0;
+function releerPlanAlVolver(){
+  if(document.visibilityState && document.visibilityState!=='visible') return;
+  if(typeof CTX==='undefined' || !CTX || !CTX.empresaActivaId || !_esModoApi()) return;
+  if(otHayCambios() || (byId('modalBg') && byId('modalBg').classList.contains('on'))) return;
+  var ahora=Date.now(); if(ahora-_planReleidoEn<15000) return; _planReleidoEn=ahora;
+  var antes=JSON.stringify(state.planUso||[]);
+  PA.loadContext(CTX.empresaActivaId, function(err){
+    if(err) return;
+    inyectarCatalogosDesdePA(CTX.empresaActivaId);
+    if(JSON.stringify(state.planUso||[])!==antes) refrescarTrasCambioCultivo();
+  });
+}
+if(typeof document!=='undefined'){
+  document.addEventListener('visibilitychange', releerPlanAlVolver);
+  window.addEventListener('focus', releerPlanAlVolver);
+}
+
+/* ================================================================
+   DESHACER CON BORRADOR: vuelve a Pendiente lo aplicado (toda la OT o una tanda),
+   borra sus consumos y bajas y guarda lo cargado para precargarlo al registrar.
+================================================================ */
+function deshacerConBorrador(o, apl, tandaId){
+  var ur={dest:{}, consumos:{}, movs:[]}, i;
+  for(i=0;i<apl.length;i++){
+    var de=apl[i].destino, sv={fecha:de.fechaAplicReal, haReal:haRealDe(de), tandaId:de.tandaId||'', lineas:[]};
+    for(var j=0;j<(de.lineas||[]).length;j++){
+      var ln=de.lineas[j];
+      sv.lineas.push({insumoId:ln.insumoId, depositoId:ln.depositoId||'', dosis:Number(ln.dosis)||0, entregada:Number(ln.entregada)||0, usado:Number(ln.usado)||0, devStock:Number(ln.devStock)||0, devBaja:Number(ln.devBaja)||0, dosisReal:(ln.dosisReal===undefined?null:ln.dosisReal)});
+      if(!ln.insumoId) continue;
+      var k=claveCons(ln), c=ur.consumos[k]||(ur.consumos[k]={depositoId:ln.depositoId||'', entregada:0, devStock:0, devBaja:0, req:0});
+      c.req=r6(c.req+cantReq(de, ln, sv.haReal));
+      c.entregada=r6(c.entregada+(Number(ln.entregada)||0)); c.devStock=r6(c.devStock+(Number(ln.devStock)||0)); c.devBaja=r6(c.devBaja+(Number(ln.devBaja)||0));
+    }
+    ur.dest[de.id]=sv;
+  }
+  var destIds={};
+  if(tandaId){ for(i=0;i<apl.length;i++) destIds[apl[i].destino.id]=true; }
+  else { var todos=destinosDeOt(o); for(i=0;i<todos.length;i++) destIds[todos[i].destino.id]=true; }
+  var compsOT={}, compById={}, afectados={};
+  for(i=0;i<state.comprobantes.length;i++){ var cp=state.comprobantes[i]; compById[cp.id]=cp;
+    if(compEsDeOt(cp, o) && (cp.tipo==='Consumo OT' || cp.tipo==='Baja por aplicación OT') && (!tandaId || cp.refTanda===tandaId)) compsOT[cp.id]=true; }
+  for(i=0;i<state.movtos.length;i++){ var mv=state.movtos[i];
+    if(compsOT[mv.comprobanteId] || (mv.refDest && destIds[mv.refDest])){ var cc=compById[mv.comprobanteId]; if(!cc) continue;
+      afectados[cc.id]=true;
+      ur.movs.push({trabajoId:cc.refOt, fecha:cc.fecha, tipo:cc.tipo, tanda:cc.refTanda||'', insumoId:mv.insumoId, cant:mv.cant, origenId:mv.origenId, refDest:mv.refDest||''}); }
+  }
+  state.movtos=state.movtos.filter(function(m){ return !compsOT[m.comprobanteId] && !(m.refDest && destIds[m.refDest]); });
+  for(i=0;i<apl.length;i++){
+    var d=apl[i].destino;
+    for(var j2=0;j2<(d.lineas||[]).length;j2++){ var l2=d.lineas[j2]; l2.entregada=0; l2.usado=0; l2.devStock=0; l2.devBaja=0; delete l2.dosisReal; }
+    d.estadoLote='Pendiente'; d.fechaAplicReal=''; delete d.haReal; delete d.tandaId;
+  }
+  // Comprobantes que quedaron sin líneas se borran; los que perdieron algunas se actualizan.
+  var idsAntes=Object.keys(afectados);
+  limpiarComprobantesHuerfanosApi(idsAntes, function(){ idsAntes.forEach(function(cid){ var c2=getComprobanteById(cid); if(c2) guardarComprobanteApi(c2); }); });
+  return ur;
+}
+// Lo aplicado en una tanda (pares trabajo/destino).
+function paresDeTanda(o, tandaId){
+  var pares=destinosDeOt(o), afect=[];
+  for(var i=0;i<pares.length;i++){
+    var de=pares[i].destino;
+    if(de.estadoLote==='Aplicado' && (de.tandaId||('tnd_'+de.id))===tandaId) afect.push(pares[i]);
+  }
+  return afect;
+}
+// Tandas aplicadas de una lista de pares, ordenadas por fecha: [{id, fecha, pares}].
+function tandasDe(pares){
+  var m={}, orden=[];
+  for(var i=0;i<pares.length;i++){ var de=pares[i].destino; if(de.estadoLote!=='Aplicado') continue;
+    var tk=de.tandaId||('tnd_'+de.id); if(!m[tk]){ m[tk]={id:tk, fecha:de.fechaAplicReal||'', pares:[]}; orden.push(tk); } m[tk].pares.push(pares[i]); }
+  var out=[]; for(var k=0;k<orden.length;k++) out.push(m[orden[k]]);
+  out.sort(function(a,b){ return a.fecha<b.fecha?-1:a.fecha>b.fecha?1:0; });
+  return out;
+}
+/* ===== Corregir una aplicación: deshace la tanda y la reabre en "Lo realizado"
+   con los mismos datos cargados (fecha, superficie, depósito, entregado, devoluciones).
+   Si se confirma sin cambiar nada, vuelven exactamente los mismos movimientos. ===== */
+function corregirTanda(otId, tandaId){
+  var o=getOtById(otId); if(!o) return;
+  if(o.estado==='Cancelada'){ alert('La OT está cancelada.'); return; }
+  var afect=paresDeTanda(o, tandaId);
+  if(!afect.length) return;
+  var fApl=afect[0].destino.fechaAplicReal;
+  if(bloqueoFecha(fApl,'no se puede corregir una aplicación')) return;
+  var nom=[]; for(var a=0;a<afect.length;a++) nom.push('• '+nombreLaborDeTrabajo(afect[a].trabajo)+' · '+nombreDestino(afect[a].destino));
+  var enEdicion=(otPant.id===otId && otHayCambios());
+  if(!confirm('¿Corregir la aplicación del '+fd(fApl)+'?\n\n'+nom.join('\n')+
+    '\n\nSe deshace (los insumos vuelven al stock) y se abre "Lo realizado" con los mismos datos cargados: fecha, superficie real, depósito, entregado y devoluciones. Cambiás lo que estaba mal y confirmás de nuevo.'+
+    '\n\nHasta que confirmes, esos lotes quedan pendientes.'+(enEdicion?'\n\nLos cambios de la edición que no guardaste se descartan.':''))) return;
+  var ur=deshacerConBorrador(o, afect, tandaId);
+  var prev=o.ultimoRegistro, hayOtros=false;
+  if(prev && prev.dest){ for(var k in prev.dest){ if(prev.dest.hasOwnProperty(k) && !ur.dest[k]){ hayOtros=true; ur.dest[k]=prev.dest[k]; } } }
+  // Las cantidades son totales: si se mezclan con otro borrador, solo se precargan fechas y superficies.
+  if(hayOtros){ delete ur.consumos; ur.movs=[]; }
+  ur.correccion=fApl;
+  o.ultimoRegistro=ur;
+  recalcEstadoOT(o);
+  reevaluarFacturacion(o);
+  aplicTmp=null;
+  guardarOTApi(o);
+  otTrasAccion(otId, 4);
+  toast('Aplicación deshecha: corregí y confirmá');
+}
+function marcarImpresa(otId){
+  var o=getOtById(otId);
+  if(o && !o.impresa){ o.impresa=true; guardarOTApi(o); }
+  window.print();
+}
+
 function cancelOT(otId){
   if(!confirm('¿Cancelar esta OT? Los movimientos ya generados se mantienen.')) return;
   var o=null; for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===otId){ o=state.ots[i]; break; }
@@ -5141,6 +5498,7 @@ function clearConsFilters(){
   renderConsumos();
 }
 function renderConsumos(){
+  pintarAvisoCultivo('page-consumos');
   // === Poblar selects de filtros ===
   var cc=byId('consCampoFilter'); var curCa=cc.value;
   cc.innerHTML='<option value="">Todos los campos</option>';
@@ -5783,6 +6141,7 @@ function toggleCostDet(key){ costExpand[key]=!costExpand[key]; renderCostos(); }
 function setCostMoneda(m){ window.costMoneda=(m==='USD'?'USD':'ARS'); renderCostos(); }
 
 function renderCostos(){
+  pintarAvisoCultivo('page-costos');
   // === Poblar selects de filtros ===
   var ccmp=byId('costCampaniaFilter');
   if(ccmp){ var curCmp=ccmp.value; ccmp.innerHTML=campaniaOptions(curCmp, true); }
@@ -5833,6 +6192,9 @@ function renderCostos(){
   var catTot={};        // categoria -> {ars, usd}
   var labProp={ars:0, usd:0};
   var labContr={ars:0, usd:0};
+  // Labores de lotes que cambiaron de cultivo y quedaron como gasto del original:
+  // suman al total, no entran en el costo por ha.
+  var fueraTot={ars:0, usd:0};
   var totHa=0;
   var haySinPrecio=false;
   var detalle=[];       // filas línea por línea
@@ -5850,6 +6212,7 @@ function renderCostos(){
     for(var d=0;d<ps.length;d++){
       var de=ps[d].destino, trK=ps[d].trabajo;
       var esContratada = (trK.laborTipo==='LC');
+      var fueraPlan=destinoFueraDePlanMantenido(o, de);
       if(de.estadoLote!=='Aplicado') continue;
       if(fcamp && de.campoId!==fcamp) continue;
       if(fl && de.loteId!==fl) continue;
@@ -5862,7 +6225,7 @@ function renderCostos(){
 
       var haDest=haAplicadaDe(de);
       // Superficie: un lote con varias labores en la misma OT cuenta una vez; una UN no suma ha.
-      if(!esUN(de) && !lotesContados[o.id+'|'+de.loteId]){ lotesContados[o.id+'|'+de.loteId]=true; totHa+=haDest; }
+      if(!esUN(de) && !fueraPlan && !lotesContados[o.id+'|'+de.loteId]){ lotesContados[o.id+'|'+de.loteId]=true; totHa+=haDest; }
 
       var loteNom = esUN(de) ? 'General del campo' : nombreDestino(de);
       var campoNom = getCampoNombre(de.campoId);
@@ -5871,7 +6234,7 @@ function renderCostos(){
       // Si la tarifa está en USD, se valoriza con el TC del mes de ESTA aplicación
       var tarifaDestARS = (tarifaMonedaDe(trK, de)==='USD') ? tarifaDe(trK, de)*tcDeFecha(fApp) : tarifaDe(trK, de);
       var labDest=haDest*tarifaDestARS;
-      var labKey = esContratada ? labContr : labProp;
+      var labKey = fueraPlan ? fueraTot : (esContratada ? labContr : labProp);
       labKey.ars += labDest;
       addUSD(labKey, labDest, fApp);
       var tcLab=tcDeFecha(fApp);
@@ -5887,7 +6250,7 @@ function renderCostos(){
         detalle.push({
           fecha:fApp, campo:campoNom, lote:loteNom, cultivo:actDest,
           concepto:(esContratada?'Labor contratada':'Labor propia')+' · OT#'+o.num+' · '+subLab,
-          subact:subLab, laborClase:(esContratada?'LC':'LP'),
+          subact:subLab, laborClase:(esContratada?'LC':'LP'), fuera:fueraPlan,
           tipo:'labor', cant:haDest, un:'ha', precio:tarifaShow, monedaOrig:tarifaMonShow,
           costoARS:labDest, costoUSD:labUSDdest, tc:tcLab
         });
@@ -5904,13 +6267,13 @@ function renderCostos(){
         var val=valorizarInsumo(ins, usado, fApp);
         if(val.sinPrecio) haySinPrecio=true;
         var cat=ins.cat||'Sin categoría';
-        if(!catTot[cat]) catTot[cat]={ars:0, usd:0};
-        catTot[cat].ars += val.costo;
-        addUSD(catTot[cat], val.costo, fApp);
+        var accIns=fueraPlan ? fueraTot : (catTot[cat]||(catTot[cat]={ars:0, usd:0}));
+        accIns.ars += val.costo;
+        addUSD(accIns, val.costo, fApp);
         var costoUSDdest = val.tc>0 ? val.costo/val.tc : 0;
         detalle.push({
           fecha:fApp, campo:campoNom, lote:loteNom, cultivo:actDest,
-          concepto:ins.nombre, insumoId:ln.insumoId, tipo:'insumo', cat:cat,
+          concepto:ins.nombre, insumoId:ln.insumoId, tipo:'insumo', cat:cat, fuera:fueraPlan,
           cant:usado, un:ins.un||'', precio:val.precio, monedaOrig:val.moneda,
           costoARS:val.costo, costoUSD:costoUSDdest, tc:val.tc, sinPrecio:val.sinPrecio
         });
@@ -5923,6 +6286,8 @@ function renderCostos(){
   for(var c in catTot){ if(catTot.hasOwnProperty(c)){ totInsARS+=catTot[c].ars; totInsUSD+=catTot[c].usd; } }
   var totLabARS=labProp.ars+labContr.ars, totLabUSD=labProp.usd+labContr.usd;
   var totGenARS=totInsARS+totLabARS, totGenUSD=totInsUSD+totLabUSD;
+  var hayFuera=fueraTot.ars>0.005 || fueraTot.usd>0.005;
+  var totConFueraARS=totGenARS+fueraTot.ars, totConFueraUSD=totGenUSD+fueraTot.usd;
 
   var pick = function(ars,usd){ return monVis==='USD' ? usd : ars; };
   var fMM = function(ars,usd){ // formatea según moneda visible usando el acumulado correcto
@@ -5941,7 +6306,7 @@ function renderCostos(){
   byId('costKpis').innerHTML=
     '<div class="kpi kpi-neutral"><div class="kpi-lbl">Insumos</div><div class="kpi-val">'+fMM(totInsARS,totInsUSD)+'</div></div>'+
     '<div class="kpi kpi-neutral"><div class="kpi-lbl">Labores</div><div class="kpi-val">'+fMM(totLabARS,totLabUSD)+'</div></div>'+
-    '<div class="kpi kpi-total"><div class="kpi-lbl">Costo total</div><div class="kpi-val">'+fMM(totGenARS,totGenUSD)+'</div></div>'+
+    '<div class="kpi kpi-total"><div class="kpi-lbl">Costo total</div><div class="kpi-val">'+fMM(totConFueraARS,totConFueraUSD)+'</div></div>'+
     '<div class="kpi kpi-primary"><div class="kpi-lbl">Costo por ha ('+f(totHa,1)+' ha)</div><div class="kpi-val">'+fHa(totGenARS,totGenUSD)+'</div></div>';
 
   // === BLOQUE 1: Resumen tipo Margen Bruto (expandible) ===
@@ -5965,7 +6330,7 @@ function renderCostos(){
       '<td class="num">'+(totGenARS>0?fp(pick(cv.ars,cv.usd)/pick(totGenARS,totGenUSD)*100):'—')+'</td>'+
       '</tr>';
     if(abierto){
-      rowsMB+=detalleAgrupado(detalle, function(x){ return x.tipo==='insumo' && x.cat===cat; }, monVis, 'insumo');
+      rowsMB+=detalleAgrupado(detalle, function(x){ return x.tipo==='insumo' && x.cat===cat && !x.fuera; }, monVis, 'insumo');
     }
   }
   // Subtotal insumos
@@ -5983,7 +6348,7 @@ function renderCostos(){
     '<td class="num">'+fHa(labProp.ars,labProp.usd)+'</td>'+
     '<td class="num">'+fMM(labProp.ars,labProp.usd)+'</td>'+
     '<td class="num">'+(totGenARS>0?fp(pick(labProp.ars,labProp.usd)/pick(totGenARS,totGenUSD)*100):'—')+'</td></tr>';
-  if(abLP) rowsMB+=detalleAgrupado(detalle, function(x){ return x.tipo==='labor' && x.laborClase==='LP'; }, monVis, 'subact');
+  if(abLP) rowsMB+=detalleAgrupado(detalle, function(x){ return x.tipo==='labor' && x.laborClase==='LP' && !x.fuera; }, monVis, 'subact');
   // Labor contratada
   var dkLC='lab::LC', abLC=!!costExpand[dkLC];
   rowsMB+='<tr class="mb-row" onclick="toggleCostDet(\'lab::LC\')" style="cursor:pointer">'+
@@ -5991,20 +6356,26 @@ function renderCostos(){
     '<td class="num">'+fHa(labContr.ars,labContr.usd)+'</td>'+
     '<td class="num">'+fMM(labContr.ars,labContr.usd)+'</td>'+
     '<td class="num">'+(totGenARS>0?fp(pick(labContr.ars,labContr.usd)/pick(totGenARS,totGenUSD)*100):'—')+'</td></tr>';
-  if(abLC) rowsMB+=detalleAgrupado(detalle, function(x){ return x.tipo==='labor' && x.laborClase==='LC'; }, monVis, 'subact');
+  if(abLC) rowsMB+=detalleAgrupado(detalle, function(x){ return x.tipo==='labor' && x.laborClase==='LC' && !x.fuera; }, monVis, 'subact');
   // Subtotal labores
   rowsMB+='<tr class="mb-subtotal"><td class="tdname"><strong>Subtotal labores</strong></td>'+
     '<td class="num"><strong>'+fHa(totLabARS,totLabUSD)+'</strong></td>'+
     '<td class="num"><strong>'+fMM(totLabARS,totLabUSD)+'</strong></td>'+
     '<td class="num">'+(totGenARS>0?fp(pick(totLabARS,totLabUSD)/pick(totGenARS,totGenUSD)*100):'—')+'</td></tr>';
 
-  // Total general
-  rowsMB+='<tr class="row-total"><td class="tdname"><strong>COSTO TOTAL</strong></td>'+
+  if(hayFuera){
+    var abF=!!costExpand['fuera'];
+    rowsMB+='<tr class="mb-row mb-fuera" onclick="toggleCostDet(\'fuera\')" style="cursor:pointer" title="Labores de lotes que cambiaron de cultivo en el plan de uso y se dejaron como gasto del cultivo original. Suman al total, no al costo por ha."><td class="tdname"><span class="mb-caret">'+(abF?'▾':'▸')+'</span> Gastos de cultivos que no se hicieron <span class="mb-fuera-sub">lotes que cambiaron de cultivo · no entran en el costo por ha</span></td>'+
+      '<td class="num">—</td><td class="num">'+fMM(fueraTot.ars,fueraTot.usd)+'</td><td class="num">—</td></tr>';
+    if(abF) rowsMB+=detalleAgrupado(detalle, function(x){ return x.fuera; }, monVis, 'insumo');
+  }
+  // Total general (el $/ha no incluye los cultivos que no se hicieron)
+  rowsMB+='<tr class="row-total"><td class="tdname"><strong>COSTO TOTAL</strong>'+(hayFuera?' <span class="mb-fuera-sub">* el costo por ha no incluye '+fMM(fueraTot.ars,fueraTot.usd)+' de cultivos que no se hicieron</span>':'')+'</td>'+
     '<td class="num"><strong>'+fHa(totGenARS,totGenUSD)+'</strong></td>'+
-    '<td class="num"><strong>'+fMM(totGenARS,totGenUSD)+'</strong></td>'+
+    '<td class="num"><strong>'+fMM(totConFueraARS,totConFueraUSD)+'</strong></td>'+
     '<td class="num">100%</td></tr>';
 
-  byId('costMBBody').innerHTML = (catKeys.length||totLabARS>0) ? rowsMB : '<tr><td colspan="4" class="empty">Sin labores aplicadas para los filtros aplicados.</td></tr>';
+  byId('costMBBody').innerHTML = (catKeys.length||totLabARS>0||hayFuera) ? rowsMB : '<tr><td colspan="4" class="empty">Sin labores aplicadas para los filtros aplicados.</td></tr>';
 
   // === BLOQUE 2: Detalle completo línea por línea ===
   detalle.sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||''); });
