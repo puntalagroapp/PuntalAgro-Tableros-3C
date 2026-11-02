@@ -1885,10 +1885,12 @@ function inyectarCatalogosDesdePA(empresaId){
       un: unById[ins.unidadId] || prev.un || 'Un',
       // operativo (preservado o default). El stock inicial ya NO es atributo del insumo:
       // es un movimiento 'Stock inicial'. Se conserva 'deposito' como sugerencia por default.
-      deposito: prev.deposito || ((state.depositos[0]&&state.depositos[0].nombre)||''),
-      stockMin: Number(prev.stockMin)||0,
-      precioUnitario: Number(prev.precioUnitario)||0,
-      moneda: prev.moneda || 'ARS',
+      // Lo guardado en el servidor (PUT /api/maestros/insumos) manda; prev solo
+      // cubre una recarga en la misma sesión antes de que vuelva la API.
+      deposito: ins.deposito || prev.deposito || ((state.depositos[0]&&state.depositos[0].nombre)||''),
+      stockMin: Number(ins.stockMin!=null ? ins.stockMin : prev.stockMin)||0,
+      precioUnitario: Number(ins.precioUnitario!=null ? ins.precioUnitario : prev.precioUnitario)||0,
+      moneda: ins.moneda || prev.moneda || 'ARS',
       // Orden de mezclado al imprimir una OT (Maestros → Formulaciones);
       // no es operativo de este tablero, se lee tal cual viene de Maestros.
       formulacionId: ins.formulacionId || null,
