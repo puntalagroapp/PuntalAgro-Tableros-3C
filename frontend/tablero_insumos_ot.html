@@ -10,6 +10,7 @@
 <script src="pa-core.js"></script>
 <script src="js/api.js"></script>
 <style>
+.sv-ico{display:inline-block;width:14px;margin-left:4px;font-size:12px;font-weight:700;text-align:center;vertical-align:middle}.sv-ok{color:var(--green)}.sv-err{color:var(--bad)}.sv-wait{color:var(--muted)}
 :root{--bad:#A84D1F;--bg:#E8ECF2;--card:#fff;--border:#D4DAE4;--text:#0F1923;--muted:#7A8899;--green:#4A6533;--green-d:#3B5226;--terra:#C8642D;--radius:12px;--mono:'DM Sans',sans-serif;--sans:'DM Sans',sans-serif;}
 [style*="--mono"],.num,.kpi-val,.ot-meta-i .v,.ot-row-num,td,input[type=number]{font-variant-numeric:tabular-nums}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1778,13 +1779,26 @@ function borrarTCMesApi(ym, callback){
 // operativos (stockMin/precioUnitario/moneda/deposito default) sí se editan
 // en este tablero y se guardan mezclados en insumos.datos (el backend hace
 // merge, no reemplaza, para no perder la identidad del maestro).
-function guardarInsumoOperativoApi(idx){
-  if (!_esModoApi() || !CTX) return;
+// el (opcional) = el campo editado en Maestros → Insumos: muestra ✓ al guardar o ✕ si falla.
+function guardarInsumoOperativoApi(idx, el){
   var x=state.insumos[idx]; if(!x) return;
+  if (!_esModoApi() || !CTX){ marcarGuardado(el,'ok'); return; }
+  marcarGuardado(el,'wait');
   apiPut('/api/maestros/insumos/'+encodeURIComponent(x.id), {
     empresaId:CTX.empresaActivaId, id:x.id,
     stockMin:x.stockMin, precioUnitario:x.precioUnitario, moneda:x.moneda, deposito:x.deposito
-  }, function(err){ if(err) console.error('Error guardando insumo:', err); });
+  }, function(err){
+    if(err){ console.error('Error guardando insumo:', err); marcarGuardado(el,'err'); toast('No se pudo guardar: '+((err&&err.error)||'error de conexión')); return; }
+    marcarGuardado(el,'ok'); toast('Guardado');
+  });
+}
+function marcarGuardado(el, est){
+  if(!el || !el.parentNode) return;
+  var ico=el.parentNode.querySelector('.sv-ico'); if(!ico) return;
+  ico.className='sv-ico '+(est==='ok'?'sv-ok':est==='err'?'sv-err':'sv-wait');
+  ico.textContent= est==='ok'?'✓':est==='err'?'✕':'…';
+  ico.title= est==='ok'?'Guardado':est==='err'?'No se pudo guardar':'Guardando…';
+  el.style.borderColor = est==='err' ? 'var(--bad)' : '';
 }
 
 // Rellena en state los catálogos compartidos desde PA.demo.*, mapeando al formato
@@ -7120,9 +7134,9 @@ function renderMInsumos(){
     rows+='<tr>'+
       celNombre+ celCat+ celUn+
       '<td class="num"><button class="btn btn-sm" onclick="openStockInicialModal(\''+x.id+'\')" title="Editar stock inicial por depósito">'+f(totIni,2)+(nDeps>1?' ('+nDeps+' dep.)':'')+' ✎</button></td>'+
-      '<td><select onchange="state.insumos['+i+'].deposito=this.value;guardarInsumoOperativoApi('+i+')" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;background:var(--card)" title="Depósito principal (default al aplicar)">'+optsD+'</select></td>'+
-      '<td class="num"><input type="number" step="0.01" min="0" value="'+(x.precioUnitario||0)+'" onchange="state.insumos['+i+'].precioUnitario=Number(this.value);guardarInsumoOperativoApi('+i+')" style="width:90px;font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;text-align:right"></td>'+
-      '<td><select onchange="state.insumos['+i+'].moneda=this.value;guardarInsumoOperativoApi('+i+')" style="width:65px;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;background:var(--card)">'+optsMon+'</select></td>'+
+      '<td><select onchange="state.insumos['+i+'].deposito=this.value;guardarInsumoOperativoApi('+i+',this)" style="width:calc(100% - 18px);font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;background:var(--card)" title="Depósito principal (default al aplicar). Se guarda solo al cambiarlo.">'+optsD+'</select><span class="sv-ico"></span></td>'+
+      '<td class="num"><input type="number" step="0.01" min="0" value="'+(x.precioUnitario||0)+'" onchange="state.insumos['+i+'].precioUnitario=Number(this.value);guardarInsumoOperativoApi('+i+',this)" style="width:90px;font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;text-align:right"'+' title="Editable: se guarda solo al salir del campo"'+'><span class="sv-ico"></span></td>'+
+      '<td><select onchange="state.insumos['+i+'].moneda=this.value;guardarInsumoOperativoApi('+i+',this)" style="width:65px;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;background:var(--card)"'+' title="Editable: se guarda solo al salir del campo"'+'>'+optsMon+'</select><span class="sv-ico"></span></td>'+
       celDel+
       '</tr>';
   }
@@ -7130,7 +7144,7 @@ function renderMInsumos(){
     ? '<span class="bdg" style="background:#E8EDF2;color:#475569">Catálogo: solo lectura</span>'
     : '<button class="btn btn-sm btn-primary" onclick="addInsumo()">+ Nuevo insumo</button>';
   var ayuda = roId
-    ? 'El catálogo de insumos (nombre, categoría, unidad) se administra en Maestros. Acá cargás el stock inicial, depósito y precio de cada uno, que son datos operativos de esta empresa.'
+    ? 'El catálogo de insumos (nombre, categoría, unidad) se administra en Maestros. Acá cargás el stock inicial, depósito y precio de cada uno, que son datos operativos de esta empresa. Los campos con recuadro son editables: se guardan solos al salir del campo y aparece ✓ al lado.'
     : 'El stock inicial se carga por depósito (botón ✎). El "depósito principal" es el que se sugiere por default al aplicar una OT. Tocá un encabezado para ordenar.';
   byId('maestrosCard').innerHTML=
     '<div class="chd"><span class="ct-lg">Insumos</span>'+headBtn+'</div>'+
