@@ -1119,6 +1119,8 @@ function cargarCultivos(){
   for(var i=0;i<usados.length;i++){
     var ta = usados[i];
     if(ta.activo === false) continue;
+    // Unidades de negocio (estructura, maquinaria): reciben consumos en Insumos/OT pero no se planifican.
+    if(ta.esCultivo !== undefined && ta.esCultivo !== null && ta.esCultivo !== '' && !Number(ta.esCultivo)) continue;
     CULTIVOS[ta.sigla] = { n: ta.nombre, t: ta.actividad, c: colorCult(ta.sigla), g: !!ta.graminea, d2: !!ta.default2da };
     TIPO_ACT_SIGLA_A_ID[ta.sigla] = ta.id;
     TIPO_ACT_ID_A_SIGLA[ta.id] = ta.sigla;

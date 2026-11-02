@@ -15,7 +15,9 @@ Cómo usarlo: marcar cada caso con **OK** o **ERROR** y anotar al lado lo que se
 - [ ] Abrir el tablero con la consola del navegador abierta (F12). **Cualquier error rojo en consola es un ERROR**, aunque la pantalla parezca andar.
 
 ### 0.2 Datos base (en una empresa de prueba, ej. Don Eduardo)
-- [ ] Una campaña activa con **Plan de uso del suelo** cargado: al menos 2 campos y 4 lotes con cultivo (ej. 2 de Soja, 2 de Maíz) y una unidad de negocio que no sea cultivo (ej. Estructura o Arrendamiento).
+- [ ] Una campaña activa con **Plan de uso del suelo** cargado: al menos 2 campos y 4 lotes con cultivo (ej. 2 de Soja, 2 de Maíz).
+- [ ] Una unidad de negocio (ej. "Infraestructura"): se crea en **Maestros / Padrones → Cultivos/UN** con "¿Es cultivo? = No". **No se carga en el Plan de uso** (no se planifica por lote); en la OT se elige en "Cultivo / unidad de negocio" y se imputa a un campo.
+- [ ] Verificar que en el Plan de uso el selector de cultivo de un lote abre bien y **no** ofrece las unidades de negocio.
 - [ ] Maestros: 3 insumos (uno con formulación asignada, uno sin), 2 depósitos, 1 contratista.
 - [ ] Labores: se cargan en **Maestros / Padrones (`maestros.html`) → Labores**, entrando como **admin general** (para los demás roles ese catálogo es de solo lectura). Es una sola lista global: la misma labor sirve como propia o contratada; el tipo se elige en cada trabajo de la OT. Cargar al menos: "Siembra soja", "Resiembra soja", "Pulverización" y "Fertilización". El "Precio ref." de la labor se usa como tarifa sugerida si no hay tarifa de referencia por campaña.
 - [ ] Stock inicial: una compra/ingreso con fecha **anterior** a las OT de prueba, con stock suficiente de 2 insumos y escaso de 1 (para provocar el aviso de faltante).
