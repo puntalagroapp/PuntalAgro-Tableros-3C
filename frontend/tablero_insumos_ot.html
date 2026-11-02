@@ -4247,7 +4247,7 @@ function mostrarPantallaOT(){
     emi.innerHTML='<div class="ote-box">'+
         '<div class="ote-ic">✓</div>'+
         '<div class="ote-t">'+(!cf.n ? 'Se actualizó la OT #'+o.num : (cf.pend ? 'Se confirmaron '+cf.n+(cf.n===1?' labor':' labores')+' de la OT #'+o.num : 'Se confirmó la OT #'+o.num))+'</div>'+
-        '<div class="ote-s">'+(cf.n?'Se descontó el stock y lo aplicado pasó a Consumos, Contratistas y Costos.':'')+
+        '<div class="ote-s">'+(cf.n?'Se descontó el stock y las labores pasaron a Consumos, Labores y Costos.':'')+
           (cf.pend?' Quedan '+cf.pend+(cf.pend===1?' pendiente':' pendientes')+': registralos cuando se hagan.':'')+'</div>'+
         '<div class="ote-acc"><button type="button" class="btn btn-barra" onclick="otPant.confirmada=null; mostrarPantallaOT();">Ver lo registrado</button>'+
           '<button type="button" class="btn btn-primary btn-barra" onclick="otVolverListado()">Volver</button></div>'+
