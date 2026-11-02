@@ -439,6 +439,7 @@ CREATE TABLE ordenes_trabajo (
     -- precargar o restaurar igual): {dest:{destId:{...}}, consumos:{...}, movs:[...]}
     ultimo_registro JSONB,
     impresa      BOOLEAN NOT NULL DEFAULT false,  -- ya se imprimió (aviso al editarla)
+    rapida       BOOLEAN NOT NULL DEFAULT false,  -- creada con "OT rápida" (labor ya realizada)
     PRIMARY KEY (id, empresa_id)
 );
 CREATE INDEX idx_ots_empresa ON ordenes_trabajo(empresa_id, campania_id);

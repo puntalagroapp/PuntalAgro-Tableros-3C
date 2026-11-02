@@ -2431,7 +2431,7 @@ app.get('/api/ordenes-trabajo', async (req, res) => {
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
 
     const params = [empresaId];
-    let sql = `SELECT id, num, campania_id AS "campaniaId", fecha, obs, estado, ultimo_registro AS "ultimoRegistro", impresa
+    let sql = `SELECT id, num, campania_id AS "campaniaId", fecha, obs, estado, ultimo_registro AS "ultimoRegistro", impresa, rapida
                  FROM ordenes_trabajo WHERE empresa_id = $1`;
     if (req.query.campaniaId) { params.push(req.query.campaniaId); sql += ` AND campania_id = $${params.length}`; }
     sql += ' ORDER BY num DESC';
@@ -2472,15 +2472,15 @@ app.post('/api/ordenes-trabajo', async (req, res) => {
     const num = numRes.rows[0].num;
     const id = o.id || ('ot_' + Date.now());
     await client.query(
-      `INSERT INTO ordenes_trabajo (id, empresa_id, num, campania_id, fecha, obs, estado, ultimo_registro, impresa)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      `INSERT INTO ordenes_trabajo (id, empresa_id, num, campania_id, fecha, obs, estado, ultimo_registro, impresa, rapida)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [id, empresaId, num, o.campaniaId || null, o.fecha || null, o.obs || null, o.estado || 'Pendiente',
-       o.ultimoRegistro ? JSON.stringify(o.ultimoRegistro) : null, !!o.impresa]
+       o.ultimoRegistro ? JSON.stringify(o.ultimoRegistro) : null, !!o.impresa, !!o.rapida]
     );
     const trabajos = await _guardarTrabajosOt(client, id, empresaId, o.trabajos);
     await client.query('COMMIT');
     res.status(201).json({ id, num, empresaId, campaniaId: o.campaniaId || null, fecha: o.fecha || null,
-      obs: o.obs || null, estado: o.estado || 'Pendiente', trabajos });
+      obs: o.obs || null, estado: o.estado || 'Pendiente', impresa: !!o.impresa, rapida: !!o.rapida, trabajos });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     console.error('/api/ordenes-trabajo POST error:', err);

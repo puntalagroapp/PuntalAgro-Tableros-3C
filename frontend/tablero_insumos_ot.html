@@ -1243,7 +1243,7 @@ function cargarOTsApi(callback){
     // receta y destinos propios). La fuente es o.trabajos[]; ver espejoLegacy().
     state.ots=(data||[]).map(function(o){
       var ot={ id:o.id, num:o.num, fecha:(o.fecha||'').slice(0,10), campaniaId:o.campaniaId||'',
-        obs:o.obs||'', estado:o.estado||'Pendiente', ultimoRegistro:o.ultimoRegistro||null, impresa:!!o.impresa, _synced:true };
+        obs:o.obs||'', estado:o.estado||'Pendiente', ultimoRegistro:o.ultimoRegistro||null, impresa:!!o.impresa, rapida:!!o.rapida, _synced:true };
       ot.trabajos=(o.trabajos||[]).map(function(t){
         return { id:t.id, laborId:t.laborId||'', laborTipo:t.laborTipo||'LP', contratistaId:t.contratistaId||'',
           tarifa:(t.tarifa===null||t.tarifa===undefined)?'':Number(t.tarifa), tarifaMoneda:t.tarifaMoneda||'ARS',
@@ -1655,7 +1655,7 @@ function armarPdfHistoria(loteId, campania){
 // tienen comprobantes apuntándoles — se reenvían intactos y no se recrean.
 function _otPayload(o){
   return { id:o.id, empresaId:CTX.empresaActivaId, campaniaId:o.campaniaId||null, fecha:o.fecha||null,
-    obs:o.obs||null, estado:o.estado||'Pendiente', ultimoRegistro:o.ultimoRegistro||null, impresa:!!o.impresa,
+    obs:o.obs||null, estado:o.estado||'Pendiente', ultimoRegistro:o.ultimoRegistro||null, impresa:!!o.impresa, rapida:!!o.rapida,
     trabajos:(o.trabajos||[]).map(function(t){
       return { id:t.id, laborId:t.laborId||null, laborTipo:t.laborTipo||null, contratistaId:t.contratistaId||null,
         estadoFact:t.estadoFact||'Sin facturar', estadoPago:t.estadoPago||'No', montoPagado:Number(t.montoPagado)||0,
@@ -4469,7 +4469,7 @@ function renderOtList(){
     for(var tt=0;tt<(o.trabajos||[]).length;tt++){ if(o.trabajos[tt].laborTipo==='LC') hayLC=true; else hayLP=true; }
     var tipoTxt = (hayLP&&hayLC) ? 'Mixta' : (hayLC?'Contratada':'Propia');
     rows+='<tr class="otl-row" onclick="abrirOT(\''+o.id+'\')">'+
-      '<td class="otl-num">OT #'+o.num+'</td>'+
+      '<td class="otl-num">OT #'+o.num+(o.rapida?' <span class="bdg bn" title="Registrada con OT rápida (labor ya realizada)">rápida</span>':'')+'</td>'+
       '<td class="otl-act"><span class="otl-act-cult">'+esc(laboresDeOt(o).join(' + ')||'—')+'</span> <span class="otl-act-campo">· '+esc(cultTxt)+' · '+esc(campoNoms.join(', '))+'</span></td>'+
       '<td class="otl-tipo">'+tipoTxt+'</td>'+
       '<td class="num">'+nLotes+'</td>'+
@@ -4673,7 +4673,7 @@ function saveOtRapida(){
     dest.lineas.push(x);
   }
   var trId=uid();
-  var ot={id:uid(), num:state.nextOt++, fecha:t.fecha, campaniaId:t.campania, obs:'OT rápida (labor ya realizada)', estado:'Aplicada',
+  var ot={id:uid(), num:state.nextOt++, fecha:t.fecha, campaniaId:t.campania, obs:'OT rápida (labor ya realizada)', estado:'Aplicada', rapida:true,
     trabajos:[{id:trId, laborId:t.laborId, laborTipo:t.laborTipo, contratistaId:t.laborTipo==='LC'?(t.contratistaId||''):'',
       tarifa:(Number(t.tarifa)>0?Number(t.tarifa):''), tarifaMoneda:t.moneda||'ARS', esResiembra:esLaborResiembra(t.laborId, t.laborTipo),
       estadoFact:'Sin facturar', montoFacturado:0, estadoPago:'No', montoPagado:0, plantilla:[], destinos:[dest]}]};
@@ -7566,10 +7566,10 @@ function exportExcel(){
   }
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(hMv),'Movimientos');
 
-  var hOt=[['N° OT','Fecha','Campaña','Labores','Contratista','Lotes','Ha totales','Ha aplicadas','Estado','Observaciones']];
+  var hOt=[['N° OT','Fecha','Campaña','Labores','Contratista','Lotes','Ha totales','Ha aplicadas','Estado','OT rápida','Observaciones']];
   for(var k=0;k<state.ots.length;k++){
     var o=state.ots[k];
-    hOt.push([o.num,o.fecha,getCampaniaNombre(o.campaniaId)||'',laboresDeOt(o).join(' + '),contratistasDeOt(o).join(', '),lotesDeOt(o).length,otHaTotal(o),otHaAplicada(o),o.estado,o.obs||'']);
+    hOt.push([o.num,o.fecha,getCampaniaNombre(o.campaniaId)||'',laboresDeOt(o).join(' + '),contratistasDeOt(o).join(', '),lotesDeOt(o).length,otHaTotal(o),otHaAplicada(o),o.estado,o.rapida?'Sí':'',o.obs||'']);
   }
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(hOt),'OT');
 
