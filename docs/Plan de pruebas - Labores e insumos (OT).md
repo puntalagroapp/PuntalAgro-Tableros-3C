@@ -16,7 +16,8 @@ Cómo usarlo: marcar cada caso con **OK** o **ERROR** y anotar al lado lo que se
 
 ### 0.2 Datos base (en una empresa de prueba, ej. Don Eduardo)
 - [ ] Una campaña activa con **Plan de uso del suelo** cargado: al menos 2 campos y 4 lotes con cultivo (ej. 2 de Soja, 2 de Maíz) y una unidad de negocio que no sea cultivo (ej. Estructura o Arrendamiento).
-- [ ] Maestros: 3 insumos (uno con formulación asignada, uno sin), 2 depósitos, 1 contratista, labores propias y contratadas (incluir una que contenga "resiembra" en el nombre).
+- [ ] Maestros: 3 insumos (uno con formulación asignada, uno sin), 2 depósitos, 1 contratista.
+- [ ] Labores: se cargan en **Maestros / Padrones (`maestros.html`) → Labores**, entrando como **admin general** (para los demás roles ese catálogo es de solo lectura). Es una sola lista global: la misma labor sirve como propia o contratada; el tipo se elige en cada trabajo de la OT. Cargar al menos: "Siembra soja", "Resiembra soja", "Pulverización" y "Fertilización". El "Precio ref." de la labor se usa como tarifa sugerida si no hay tarifa de referencia por campaña.
 - [ ] Stock inicial: una compra/ingreso con fecha **anterior** a las OT de prueba, con stock suficiente de 2 insumos y escaso de 1 (para provocar el aviso de faltante).
 - [ ] Precio unitario cargado en los insumos (solapa Maestros → Insumos de este tablero) para ver importes en Costos.
 - [ ] Usuarios: uno con nivel **ver**, uno **cargar** y uno **administrar** sobre la empresa.
@@ -44,7 +45,11 @@ Cómo usarlo: marcar cada caso con **OK** o **ERROR** y anotar al lado lo que se
 - [ ] 2.7 **Trabajo 2 — labor contratada sobre unidad de negocio:** labor contratada, elegir contratista, en C elegir la unidad de negocio y un campo. Dejar la descripción vacía y "✓ Agregar". Esperado: pide describir el trabajo. Completar la descripción y agregar. Esperado: T2 con etiqueta "… · sin lote".
 - [ ] 2.8 Labor contratada **sin** contratista. Esperado: pregunta si agregar igual.
 - [ ] 2.9 Insumo sin dosis. Esperado: aviso, no deja agregar.
-- [ ] 2.10 Labor con "resiembra" en el nombre o tildando "Sí, es resiembra". Esperado: badge "Resiembra".
+- [ ] 2.10 Resiembra:
+  - Elegir "Pulverización". Esperado: no aparece "¿Es resiembra?" (solo aparece en labores de siembra).
+  - Elegir "Siembra soja" y tildar "Sí, es resiembra". Esperado: el trabajo muestra el badge "Resiembra".
+  - Elegir "Resiembra soja" sin tildar nada. Esperado: badge "Resiembra" igual (se detecta por el nombre).
+  - En Costos, la resiembra suma al costo pero **no** a la superficie sembrada.
 - [ ] 2.11 En T1 "+ Agregar lote", sumar un tercer lote. Esperado: el lote nuevo trae la receta del trabajo.
 - [ ] 2.12 Editar en línea ha, dosis, insumo y observación de un lote ya agregado. Esperado: recalcula el requerimiento.
 - [ ] 2.13 Quitar el único lote de un trabajo (⌫). Esperado: el trabajo queda con aviso "se quedó sin lotes", no se borra solo.
