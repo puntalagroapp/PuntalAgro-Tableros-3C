@@ -281,11 +281,73 @@ tbody tr:hover td{background:#FAFBFC}
 .ot-obs{margin-top:12px;padding:10px 12px;background:var(--bg);border-radius:6px;font-size:12px;color:var(--text);min-height:40px}
 .ot-firmas{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:30px;padding-top:14px}
 .ot-firma{text-align:center;padding-top:30px;border-top:1px solid var(--text);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+/* ── Impresión de la OT (portado de client-src/2026-10-30) ── */
+#otPrint{display:none}
+.pr-doc{font-family:var(--sans);color:#000;font-size:11pt}
+.pr-hd{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:10px;gap:14px}
+.pr-num-ot{font-size:15pt;font-weight:700;letter-spacing:.5px}
+.pr-emp{font-size:10pt;color:#444}
+.pr-hd-r{text-align:right;font-size:9.5pt;line-height:1.7}
+.pr-l{color:#666;font-size:8pt;text-transform:uppercase;letter-spacing:.5px;margin-right:3px}
+.pr-obs-gral{border:1px solid #999;padding:5px 8px;margin-bottom:10px;font-size:9.5pt;background:#F7F7F7}
+.pr-obs-l{font-weight:600;font-size:8.5pt;text-transform:uppercase;color:#555;letter-spacing:.4px}
+.pr-lote{border:1.5px solid #000;margin-bottom:9px;page-break-inside:avoid;break-inside:avoid}
+.pr-lote-hd{display:flex;justify-content:space-between;align-items:center;background:#EAEDE6;border-bottom:1px solid #000;padding:5px 8px;gap:12px}
+.pr-lote-tit{font-size:11.5pt;font-weight:700}
+.pr-lote-campo{font-weight:400;color:#555;font-size:9pt}
+.pr-supapl{display:flex;align-items:center;gap:5px;font-size:8.5pt;font-weight:600;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+.pr-box{border:1.5px solid #000;width:64px;height:22px;background:#fff;display:inline-block}
+.pr-supapl .pr-box{width:120px;height:34px}
+.pr-ha{font-weight:400;text-transform:none}
+.pr-resiembra{background:#000;color:#fff;font-size:7.5pt;padding:1px 5px;margin-left:6px;border-radius:2px}
+.pr-tbl-lote{margin:0}
+.pr-fila-labor td{background:#F1F3EE;border-top:1px solid #999;border-bottom:1px solid #DDD;padding-top:4px;padding-bottom:4px}
+.pr-lote .pr-tbl-lote tbody tr:first-child td{border-top:none}
+.pr-lab{font-weight:700;text-transform:uppercase;font-size:9.5pt;letter-spacing:.3px;overflow-wrap:anywhere}
+.pr-lab-tipo{font-weight:400;text-transform:none;color:#666;font-size:8pt;margin-left:6px;letter-spacing:0}
+.pr-lab-tipo::before{content:'· '}
+.pr-vacio-ins{color:#999;font-style:italic;font-size:8.5pt}
+.pr-tbl{width:100%;border-collapse:collapse;font-size:9.5pt;table-layout:fixed}
+.pr-tbl th{text-align:left;font-size:7.5pt;text-transform:uppercase;letter-spacing:.3px;color:#555;border-bottom:1px solid #999;padding:3px 8px;font-weight:600;white-space:normal;vertical-align:bottom}
+.pr-tbl td{border-bottom:1px solid #E4E4E4;padding:3px 8px}
+.pr-tbl tr:last-child td{border-bottom:none}
+.pr-tbl th:first-child,.pr-tbl td:first-child{padding-left:10px}
+.pr-tbl th:last-child,.pr-tbl td:last-child{padding-right:10px}
+.pr-tbl-lote col.c-orden{width:74px}
+.pr-tbl-lote col.c-un{width:52px}
+.pr-tbl-lote col.c-dosis{width:88px}
+.pr-tbl-lote col.c-req{width:124px}
+.pr-orden{text-align:center}
+.pr-orden-n{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border:1.2px solid #000;border-radius:50%;font-size:8pt;font-weight:700;font-family:var(--mono)}
+.pr-fml{font-size:7.5pt;color:#666;font-weight:400;margin-left:5px;border:1px solid #CCC;padding:0 3px;border-radius:2px}
+.pr-ins{font-weight:500;padding-left:24px!important;overflow-wrap:anywhere}
+.pr-un{color:#666}
+.pr-num{text-align:right;font-family:var(--mono);white-space:nowrap}
+.pr-vacio{color:#999;font-style:italic;text-align:center;padding:5px}
+.pr-obs{padding:4px 8px;font-size:9pt;border-top:1px solid #DDD;background:#FAFAFA}
+.pr-linea{display:inline-block;border-bottom:1px solid #999;min-width:280px;height:12px}
+.pr-tot{border:1.5px solid #000;margin-top:26px;page-break-inside:avoid;break-inside:avoid}
+.pr-tot-tit{background:#EAEDE6;border-bottom:1px solid #000;padding:6px 8px;font-size:10.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.3px;text-align:center}
+.pr-tot .pr-tbl{padding:0 8px}
+.pr-tot .pr-tbl th{padding-top:5px}
+.pr-tot .pr-tbl td{padding:5px 4px}
+.pr-box-th{text-align:center}
+.pr-box-td{text-align:center}
+.pr-box-td .pr-box{width:78px;height:30px}
+.pr-firmas{display:flex;gap:26px;margin-top:26px;page-break-inside:avoid}
+.pr-firma{flex:1;font-size:8pt;color:#555;text-align:center;text-transform:uppercase;letter-spacing:.4px}
+.pr-firma-l{border-bottom:1px solid #000;height:34px;margin-bottom:3px}
+.pr-pie{display:none;position:fixed;left:13mm;right:13mm;bottom:7mm;justify-content:space-between;gap:10px;font-size:7.5pt;color:#555;border-top:0.5px solid #999;padding-top:1.6mm}
+@media print{.toast{display:none!important}}
 @media print{
-  header,.inst-bar,.fact,.no-print{display:none!important}
+  /* Al imprimir se muestra SOLO el documento de la OT. */
+  header,.inst-bar,.fact,.no-print,.page,.kpis{display:none!important}
   body{background:white}
-  main{padding:0}
-  .ot-doc{border:none;box-shadow:none;max-width:100%}
+  main{padding:0;max-width:100%}
+  #otPrint{display:block!important;padding:12mm 13mm 17mm;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+  @page{margin:0}
+  .pr-pie{display:flex!important}
+  body>footer,footer{display:none!important}
 }
 
 /* OT row del listado */
@@ -504,6 +566,36 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
 .tanda-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 6px;padding:6px 10px;background:#F4F6F1;border-radius:8px;font-size:12px}
 .mb-fuera td{background:#FDF6EF}
 .mb-fuera-sub{font-size:11px;color:var(--muted);font-weight:400}
+/* ── Labores y OT rápida (portado de client-src/2026-10-30) ── */
+.contr-caret{background:none;border:none;cursor:pointer;color:var(--green);font-size:11px;padding:0 3px;font-family:var(--mono)}
+.col-na{color:#C7CDD6;text-align:center}
+.contr-open td{background:#F7F9F5}
+.contr-sub td{border-top:none}
+.cons-inner{width:100%;border-collapse:collapse}
+.cons-inner td{border-bottom:1px solid #F0F2F4;padding:3px 8px;font-size:11.5px}
+.cons-inner tr:last-child td{border-bottom:none}
+.lr-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.lr-tbl th{font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--border);text-align:left}
+.lr-tbl th.num,.lr-tbl td.num{text-align:right;white-space:nowrap}
+.lr-tbl td{padding:6px 8px;border-bottom:1px solid #EEF0EA}
+.lr-grp td{font-weight:700;color:#3B5226;padding-top:12px;cursor:pointer;border-bottom:none}
+.lr-lab{cursor:pointer}
+.lr-lab td:first-child{padding-left:22px}
+.lr-lab:hover td,.lr-grp:hover td,.lr-sub:hover td{background:#F5F8F1}
+.lr-sub td{font-weight:600;background:#F2F5EE;cursor:pointer}
+.lr-tot td{font-weight:700;background:#E3EED9;border-top:2px solid #4A6533}
+.lr-sel td{background:#E3EED9!important;box-shadow:inset 0 0 0 1px #9DB08E}
+.lr-pct{font-size:10.5px;color:var(--muted);margin-left:2px}
+.lr-un{font-size:10.5px;color:var(--muted);font-weight:400}
+.lr-ayuda{font-size:11.5px;color:var(--muted);margin-top:8px}
+.lr-selinfo{font-size:12.5px;color:#2E3D24;margin-left:10px}
+.lr-x{border:1px solid var(--border);background:var(--card);border-radius:6px;cursor:pointer;font-size:11px;padding:1px 6px;margin-left:4px}
+.kpi-sub{font-size:11px;margin-top:2px}
+.otr-grid{display:flex;flex-direction:column;gap:12px}
+.otr-sec{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#FBFCFA}
+.otr-sec-t{font-size:11px;font-weight:700;color:#3B5226;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.ot-form-title{display:flex;align-items:center;gap:10px}
+.modal .tw{overflow-x:auto}
 .trb-chip{display:inline-block;font-size:11px;padding:1px 8px;border-radius:9px;background:#EDEFE9;color:#3B5226;margin:0 4px 2px 0;white-space:nowrap}
 
 @media (max-width:768px){
@@ -651,6 +743,7 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
   <div id="ot-list-view">
     <div class="otl-acciones">
       <button type="button" class="btn btn-primary btn-lg" onclick="abrirNuevaOT()">＋ Nueva orden de trabajo</button>
+      <button type="button" class="btn btn-lg" onclick="openOtRapida()" title="Registrar en un paso una labor que ya se hizo">⚡ OT rápida (labor ya hecha)</button>
     </div>
 
     <div class="card">
@@ -681,7 +774,7 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
     <div id="otPantHd"></div>
     <div id="otTabs" class="otp-tabs"></div>
     <div class="ot-form-wrap">
-      <div class="ot-form-title"><span class="ct-lg" id="otFormTitle">Nueva orden de trabajo</span></div>
+      <div class="ot-form-title"><span class="ct-lg" id="otFormTitle">Nueva orden de trabajo</span><button type="button" class="btn btn-sm" style="margin-left:auto" onclick="openOtRapida()" title="Registrar en un paso una labor ya realizada (en un lote o en una unidad de negocio del campo)">⚡ OT rápida (labor ya hecha)</button></div>
       <div id="otEditBanner" class="banner-warn" style="display:none;margin-top:8px"></div>
       <form id="otForm" onsubmit="saveOT(event)">
 
@@ -855,14 +948,15 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
         <input type="text" id="contrSearch" placeholder="Buscar…" oninput="renderContratistas()" style="width:130px">
         <select id="contrContrFilter" onchange="renderContratistas()"><option value="">Todos los contratistas</option></select>
         <select id="contrTipoFilter" onchange="renderContratistas()"><option value="">Propio + contratado</option><option value="LP">Solo propio</option><option value="LC">Solo contratado</option></select>
+        <select id="contrTipoLaborFilter" onchange="renderContratistas()"><option value="">Todo tipo de labor</option></select>
         <select id="contrSubactFilter" onchange="renderContratistas()"><option value="">Toda actividad</option></select>
         <select id="contrCampoFilter" onchange="renderContratistas()"><option value="">Todos los campos</option></select>
+        <select id="contrLoteFilter" onchange="renderContratistas()"><option value="">Todos los lotes</option></select>
         <select id="contrCultFilter" onchange="renderContratistas()"><option value="">Todos los cultivos</option></select>
         <select id="contrEstadoFilter" onchange="renderContratistas()"><option value="">Todo estado fact.</option><option>Sin facturar</option><option>Parcial</option><option>Facturado</option></select>
         <input type="date" id="contrDesde" onchange="renderContratistas()" title="Desde">
         <input type="date" id="contrHasta" onchange="renderContratistas()" title="Hasta">
         <button class="btn btn-sm" id="contrClearBtn" onclick="clearContrFilters()">Limpiar filtros</button>
-        <button class="btn btn-sm" onclick="descargarPdfContratistas()">⬇ Descargar PDF</button>
       </div>
     </div>
   </div>
@@ -870,26 +964,24 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
   <div class="card">
     <div class="chd" style="align-items:flex-start">
       <div>
-        <span class="ct-lg">Avance de labores por contratista</span>
+        <span class="ct-lg">Resumen por contratista</span>
         <div id="contrFiltrosActivos" class="titulo-filtros"></div>
       </div>
       <div class="tools">
-        <button class="btn btn-sm" onclick="toggleAllContrGrp()" id="contrToggleAllBtn">Colapsar todos</button>
-        <span class="leg-item"><span class="leg-sw" style="background:#7B9A6D"></span>Aplicado</span>
-        <span class="leg-item"><span class="leg-sw" style="background:#E3ECDB"></span>Pendiente</span>
+        <button class="btn btn-primary btn-barra" onclick="descargarPdfLabores()" title="Resumen y detalle de lo que se ve, con lo facturado, pagado y adeudado">📄 Reporte (PDF)</button>
       </div>
     </div>
     <div id="contrGrafico"></div>
   </div>
 
   <div class="card">
-    <div class="chd"><span class="ct-lg">Labores contratadas</span></div>
-    <div class="tw" style="max-height:520px;overflow-y:auto">
+    <div class="chd"><span class="ct-lg">Detalle por OT</span><span id="contrSelInfo" class="lr-selinfo"></span><span style="font-size:11px;color:var(--muted);margin-left:auto">la tarifa, la facturación y los pagos se cargan acá</span></div>
+    <div class="tw tw-scroll" style="max-height:520px;overflow-y:auto">
       <table>
         <thead><tr>
-          <th>Contratista</th><th>OT</th><th>Tipo labor</th><th>Campo(s)</th><th>Cultivo(s)</th>
-          <th class="num">Ha total</th><th class="num">Ha aplic.</th><th class="num">Tarifa</th><th class="num">Tarifa (otra mon.)</th><th class="num">Importe</th>
-          <th>Estado fact.</th><th class="num">Facturado</th>
+          <th>Contratista</th><th>OT</th><th>Labor</th><th>Tipo</th><th>Estado OT</th><th>Campo(s)</th><th>Cultivo(s)</th>
+          <th class="num">Ha total</th><th class="num">Ha aplic.</th><th style="text-align:center">Tarifa por ha</th><th class="num" title="La tarifa convertida a la otra moneda con el TC del mes de la OT">Equivale a</th><th class="num">Importe</th>
+          <th>Estado fact.</th><th class="num">Facturado</th><th>Pagado</th><th class="num">$ Pagado</th><th class="num">Adeudado</th>
         </tr></thead>
         <tbody id="contrBody"></tbody>
       </table>
@@ -980,6 +1072,8 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
   <span>Puntal Agro · Insumos &amp; OT · v3</span>
   <span id="fts">—</span>
 </footer>
+
+<div id="otPrint"></div>
 
 <div class="modal-bg" id="modalBg"><div class="modal" id="modalContent"></div></div>
 <div class="toast" id="toast">—</div>
@@ -2139,7 +2233,14 @@ function tipoLaborDeNombre(nombre){
   if(n.indexOf('pulv')>=0)         return 'PULVERIZACION';
   if(n.indexOf('fertiliza')>=0)    return 'FERTILIZACION';
   if(n.indexOf('cosecha')>=0)      return 'COSECHA';
-  return '';
+  if(n.indexOf('disco')>=0 || n.indexOf('rastra')>=0 || n.indexOf('rolo')>=0 || n.indexOf('desmaleza')>=0) return 'LABRANZA';
+  if(n.indexOf('corte')>=0 || n.indexOf('hilerado')>=0 || n.indexOf('enrroll')>=0 || n.indexOf('enroll')>=0 || n.indexOf('fardo')>=0) return 'FORRAJE';
+  if(n.indexOf('embolsado')>=0 || n.indexOf('extracción bolsa')>=0 || n.indexOf('extraccion bolsa')>=0) return 'GRANO';
+  if(n.indexOf('ración')>=0 || n.indexOf('racion')>=0) return 'RACION';
+  if(n.indexOf('clasificación')>=0 || n.indexOf('clasificacion')>=0) return 'ACONDICIONAMIENTO';
+  if(n.indexOf('acarreo')>=0)      return 'LOGISTICA';
+  if(n.indexOf('monitoreo')>=0 || n.indexOf('gerenciamiento')>=0) return 'SERVICIO';
+  return 'OTRO';
 }
 // La labor "Resiembra" (por nombre) es resiembra aunque no se haya tildado.
 function esLaborResiembra(laborId, tipo){ var lab=getLaborById(laborId, tipo); return !!lab && /resiembra/i.test(lab.nombre||''); }
@@ -4160,7 +4261,7 @@ function mostrarPantallaOT(){
         '<div class="ote-s">Quedó pendiente. Cuando se haga la labor, entrá a la OT y registrá lo realizado.</div>'+
         '<div class="ote-acc"><button type="button" class="btn btn-barra" onclick="abrirNuevaOT()">＋ Nueva OT</button>'+
           '<button type="button" class="btn btn-barra" onclick="otPant.recien=false; mostrarPantallaOT();">Ver la OT</button>'+
-          '<button type="button" class="btn btn-primary btn-barra" onclick="viewOT(\''+o.id+'\')">🖨 Imprimir para el campo</button></div>'+
+          '<button type="button" class="btn btn-primary btn-barra" onclick="imprimirOT(\''+o.id+'\')">🖨 Imprimir para el campo</button></div>'+
       '</div>';
     return;
   }
@@ -4204,7 +4305,7 @@ function barraNuevaOT(){
 // cada paso está abajo a la derecha.
 function barraEstadoOT(o){
   var id=o.id, est=o.estado, sigue='', acc='';
-  var imp = otPant.recien ? '' : '<button type="button" class="btn btn-barra" onclick="viewOT(\''+id+'\')">🖨 Imprimir</button>';
+  var imp = otPant.recien ? '' : '<button type="button" class="btn btn-barra" onclick="imprimirOT(\''+id+'\')">🖨 Imprimir</button>';
   var nP=nPendientesOT(o);
   if(otPant.recien || otPant.confirmada || otPant.resultado){
     return '<div class="ot-barra no-print"><div class="ot-barra-l"><span class="ot-barra-num">OT #'+o.num+'</span>'+estadoBadge(est)+'</div><div class="ot-barra-sigue"></div>'+
@@ -4377,7 +4478,7 @@ function renderOtList(){
       '<td>'+estadoBadge(o.estado)+'</td>'+
       '<td class="otl-acc" onclick="event.stopPropagation()">'+
         '<button class="btn btn-sm" onclick="abrirOT(\''+o.id+'\')">Abrir</button>'+
-        '<button class="btn btn-sm" onclick="viewOT(\''+o.id+'\')" title="Documento para imprimir">🖨</button>'+
+        '<button class="btn btn-sm" onclick="imprimirOT(\''+o.id+'\')" title="Imprimir para el campo">🖨</button>'+
         '<button class="btn btn-sm btn-danger" onclick="delOT(\''+o.id+'\')">✕</button>'+
       '</td>'+
     '</tr>';
@@ -4389,8 +4490,6 @@ function renderOtList(){
     : '<div class="empty" style="padding:20px;text-align:center">Sin órdenes emitidas todavía.</div>';
   marcarFiltrosActivos(['otSearch','otCampoFilter','otActFilter','otEstadoFilter','otDesde','otHasta'],'otClearBtn');
 }
-// Superficie del trabajo (ha de lotes, o unidades de labor de una UN).
-function haTrabajo(tr, soloAplicado){ var t=0, ds=tr.destinos||[]; for(var i=0;i<ds.length;i++){ if(soloAplicado && ds[i].estadoLote!=='Aplicado') continue; t+=soloAplicado?haAplicadaDe(ds[i]):(Number(ds[i].ha)||0); } return t; }
 // Ha de la OT sin contar dos veces un lote que está en varios trabajos.
 function otHaTotal(o){ return haDeOt(o); }
 function otHaAplicada(o){
@@ -4425,136 +4524,317 @@ function delOT(id){
   if(!pend){ terminarDelOT(); return; }
   idsComp.forEach(function(cid){ eliminarComprobanteApi(cid, function(){ if(--pend<=0) terminarDelOT(); }); });
 }
-// Del documento para imprimir vuelve a la pantalla de la OT, sin perder lo que se estaba editando.
-function volverDeDocumento(id){ if(otPant.id===id) mostrarPantallaOT(); else abrirOT(id); }
-function viewOT(id){
-  var o=null; for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===id){ o=state.ots[i]; break; }
-  if(!o) return;
-  byId('ot-list-view').style.display='none';
-  var dv=byId('ot-detail-view'); dv.style.display='';
-  var haTotal=otHaTotal(o), haApl=otHaAplicada(o);
-  var laborStr = laboresDeOt(o).join(' + ')||'—';
-  var contrStr = contratistasDeOt(o).join(', ')||'—';
-
-  // Por cada trabajo (labor), un bloque por destino (lote o UN)
-  var destBlocks='';
-  var trsV=o.trabajos||[];
-  for(var tv=0;tv<trsV.length;tv++){
-  var trV=trsV[tv], dests=trV.destinos||[];
-  destBlocks+='<div style="margin-top:18px;padding:6px 10px;background:#F4F6F1;border-radius:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
-    '<strong>T'+(tv+1)+' · '+esc(nombreLaborDeTrabajo(trV))+'</strong>'+
-    '<span class="bdg '+(trV.laborTipo==='LP'?'bg':'bv')+'">'+(trV.laborTipo==='LP'?'Propia':'Contratada')+'</span>'+
-    (trV.contratistaId?'<span class="ot-row-meta">'+esc(getContratistaNombre(trV.contratistaId))+'</span>':'')+
-    (trV.esResiembra?'<span class="bdg bn">Resiembra</span>':'')+
-    '</div>';
-  for(var d=0;d<dests.length;d++){
-    var de=dests[d], unV=esUN(de);
-    var loteNom=unV?'General del campo':nombreDestino(de);
-    var campoNom=getCampoNombre(de.campoId);
-    var lrows='';
-    var deLineas=de.lineas||[];
-    for(var j=0;j<deLineas.length;j++){
-      var ln=deLineas[j], ins=getInsumo(ln.insumoId);
-      var prevista=cantReq(de, ln);
-      var entregada=Number(ln.entregada)||0;
-      var usado=Number(ln.usado)||0, devS=Number(ln.devStock)||0, devB=Number(ln.devBaja)||0;
-      lrows+='<tr>'+
-        '<td class="tdname">'+(ins?esc(ins.nombre):'—')+'</td>'+
-        '<td>'+(ins?esc(ins.un):'—')+'</td>'+
-        '<td class="num">'+f(ln.dosis,3)+'</td>'+
-        '<td class="num">'+f(prevista,2)+'</td>'+
-        '<td class="num">'+(de.estadoLote==='Aplicado'?f(entregada,2):'—')+'</td>'+
-        '<td class="num"><strong>'+(de.estadoLote==='Aplicado'?f(usado,2):'—')+'</strong></td>'+
-        '<td class="num">'+(de.estadoLote==='Aplicado'?f(devS,2):'—')+'</td>'+
-        '<td class="num">'+(de.estadoLote==='Aplicado'?f(devB,2):'—')+'</td>'+
-        '</tr>';
+function monedaOptions(sel){
+  return '<option value="ARS"'+(sel!=='USD'?' selected':'')+'>$</option><option value="USD"'+(sel==='USD'?' selected':'')+'>U$S</option>';
+}
+/* ================================================================
+   OT RÁPIDA (portado de client-src/2026-10-30): registra en un paso una labor
+   que ya se hizo, en un lote o en una UNIDAD DE NEGOCIO de un campo. Queda la OT
+   emitida y aplicada, y descuenta del depósito lo usado.
+================================================================ */
+var otrTmp=null;
+function openOtRapida(){
+  if(!state.depositos.length){ alert('No hay depósitos cargados. Cargalos en Maestros → Depósitos.'); return; }
+  if(!otSalirSinPerder()) return;
+  var camp=(state.campaniaActivaId && campaniaExiste(state.campaniaActivaId)) ? state.campaniaActivaId : '';
+  otrTmp={campania:camp, fecha:todayISO(), campoId:'', dest:'', cultivo:'', ha:0, desc:'', laborTipo:'LP', contratistaId:'', laborId:'', tarifa:'', moneda:'ARS',
+    lineas:[{insumoId:'', cant:'', depositoId:''}]};
+  renderOtRapida();
+  byId('modalBg').classList.add('on');
+}
+function otrEsUN(){ return String(otrTmp.dest||'').indexOf('UN:')===0; }
+function otrSet(campo, val){
+  var t=otrTmp; t[campo]=val;
+  if(campo==='campoId'){ t.dest=''; t.cultivo=''; t.ha=0; }
+  if(campo==='dest' || campo==='campania'){
+    if(otrEsUN()){ t.cultivo=String(t.dest).slice(3); if(!(Number(t.ha)>0)) t.ha=1; }
+    else if(t.dest){
+      var acts=actividadesDe(t.campania, t.dest), lo=getLoteById(t.dest);
+      var ok=false; for(var a=0;a<acts.length;a++){ if(acts[a].cultivo===t.cultivo) ok=true; }
+      if(!ok) t.cultivo=acts.length?acts[0].cultivo:'';
+      t.ha = t.cultivo ? haNetaDe(t.campania, t.dest, t.cultivo) : (lo?Number(lo.ha)||0:0);
     }
-    if(!lrows) lrows='<tr><td colspan="8" class="empty">Sin insumos.</td></tr>';
-    destBlocks+='<div style="margin-top:14px">'+
-      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">'+
-        '<span class="ct" style="font-size:13px"><strong>'+esc(campoNom)+' · '+esc(loteNom)+'</strong></span>'+
-        '<span class="bdg bn">'+(de.cultivo?esc(de.cultivo):'sin cultivo')+'</span>'+
-        '<span class="ot-row-meta">'+f(de.ha,1)+(unV?' unid.':' ha')+(de.fechaAplicReal?' · aplicado '+fd(de.fechaAplicReal):'')+'</span>'+
-        estadoBadge(de.estadoLote||'Pendiente')+
+  }
+  if(campo==='cultivo' && !otrEsUN()){ var hn=haNetaDe(t.campania, t.dest, val); if(hn>0) t.ha=hn; }
+  if(campo==='laborTipo'){ t.laborId=''; if(val!=='LC') t.contratistaId=''; }
+  if(campo==='laborId' || campo==='laborTipo' || campo==='campania'){
+    if(t.laborTipo==='LP' && t.laborId){ var trf=getTarifaRef(t.laborId, t.campania); if(trf.v>0){ t.tarifa=trf.v; t.moneda=trf.m; } }
+  }
+  renderOtRapida();
+}
+function otrLin(i, campo, val){
+  var ln=otrTmp.lineas[i]; ln[campo]=val;
+  if(campo==='insumoId'){ ln.depositoId=depDefaultDeInsumo(val); }
+  if(campo!=='cant') renderOtRapida();
+}
+function otrAddLin(){ otrTmp.lineas.push({insumoId:'', cant:'', depositoId:''}); renderOtRapida(); }
+function otrDelLin(i){ otrTmp.lineas.splice(i,1); if(!otrTmp.lineas.length) otrTmp.lineas.push({insumoId:'', cant:'', depositoId:''}); renderOtRapida(); }
+function renderOtRapida(){
+  var t=otrTmp, un=otrEsUN();
+  var oc='<option value="">— Campo —</option>';
+  for(var c=0;c<state.campos.length;c++) oc+='<option value="'+state.campos[c].id+'"'+(state.campos[c].id===t.campoId?' selected':'')+'>'+esc(state.campos[c].nombre)+'</option>';
+  var od='<option value="">— Lote o unidad de negocio —</option>';
+  if(t.campoId){
+    od+='<optgroup label="Lotes">';
+    for(var l=0;l<state.lotes.length;l++){ var lo=state.lotes[l]; if(lo.campoId!==t.campoId) continue; od+='<option value="'+lo.id+'"'+(lo.id===t.dest?' selected':'')+'>'+esc(lo.nombre)+'</option>'; }
+    od+='</optgroup>';
+    var uns=opcionesCultivos(false);
+    if((state.tiposActividad||[]).length && uns.length){
+      od+='<optgroup label="Unidad de negocio (sin lote)">';
+      for(var u=0;u<uns.length;u++){ var v='UN:'+uns[u].v; od+='<option value="'+esc(v)+'"'+(v===t.dest?' selected':'')+'>'+esc(uns[u].t)+' · general del campo</option>'; }
+      od+='</optgroup>';
+    }
+  }
+  var ocu='<option value="">— Cultivo —</option>';
+  if(t.dest && !un){
+    var acts=actividadesDe(t.campania, t.dest);
+    for(var a=0;a<acts.length;a++) ocu+='<option value="'+esc(acts[a].cultivo)+'"'+(acts[a].cultivo===t.cultivo?' selected':'')+'>'+esc(acts[a].cultivo)+(acts[a].seg?' (2ª ocup.)':'')+' · '+f(acts[a].haNeta,1)+' ha</option>';
+  }
+  var arrL=t.laborTipo==='LC'?state.laboresLC:state.laboresLP, ol='<option value="">— Labor —</option>';
+  for(var s2=0;s2<arrL.length;s2++) ol+='<option value="'+esc(arrL[s2].id)+'"'+(arrL[s2].id===t.laborId?' selected':'')+'>'+esc(arrL[s2].nombre)+'</option>';
+  var oco='<option value="">— Sin contratista —</option>';
+  for(var k=0;k<state.contratistas.length;k++) oco+='<option value="'+state.contratistas[k].id+'"'+(state.contratistas[k].id===t.contratistaId?' selected':'')+'>'+esc(state.contratistas[k].nombre)+'</option>';
+  var rows='';
+  for(var i=0;i<t.lineas.length;i++){
+    var ln=t.lineas[i], ins=getInsumo(ln.insumoId);
+    var hay = ins && ln.depositoId ? stockDe(ins.id, ln.depositoId, {desde:'', hasta:t.fecha||''}).real : null;
+    var dosis = (!un && ins && Number(ln.cant)>0 && Number(t.ha)>0) ? f(Number(ln.cant)/Number(t.ha),3)+' '+esc(ins.un)+'/ha' : '';
+    rows+='<tr><td><select class="inp" style="min-width:220px" onchange="otrLin('+i+',\'insumoId\',this.value)">'+opcionesInsumoAgrupadas(ln.insumoId, '— Insumo —')+'</select></td>'+
+      '<td class="num"><input type="number" step="0.01" min="0" class="inp-num" style="width:110px" value="'+(ln.cant||'')+'" oninput="otrLin('+i+',\'cant\',this.value)" onchange="renderOtRapida()" placeholder="total usado"></td>'+
+      '<td>'+(ins?esc(ins.un):'—')+'</td>'+
+      '<td class="num" style="font-size:11px;color:var(--muted)">'+dosis+'</td>'+
+      '<td><select class="inp" style="min-width:190px" onchange="otrLin('+i+',\'depositoId\',this.value)">'+depositoOptions(ln.depositoId)+'</select></td>'+
+      '<td class="num" style="color:var(--muted);font-size:11px">'+(hay==null?'—':'había '+f(hay,1))+'</td>'+
+      '<td><button type="button" class="btn btn-sm btn-danger" onclick="otrDelLin('+i+')">✕</button></td></tr>';
+  }
+  var fb=fechaBloqueo();
+  var mc=byId('modalContent'); mc.className='modal modal-full';
+  mc.innerHTML='<h3>⚡ OT rápida · labor ya realizada</h3>'+
+    '<p style="font-size:13px;color:var(--muted);margin-bottom:12px">Para una labor que ya se hizo: la OT queda emitida y confirmada en un solo paso. '+
+      '<span class="info-i" title="Registra en un paso una labor que ya se hizo: la OT queda emitida y confirmada, y descuenta del depósito lo usado. Sirve para un lote o para una unidad de negocio del campo (por ejemplo Estructura: camino, alambrado, aguada), que no va a un lote.">i</span></p>'+
+    (fb?'<div class="banner-info">Stock cerrado al <strong>'+fd(fb)+'</strong>: la fecha tiene que ser posterior.</div>':'')+
+    '<div class="otr-grid">'+
+      '<div class="otr-sec"><div class="otr-sec-t">1 · Cuándo y dónde</div>'+
+        '<div class="form-row r4">'+
+          '<div class="fld"><label>Campaña</label><select onchange="otrSet(\'campania\',this.value)">'+campaniaOptions(t.campania,false)+'</select></div>'+
+          '<div class="fld"><label>Fecha de aplicación</label><input type="date" value="'+t.fecha+'" onchange="otrSet(\'fecha\',this.value)"></div>'+
+          '<div class="fld"><label>Campo</label><select onchange="otrSet(\'campoId\',this.value)">'+oc+'</select></div>'+
+          '<div class="fld"><label>Lote / unidad de negocio</label><select onchange="otrSet(\'dest\',this.value)">'+od+'</select></div>'+
+        '</div>'+
+        '<div class="form-row r4">'+
+          (un ? '<div class="fld" style="grid-column:span 3"><label>Descripción del trabajo (obligatoria)</label><input type="text" value="'+esc(t.desc)+'" placeholder="Camino de acceso, alambrado perimetral, aguada…" oninput="otrTmp.desc=this.value"></div>'
+              : '<div class="fld" style="grid-column:span 2"><label>Cultivo (plan de uso de la campaña)</label><select onchange="otrSet(\'cultivo\',this.value)">'+ocu+'</select></div>'+
+                '<div class="fld"><label>Observaciones</label><input type="text" value="'+esc(t.desc)+'" oninput="otrTmp.desc=this.value" placeholder="—"></div>')+
+          '<div class="fld"><label>'+(un?'Unidades de labor (ha, km, horas)':'Hectáreas trabajadas')+'</label><input type="number" step="0.01" min="0" value="'+t.ha+'" onchange="otrSet(\'ha\',this.value)"></div>'+
+        '</div>'+
       '</div>'+
-      (de.obs?'<div class="ot-row-meta" style="margin-bottom:4px">'+esc(de.obs)+'</div>':'')+
-      '<table>'+
-        '<thead><tr><th>Insumo</th><th>Un.</th><th class="num">'+(unV?'Cantidad':'Dosis/ha')+'</th><th class="num">Prevista</th><th class="num">Entregada</th><th class="num">Usada</th><th class="num">Dev. stock</th><th class="num">Dev. baja</th></tr></thead>'+
-        '<tbody>'+lrows+'</tbody>'+
-      '</table>'+
+      '<div class="otr-sec"><div class="otr-sec-t">2 · Labor</div>'+
+        '<div class="form-row r4">'+
+          '<div class="fld"><label>Tipo de labor</label><select onchange="otrSet(\'laborTipo\',this.value)"><option value="LP"'+(t.laborTipo==='LP'?' selected':'')+'>Labor propia</option><option value="LC"'+(t.laborTipo==='LC'?' selected':'')+'>Labor contratada</option></select></div>'+
+          '<div class="fld"'+(t.laborTipo==='LC'?'':' style="visibility:hidden"')+'><label>Contratista</label><select onchange="otrSet(\'contratistaId\',this.value)">'+oco+'</select></div>'+
+          '<div class="fld"><label>Labor</label><select onchange="otrSet(\'laborId\',this.value)">'+ol+'</select></div>'+
+          '<div class="fld"><label>Tarifa por '+(un?'unidad':'ha')+' <span style="font-weight:400;color:var(--muted)">(opcional)</span></label><div style="display:flex;gap:6px"><input type="number" step="0.01" min="0" value="'+t.tarifa+'" onchange="otrSet(\'tarifa\',this.value)" style="flex:1"><select onchange="otrSet(\'moneda\',this.value)" style="width:72px">'+monedaOptions(t.moneda)+'</select></div></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="otr-sec"><div class="otr-sec-t">3 · Insumos usados <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">— cantidad total que salió del depósito</span></div>'+
+        '<div class="tw"><table><thead><tr><th>Insumo</th><th class="num">Cantidad</th><th>Un.</th><th class="num">Dosis</th><th>Depósito</th><th class="num">Stock a la fecha</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+        '<button type="button" class="btn btn-sm" style="margin-top:6px" onclick="otrAddLin()">+ Agregar insumo</button>'+
+      '</div>'+
+    '</div>'+
+    '<div class="fact"><span style="flex:1"></span><button class="btn btn-barra" onclick="closeModal()">Cerrar sin guardar</button><button class="btn btn-primary btn-barra" onclick="saveOtRapida()">✓ Confirmar OT</button></div>';
+}
+function saveOtRapida(){
+  var t=otrTmp, un=otrEsUN();
+  if(!t.campania || !campaniaExiste(t.campania)){ alert('Toda OT tiene que tener una campaña.'); return; }
+  if(!t.fecha){ alert('Cargá la fecha de aplicación.'); return; }
+  if(bloqueoFecha(t.fecha,'no se pueden registrar aplicaciones')) return;
+  if(!t.campoId || !t.dest){ alert('Elegí el campo y el lote (o la unidad de negocio).'); return; }
+  if(un && !String(t.desc||'').replace(/\s/g,'')){ alert('Describí el trabajo (ej.: camino de acceso, alambrado, aguada).'); return; }
+  if(!un && !t.cultivo){ alert('Elegí el cultivo del lote (sale del plan de uso de la campaña).'); return; }
+  if(!(Number(t.ha)>0)){ alert(un?'Cargá las unidades de labor.':'Cargá las hectáreas trabajadas.'); return; }
+  if(!t.laborId){ alert('Elegí la labor.'); return; }
+  var lineas=[], falta=[];
+  for(var i=0;i<t.lineas.length;i++){
+    var ln=t.lineas[i], c=Number(ln.cant)||0;
+    if(!ln.insumoId && !c) continue;
+    if(!ln.insumoId || c<=0){ alert('Cada insumo necesita insumo y cantidad mayor a cero.'); return; }
+    if(!ln.depositoId){ alert('Elegí el depósito de cada insumo.'); return; }
+    var hay=stockDe(ln.insumoId, ln.depositoId, {desde:'', hasta:t.fecha}).real;
+    if(c>hay+0.01){ var ins=getInsumo(ln.insumoId); falta.push((ins?ins.nombre:'')+' en '+getDepositoNombreById(ln.depositoId)+': usa '+f(c,1)+', había '+f(hay,1)); }
+    lineas.push({insumoId:ln.insumoId, cant:c, depositoId:ln.depositoId});
+  }
+  if(falta.length && !confirm('⚠ Stock insuficiente a la fecha:\n\n'+falta.join('\n')+'\n\n¿Registrar igual? (el stock quedará negativo)')) return;
+  var ha=Number(t.ha)||0, tanda='tnd_'+uid(), campoId=t.campoId;
+  var dest={id:uid(), campoId:campoId, loteId: un ? loteUN(campoId) : t.dest, cultivo: un ? String(t.dest).slice(3) : t.cultivo,
+    ha:ha, haReal:ha, obs:t.desc||'', estadoLote:'Aplicado', fechaAplicReal:t.fecha, tandaId:tanda, lineas:[]};
+  for(var j=0;j<lineas.length;j++){
+    var L=lineas[j], x={insumoId:L.insumoId, dosis: un ? L.cant : L.cant/ha, depositoId:L.depositoId, entregada:L.cant, usado:L.cant, devStock:0, devBaja:0};
+    if(!un) x.dosisReal=L.cant/ha;
+    dest.lineas.push(x);
+  }
+  var trId=uid();
+  var ot={id:uid(), num:state.nextOt++, fecha:t.fecha, campaniaId:t.campania, obs:'OT rápida (labor ya realizada)', estado:'Aplicada',
+    trabajos:[{id:trId, laborId:t.laborId, laborTipo:t.laborTipo, contratistaId:t.laborTipo==='LC'?(t.contratistaId||''):'',
+      tarifa:(Number(t.tarifa)>0?Number(t.tarifa):''), tarifaMoneda:t.moneda||'ARS', esResiembra:esLaborResiembra(t.laborId, t.laborTipo),
+      estadoFact:'Sin facturar', montoFacturado:0, estadoPago:'No', montoPagado:0, plantilla:[], destinos:[dest]}]};
+  espejoLegacy(ot);
+  // El comprobante apunta al trabajo (comprobantes.ref_ot_trabajo); se manda después de crear la OT.
+  var comp=null;
+  if(dest.lineas.length){
+    comp={id:uid(), fecha:t.fecha, tipo:'Consumo OT', comp_tipo:'OT', comp_nro:'#'+ot.num, proveedorId:'', campaniaId:ot.campaniaId, obs:'Aplicación OT #'+ot.num+' (rápida)', refOt:trId, refOtNum:ot.num, refTanda:tanda};
+    state.comprobantes.push(comp);
+    for(var k=0;k<dest.lineas.length;k++){ var dl=dest.lineas[k]; state.movtos.push({id:uid(), comprobanteId:comp.id, insumoId:dl.insumoId, cant:dl.usado, origenId:dl.depositoId, destinoId:'', refDest:dest.id}); }
+  }
+  state.ots.push(ot);
+  otrTmp=null; closeModal();
+  guardarOTApi(ot, function(){
+    if(comp){ comp.comp_nro='#'+ot.num; comp.refOtNum=ot.num; comp.obs='Aplicación OT #'+ot.num+' (rápida)'; guardarComprobanteApi(comp); }
+    abrirOT(ot.id, 4, true, function(){ otPant.confirmada={n:1, pend:0}; mostrarPantallaOT(); });
+  });
+}
+
+/* ================================================================
+   IMPRESIÓN DE LA OT (portado de client-src/2026-10-30): el papel se organiza POR
+   LOTE (como se recorre el campo); debajo de cada lote, cada labor con sus insumos
+   en orden de mezclado. Los cuadros vacíos se completan a mano en el campo.
+   Sin hoja de mapa: este tablero todavía no tiene las geometrías de los lotes.
+================================================================ */
+function lineasEnOrdenMezcla(de){
+  var lns=(de.lineas||[]).slice();
+  lns.sort(function(a,b){
+    var oa=ordenMezcla(a.insumoId), ob=ordenMezcla(b.insumoId);
+    if(oa!==ob) return oa-ob;
+    var ia=getInsumo(a.insumoId), ib=getInsumo(b.insumoId);
+    return (ia?ia.nombre:'').localeCompare(ib?ib.nombre:'');
+  });
+  return lns;
+}
+function buildOtPrint(o){
+  var vista=trabajosPorLote(o);
+  var bloques='';
+  for(var i=0;i<vista.orden.length;i++){
+    var lid=vista.orden[i];
+    var pares=vista.mapa[lid];
+    var de0=pares[0].destino, un=esUN(de0);
+    var campoNom=getCampoNombre(de0.campoId);
+    var cultivo=de0.cultivo||'—';
+    var haLote=Number(de0.ha)||0;
+    var filas='';
+    for(var t=0;t<pares.length;t++){
+      var tr=pares[t].trabajo, de=pares[t].destino;
+      var haTr=Number(de.ha)||0;
+      filas+='<tr class="pr-fila-labor">'+
+        '<td class="pr-lab">'+esc(nombreLaborDeTrabajo(tr))+
+          '<span class="pr-lab-tipo">'+(tr.laborTipo==='LP'?'propia':'contratada')+
+          (tr.contratistaId?(' · '+esc(getContratistaNombre(tr.contratistaId))):'')+'</span>'+
+          (tr.esResiembra?'<span class="pr-resiembra">RESIEMBRA</span>':'')+
+        '</td>'+
+        '<td class="pr-orden"></td>'+
+        '<td class="pr-un">'+(un?'unid.':'ha')+'</td>'+
+        '<td class="pr-num">—</td>'+
+        '<td class="pr-num"><strong>'+f(haTr,2)+'</strong></td>'+
+        '</tr>';
+      var lns=lineasEnOrdenMezcla(de), hayIns=false, nOrden=0;
+      for(var j=0;j<lns.length;j++){
+        var ln=lns[j], ins=getInsumo(ln.insumoId);
+        if(!ins) continue;
+        hayIns=true; nOrden++;
+        var fml=labelFormulacion(ln.insumoId);
+        filas+='<tr>'+
+          '<td class="pr-ins">'+esc(ins.nombre)+(fml?('<span class="pr-fml">'+esc(fml)+'</span>'):'')+(ln.depositoId?'<span class="pr-lab-tipo">'+esc(getDepositoNombreById(ln.depositoId))+'</span>':'')+'</td>'+
+          '<td class="pr-orden"><span class="pr-orden-n">'+nOrden+'</span></td>'+
+          '<td class="pr-un">'+esc(ins.un||'')+'</td>'+
+          '<td class="pr-num">'+(un?'—':f(ln.dosis,3))+'</td>'+
+          '<td class="pr-num"><strong>'+f(cantReq(de, ln),2)+'</strong></td>'+
+          '</tr>';
+      }
+      if(!hayIns) filas+='<tr><td class="pr-ins pr-vacio-ins">— sin insumos —</td><td colspan="4"></td></tr>';
+    }
+    var laborBlocks='<table class="pr-tbl pr-tbl-lote">'+
+      '<colgroup><col><col class="c-orden"><col class="c-un"><col class="c-dosis"><col class="c-req"></colgroup>'+
+      '<thead><tr><th>Insumo / Labor</th><th class="pr-orden" title="Orden de agregado al tanque">Orden tanque</th><th>Un.</th><th class="pr-num">'+(un?'—':'Dosis/ha')+'</th><th class="pr-num">Requerimiento total</th></tr></thead>'+
+      '<tbody>'+filas+'</tbody>'+
+    '</table>';
+    var obsLote=[];
+    for(var q=0;q<pares.length;q++){ if(pares[q].destino.obs) obsLote.push(pares[q].destino.obs); }
+    var tit = un ? ('General del campo <span class="pr-lote-campo">'+esc(campoNom)+'</span> — '+esc(cultivo)+' — '+f(haLote,1)+' unid.')
+                 : (esc(nombreDestino(de0))+' <span class="pr-lote-campo">'+esc(campoNom)+'</span> — '+esc(cultivo)+' — '+f(haLote,1)+' ha');
+    bloques+='<div class="pr-lote">'+
+      '<div class="pr-lote-hd">'+
+        '<div class="pr-lote-tit">'+tit+'</div>'+
+        '<div class="pr-supapl"><span>'+(un?'UNID. REALES':'SUP. APLICADA')+'</span><div class="pr-box"></div><span class="pr-ha">'+(un?'':'ha')+'</span></div>'+
+      '</div>'+
+      laborBlocks+
+      '<div class="pr-obs"><span class="pr-obs-l">'+(un?'Trabajo:':'Obs. del lote:')+'</span> '+(obsLote.length?esc(obsLote.join(' · ')):'<span class="pr-linea"></span>')+'</div>'+
     '</div>';
   }
-  }
-
-  // Total de insumos de la orden, ordenado por formulación (orden de
-  // mezclado en el tanque) — portado del rediseño del cliente.
-  var totIns={}, paresTot=destinosDeOt(o);
-  for(var dt=0;dt<paresTot.length;dt++){
-    var lnsT=paresTot[dt].destino.lineas||[];
-    for(var jt=0;jt<lnsT.length;jt++) totIns[lnsT[jt].insumoId]=(totIns[lnsT[jt].insumoId]||0)+cantReq(paresTot[dt].destino, lnsT[jt]);
+  var totIns={}, pares2=destinosDeOt(o);
+  for(var d2=0;d2<pares2.length;d2++){
+    var lns2=pares2[d2].destino.lineas||[];
+    for(var j2=0;j2<lns2.length;j2++) totIns[lns2[j2].insumoId]=(totIns[lns2[j2].insumoId]||0)+cantReq(pares2[d2].destino, lns2[j2]);
   }
   var idsTot=[];
-  for(var iidT in totIns){ if(totIns.hasOwnProperty(iidT) && getInsumo(iidT)) idsTot.push(iidT); }
+  for(var iid in totIns){ if(totIns.hasOwnProperty(iid) && getInsumo(iid)) idsTot.push(iid); }
   idsTot.sort(function(a,b){ var oa=ordenMezcla(a), ob=ordenMezcla(b); if(oa!==ob) return oa-ob; return getInsumo(a).nombre.localeCompare(getInsumo(b).nombre); });
   var totRows='';
-  for(var ti=0;ti<idsTot.length;ti++){
-    var iid=idsTot[ti], insT=getInsumo(iid), fmlT=labelFormulacion(iid);
-    totRows+='<tr><td class="tdname">'+esc(insT.nombre)+(fmlT?' <span class="bdg bn">'+esc(fmlT)+'</span>':'')+'</td>'+
-      '<td>'+esc(insT.un||'')+'</td><td class="num"><strong>'+f(totIns[iid],2)+'</strong></td></tr>';
+  for(var ti2=0;ti2<idsTot.length;ti2++){
+    var iid2=idsTot[ti2], insT=getInsumo(iid2), fmlT=labelFormulacion(iid2);
+    totRows+='<tr>'+
+      '<td class="pr-ins">'+esc(insT.nombre)+(fmlT?('<span class="pr-fml">'+esc(fmlT)+'</span>'):'')+'</td>'+
+      '<td class="pr-un">'+esc(insT.un||'')+'</td>'+
+      '<td class="pr-num"><strong>'+f(totIns[iid2],2)+'</strong></td>'+
+      '<td class="pr-box-td"><div class="pr-box"></div></td>'+
+      '<td class="pr-box-td"><div class="pr-box"></div></td>'+
+      '</tr>';
   }
-  if(!totRows) totRows='<tr><td colspan="3" class="empty">Sin insumos.</td></tr>';
-  var totalBlock='<div style="margin-top:16px">'+
-      '<div style="font-weight:600;margin-bottom:4px">Total de insumos de la orden'+
-        (hayFormulaciones()?'':' <span style="font-weight:400;color:var(--muted)">(sin formulaciones cargadas en Maestros: orden alfabético)</span>')+
-      '</div>'+
-      '<table><thead><tr><th>Insumo</th><th>Un.</th><th class="num">Requerimiento total</th></tr></thead><tbody>'+totRows+'</tbody></table>'+
-    '</div>';
-
-  dv.innerHTML=
-    '<div class="no-print" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
-      '<button class="btn" onclick="volverDeDocumento(\''+o.id+'\')">← Volver a la OT</button>'+
-      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
-        '<button class="btn" onclick="marcarImpresa(\''+o.id+'\')">🖨 Imprimir</button>'+
-
+  if(!totRows) totRows='<tr><td colspan="5" class="pr-vacio">— sin insumos —</td></tr>';
+  return '<div class="pr-doc">'+
+    '<div class="pr-hd">'+
+      '<div><div class="pr-num-ot">ORDEN DE TRABAJO #'+o.num+'</div>'+
+        '<div class="pr-emp">'+esc((root.espacios[root.activoId]&&root.espacios[root.activoId].nombre)||'')+'</div></div>'+
+      '<div class="pr-hd-r">'+
+        '<div><span class="pr-l">Fecha</span> '+fd(o.fecha)+'</div>'+
+        '<div><span class="pr-l">Campaña</span> '+esc(getCampaniaNombre(o.campaniaId)||'—')+'</div>'+
+        '<div><span class="pr-l">Lotes</span> '+lotesDeOt(o).length+' · '+f(haDeOt(o),1)+' ha</div>'+
       '</div>'+
     '</div>'+
-
-    '<div class="ot-doc">'+
-      '<div class="ot-h">'+
-        '<div class="ot-h-l">'+
-          '<h2>Orden de Trabajo</h2>'+
-          '<p>'+esc((root.espacios[root.activoId]&&root.espacios[root.activoId].nombre)||'—')+' · Campaña '+esc(getCampaniaNombre(o.campaniaId)||'—')+'</p>'+
-        '</div>'+
-        '<div class="ot-h-r">'+
-          '<div class="ot-num">OT #'+o.num+'</div>'+
-          '<div>'+fd(o.fecha)+'</div>'+
-          '<div>'+estadoBadge(o.estado)+'</div>'+
-        '</div>'+
-      '</div>'+
-      '<div class="ot-meta">'+
-        '<div class="ot-meta-i"><div class="l">Labores</div><div class="v">'+esc(laborStr)+'</div></div>'+
-        '<div class="ot-meta-i"><div class="l">Contratista</div><div class="v">'+esc(contrStr)+'</div></div>'+
-        '<div class="ot-meta-i"><div class="l">Lotes</div><div class="v">'+lotesDeOt(o).length+'</div></div>'+
-        '<div class="ot-meta-i"><div class="l">Ha totales</div><div class="v">'+f(haTotal,2)+'</div></div>'+
-        '<div class="ot-meta-i"><div class="l">Ha aplicadas</div><div class="v">'+f(haApl,2)+'</div></div>'+
-      '</div>'+
-
-      destBlocks+
-
-      totalBlock+
-
-      (o.obs ? '<div class="ot-obs" style="margin-top:12px"><strong>Observaciones:</strong> '+esc(o.obs)+'</div>' : '')+
-
-      '<div class="ot-firmas">'+
-        '<div class="ot-firma">Entregador</div>'+
-        '<div class="ot-firma">Recibidor / Operario</div>'+
-      '</div>'+
+    (o.obs?'<div class="pr-obs-gral"><span class="pr-obs-l">Observaciones generales:</span> '+esc(o.obs)+'</div>':'')+
+    '<div class="pr-obs-gral"><span class="pr-obs-l">Orden de mezclado:</span> los insumos de cada labor están listados en el orden en que van al tanque (columna "Orden tanque"), según su formulación.'+(hayFormulaciones()?'':' <em>Atención: no hay formulaciones cargadas en Maestros; el orden es alfabético.</em>')+'</div>'+
+    bloques+
+    '<div class="pr-tot">'+
+      '<div class="pr-tot-tit">Total de insumos de la orden</div>'+
+      '<table class="pr-tbl">'+
+        '<colgroup><col><col style="width:52px"><col style="width:124px"><col style="width:104px"><col style="width:104px"></colgroup>'+
+        '<thead><tr><th>Insumo</th><th>Un.</th><th class="pr-num">Requerimiento total</th><th class="pr-box-th">Entregado</th><th class="pr-box-th">Devolución</th></tr></thead>'+
+        '<tbody>'+totRows+'</tbody>'+
+      '</table>'+
     '</div>'+
-
-''; 
-
-  byId('ot-pantalla').style.display='none';
+    '<div class="pr-firmas">'+
+      '<div class="pr-firma"><div class="pr-firma-l"></div>Fecha de aplicación</div>'+
+      '<div class="pr-firma"><div class="pr-firma-l"></div>Firma del operario</div>'+
+      '<div class="pr-firma"><div class="pr-firma-l"></div>Firma del responsable</div>'+
+    '</div>'+
+    '<div class="pr-pie"><span>Puntal Agro · '+esc((root.espacios[root.activoId]&&root.espacios[root.activoId].nombre)||'')+'</span><span>OT #'+o.num+' · impresa el '+fd(todayISO())+'</span></div>'+
+  '</div>';
 }
+// Arma el documento en el contenedor de impresión y abre el diálogo del navegador.
+function imprimirOT(otId){
+  var o=getOtById(otId); if(!o) return;
+  var cont=byId('otPrint'); if(!cont) return;
+  // Se imprime lo guardado: si en pantalla hay cambios sin guardar, primero se guardan.
+  if(otPant.id===otId && otPant.modo==='editar' && otHayCambios()){
+    if(!confirm('Hay cambios sin guardar en la orden.\n\nPara imprimirla como está en pantalla, primero se guardan. ¿Guardarlos ahora?')) return;
+    saveOT(null);
+    if(otHayCambios()) return;
+    o=getOtById(otId);
+  }
+  cont.innerHTML=buildOtPrint(o);
+  if(!o.impresa){ o.impresa=true; guardarOTApi(o); }
+  toast('Sin hoja de mapa: faltan las geometrías de los lotes');
+  window.print();
+}
+// La ficha que se usaba para ver una OT ahora es la pantalla de ventanas.
+function viewOT(id){ abrirOT(id, 4, true); }
 
 // ===== Registrar lo realizado (ventana 4) — portado de client-src/2026-10-30 =====
 // Dos pasos: (a) qué se hizo — por destino: Se hizo / Queda pendiente / No se hace, con
@@ -5104,21 +5384,13 @@ function tablaRealizado(items, cls){
   }
   return '<div class="tw"><table class="real-tbl '+(cls||'')+'"><thead><tr><th>Fecha</th><th>Lote · labor</th><th class="num">Superficie</th><th>Insumo</th><th class="num">Dosis real</th><th class="num">Plan</th><th class="num">Consumido</th>'+(hayBaja?'<th class="num">Baja</th>':'')+'</tr></thead><tbody>'+filas+'</tbody></table></div>';
 }
-// Importe aplicado de un trabajo, en ARS: Σ superficie real × tarifa (TC de la fecha de la OT).
-function importeTrabajoARS(o, tr){
-  var t=0, ds=tr.destinos||[];
-  for(var i=0;i<ds.length;i++){ var de=ds[i]; if(de.estadoLote!=='Aplicado') continue;
-    var tar=tarifaDe(tr, de); if(tarifaMonedaDe(tr, de)==='USD') tar=tar*tcDeFecha(o.fecha||'');
-    t+=haAplicadaDe(de)*tar; }
-  return t;
-}
 // Si cambia lo aplicado de una labor contratada, lo marcado Facturado / Pagado en su
 // totalidad pasa a Parcial cuando el importe ya supera lo facturado / pagado.
 function reevaluarFacturacion(o){
   var trs=(o&&o.trabajos)||[];
   for(var t=0;t<trs.length;t++){
     var tr=trs[t]; if(tr.laborTipo!=='LC') continue;
-    var imp=importeTrabajoARS(o, tr);
+    var imp=importeTrabajoARS(o, tr); if(imp==null) continue;
     if(tr.estadoFact==='Facturado' && imp>(Number(tr.montoFacturado)||0)+0.5) tr.estadoFact='Parcial';
     if(tr.estadoPago==='Sí' && imp>(Number(tr.montoPagado)||0)+0.5) tr.estadoPago='Parcial';
   }
@@ -5465,11 +5737,6 @@ function corregirTanda(otId, tandaId){
   otTrasAccion(otId, 4);
   toast('Aplicación deshecha: corregí y confirmá');
 }
-function marcarImpresa(otId){
-  var o=getOtById(otId);
-  if(o && !o.impresa){ o.impresa=true; guardarOTApi(o); }
-  window.print();
-}
 
 function cancelOT(otId){
   if(!confirm('¿Cancelar esta OT? Los movimientos ya generados se mantienen.')) return;
@@ -5649,290 +5916,347 @@ function clearContrFilters(){
   byId('contrSearch').value='';
   byId('contrContrFilter').value=''; byId('contrTipoFilter').value=''; byId('contrSubactFilter').value='';
   byId('contrCampoFilter').value=''; byId('contrCultFilter').value=''; byId('contrEstadoFilter').value='';
+  var clf=byId('contrLoteFilter'); if(clf) clf.value='';
+  var ctl2=byId('contrTipoLaborFilter'); if(ctl2) ctl2.value='';
   byId('contrDesde').value=''; byId('contrHasta').value='';
   renderContratistas();
 }
-var ETIQUETA_PROPIO='Labor propia (sin contratista)';
-// Devuelve los TRABAJOS (propios + contratados) que pasan los filtros. Cada uno = una fila:
-// labor, contratista, tarifa y facturación son del trabajo, no de la OT.
+/* ================================================================
+   LABORES (pantalla Contratistas) — portado de client-src/2026-10-30:
+   resumen por contratista y labor, detalle por trabajo con tarifa (también por
+   lote), facturación y pagos, y el reporte de labores en PDF.
+================================================================ */
+var TIPOS_LABOR = [
+  {v:'SIEMBRA',          t:'Siembra'},
+  {v:'PULVERIZACION',    t:'Pulverización'},
+  {v:'FERTILIZACION',    t:'Fertilización'},
+  {v:'LABRANZA',         t:'Labranza'},
+  {v:'COSECHA',          t:'Cosecha'},
+  {v:'FORRAJE',          t:'Forraje'},
+  {v:'GRANO',            t:'Manejo de grano'},
+  {v:'RACION',           t:'Ración'},
+  {v:'ACONDICIONAMIENTO',t:'Acondicionamiento'},
+  {v:'LOGISTICA',        t:'Logística'},
+  {v:'SERVICIO',         t:'Servicio'},
+  {v:'OTRO',             t:'Otro'}
+];
+function labelTipoLabor(codigo){
+  for(var i=0;i<TIPOS_LABOR.length;i++) if(TIPOS_LABOR[i].v===codigo) return TIPOS_LABOR[i].t;
+  return codigo||'—';
+}
+function tipoLaborDeTrabajo(tr){
+  if(!tr) return '';
+  var lab=getLaborById(tr.laborId, tr.laborTipo);
+  if(lab && lab.tipo) return lab.tipo;
+  return tipoLaborDeNombre(lab ? lab.nombre : '');
+}
+function fillSelect(id, placeholder, opts){
+  var sel=byId(id); if(!sel) return '';
+  var cur=sel.value, vale=false;
+  for(var i=0;i<opts.length;i++){ if(opts[i].v===cur){ vale=true; break; } }
+  var html='<option value="">'+esc(placeholder)+'</option>';
+  for(var j=0;j<opts.length;j++){ html+='<option value="'+esc(opts[j].v)+'">'+esc(opts[j].t)+'</option>'; }
+  sel.innerHTML=html;
+  sel.value = vale ? cur : '';
+  return sel.value;
+}
+function lotesDeCampo(campoId){
+  var out=[];
+  for(var i=0;i<state.lotes.length;i++){ var l=state.lotes[i]; if(campoId && l.campoId!==campoId) continue; out.push({v:l.id, t:l.nombre}); }
+  return out;
+}
+function opcionesCampos(){ var out=[]; for(var i=0;i<state.campos.length;i++) out.push({v:state.campos[i].id, t:state.campos[i].nombre}); return out; }
+// Valoriza una tarifa de labor (por ha o por unidad). ars/usd null si falta el TC.
+function valorizarTarifa(tarifa, moneda, cant, fecha){
+  var out={ars:null, usd:null, sinTC:false};
+  var base=(Number(tarifa)||0)*(Number(cant)||0);
+  if(base<=0){ out.ars=0; out.usd=0; return out; }
+  var tc=tcDeFecha(fecha);
+  if(moneda==='USD'){ out.usd=base; out.ars= tc ? base*tc : null; }
+  else { out.ars=base; out.usd= tc ? base/tc : null; }
+  if(!tc) out.sinTC=true;
+  return out;
+}
+function faltaTCBtn(){ return '<span class="bdg-falta" title="Hay aplicaciones con tarifa en otra moneda en un mes que no tiene tipo de cambio cargado (Maestros → Tipo de cambio): ese importe no se puede pasar a pesos.">falta TC</span>'; }
+// Las labores propias no tienen contratista, pero SÍ tienen tarifa y costo.
+var ETIQUETA_PROPIO='Propia';
+// Labor contratada a la que todavía no se le asignó el contratista: es un dato que falta.
+var ETIQUETA_LC_SIN='Contratada — falta contratista';
+// Una fila por TRABAJO (es la unidad que se paga). El importe se calcula por destino,
+// porque la tarifa del trabajo puede estar pisada en un lote.
 function contrFilasFiltradas(){
   var fContr=byId('contrContrFilter').value, fTipo=byId('contrTipoFilter').value, fSub=byId('contrSubactFilter').value;
   var fCamp=byId('contrCampoFilter').value, fCult=byId('contrCultFilter').value;
+  var fLote=byId('contrLoteFilter')?byId('contrLoteFilter').value:'';
   var fEst=byId('contrEstadoFilter').value, fd1=byId('contrDesde').value, fh=byId('contrHasta').value;
+  var fTipoLabor=byId('contrTipoLaborFilter')?byId('contrTipoLaborFilter').value:'';
   var q=(byId('contrSearch').value||'').toLowerCase();
+  var fcampania=state.campaniaActivaId||'';
   var filas=[];
   for(var i=0;i<state.ots.length;i++){
     var o=state.ots[i];
     if(o.estado==='Cancelada') continue;
-    if(fd1 && (o.fecha||'')<fd1) continue;
-    if(fh && (o.fecha||'')>fh) continue;
+    if(fcampania && (o.campaniaId||'')!==fcampania) continue;
     var trs=o.trabajos||[];
     for(var t=0;t<trs.length;t++){
       var tr=trs[t];
       if(fTipo && tr.laborTipo!==fTipo) continue;
       if(fContr && tr.contratistaId!==fContr) continue;
-      if(fEst && (tr.estadoFact||'Sin facturar')!==fEst) continue;
       var laborNom=nombreLaborDeTrabajo(tr);
       if(fSub && laborNom!==fSub) continue;
-      var dests=tr.destinos||[];
-      var camposSet={}, cultSet={}, subSet={};
-      var haTot=0, haApl=0, hayDest=false;
-      for(var d=0;d<dests.length;d++){
-        var de=dests[d];
-        if(fCamp && de.campoId!==fCamp) continue;
-        if(fCult && de.cultivo!==fCult) continue;
+      if(fTipoLabor && tipoLaborDeTrabajo(tr)!==fTipoLabor) continue;
+      if(fEst && (tr.estadoFact||'Sin facturar')!==fEst) continue;
+      var camposSet={}, cultSet={}, lotes=[], un=trabajoEsUN(tr);
+      var haTot=0, haApl=0, hayDest=false, imp={ars:0, usd:0, sinTC:0}, excluidos=0, ocultos=0, aplSinTarifa=0;
+      var ds=tr.destinos||[];
+      for(var d=0;d<ds.length;d++){
+        var de=ds[d];
+        if(!destinoVisible(de)){ ocultos++; excluidos++; continue; }
+        var fDe=de.fechaAplicReal||o.fecha||'';
+        if((fCamp && de.campoId!==fCamp) || (fLote && de.loteId!==fLote) || (fCult && de.cultivo!==fCult) || (fd1 && fDe<fd1) || (fh && fDe>fh)){ excluidos++; continue; }
         hayDest=true;
         if(de.campoId) camposSet[de.campoId]=true;
         if(de.cultivo) cultSet[de.cultivo]=true;
-        var hh=Number(de.ha)||0;
-        if(!subSet[laborNom]) subSet[laborNom]={tot:0,apl:0};
-        subSet[laborNom].tot+=hh;
+        var hh=Number(de.ha)||0, haR=haAplicadaDe(de);
         haTot+=hh;
-        if(de.estadoLote==='Aplicado'){ subSet[laborNom].apl+=haAplicadaDe(de); haApl+=haAplicadaDe(de); }
+        if(de.estadoLote==='Aplicado'){
+          haApl+=haR;
+          if(!(tarifaDe(tr, de)>0)) aplSinTarifa++;
+          var v=valorizarTarifa(tarifaDe(tr, de), tarifaMonedaDe(tr, de), haR, de.fechaAplicReal||o.fecha||'');
+          if(v.ars==null) imp.sinTC++; else imp.ars+=v.ars;
+        }
+        lotes.push({destino:de, trabajo:tr});
       }
       if(!hayDest) continue;
       var camposNom=[]; for(var ck in camposSet){ if(camposSet.hasOwnProperty(ck)) camposNom.push(getCampoNombre(ck)); }
       var cultNom=[]; for(var uk in cultSet){ if(cultSet.hasOwnProperty(uk)) cultNom.push(uk); }
-      var contrNom = tr.contratistaId ? getContratistaNombre(tr.contratistaId) : ETIQUETA_PROPIO;
-      var tarifa=Number(tr.tarifa)||0;
-      var tarMon=tr.tarifaMoneda||'ARS';
-      var tcRef=tcDeFecha(o.fecha||'');
-      var tarifaARS = (tarMon==='USD') ? tarifa*tcRef : tarifa;
-      var importe=importeTrabajoARS(o, tr);
-      var tarifaOtraTxt;
-      if(tarMon==='USD'){ tarifaOtraTxt = '$ '+f(tarifa*tcRef,0)+'/ha'; }
-      else { tarifaOtraTxt = tcRef>0 ? ('U$S '+f(tarifa/tcRef,2)+'/ha') : '—'; }
-      if(tarifa<=0) tarifaOtraTxt='—';
+      var contrNom;
+      if(tr.contratistaId) contrNom=getContratistaNombre(tr.contratistaId);
+      else if(tr.laborTipo==='LC') contrNom=ETIQUETA_LC_SIN;
+      else contrNom=ETIQUETA_PROPIO;
       if(q){
-        var hay='OT'+o.num+' '+contrNom+' '+laborNom+' '+camposNom.join(' ')+' '+cultNom.join(' ');
+        var hay='OT'+o.num+' #'+o.num+' '+contrNom+' '+laborNom+' '+camposNom.join(' ')+' '+cultNom.join(' ');
         if(hay.toLowerCase().indexOf(q)<0) continue;
       }
-      filas.push({o:o, tr:tr, laborNom:laborNom, contrNom:contrNom, camposNom:camposNom, cultNom:cultNom, haTot:haTot, haApl:haApl, subSet:subSet, tarifa:tarifa, tarifaARS:tarifaARS, tarifaOtraTxt:tarifaOtraTxt, importe:importe, esPropio:!tr.contratistaId});
+      var tarifaBase=Number(tr.tarifa)||0, tarMon=tr.tarifaMoneda||'ARS', tcRef=tcDeFecha(o.fecha||'');
+      var uSuf=un?'/unid.':'/ha', tarifaOtraTxt='—';
+      if(tarifaBase>0 && tcRef) tarifaOtraTxt = tarMon==='USD' ? ('$ '+f(tarifaBase*tcRef,0)+uSuf) : ('U$S '+f(tarifaBase/tcRef,2)+uSuf);
+      else if(tarifaBase>0) tarifaOtraTxt='<span title="Falta el TC del mes de la OT">s/TC</span>';
+      var hayOverride=false;
+      for(var ov=0;ov<lotes.length;ov++){ var dOv=lotes[ov].destino; if(dOv.tarifa!==undefined && dOv.tarifa!==null && dOv.tarifa!==''){ hayOverride=true; break; } }
+      var importe = imp.sinTC ? null : imp.ars;
+      // Facturado y pagado son del trabajo entero: si los filtros dejan afuera lotes, se toma
+      // la parte proporcional al importe que queda, para que la fila cierre.
+      var share=1;
+      if(excluidos){ var tot=importeTrabajo(o, tr).ars; share = (tot>0 && importe!=null) ? importe/tot : (tot>0?0:1); }
+      var facturado=(tr.estadoFact==='Sin facturar'||!tr.estadoFact) ? 0 : (Number(tr.montoFacturado)||0)*share;
+      var pagado=(Number(tr.montoPagado)||0)*share, estPago=tr.estadoPago||'No';
+      var adeudado = importe==null ? null : Math.max(0, importe-pagado);
+      var subSet={}; if(!un) subSet[laborNom]={tot:haTot, apl:haApl};
+      filas.push({o:o, trabajo:tr, ti:t, laborNom:laborNom, tipoLabor:tipoLaborDeTrabajo(tr), esUN:un,
+        contrNom:contrNom, camposNom:camposNom, cultNom:cultNom, lotes:lotes, subSet:subSet,
+        haTot:haTot, haApl:haApl, tarifa:tarifaBase, tarifaOtraTxt:tarifaOtraTxt, hayOverride:hayOverride,
+        importe:importe, importeParcial:imp.ars, sinTC:imp.sinTC, pagado:pagado, facturado:facturado, estPago:estPago, adeudado:adeudado,
+        parcialFiltro:excluidos>0, ocultos:ocultos, sinTarifa:aplSinTarifa,
+        esPropio:tr.laborTipo==='LP'});
     }
   }
   return filas;
 }
+// Importe de un trabajo sobre lo APLICADO: superficie real × tarifa del lote, con el TC del
+// mes de cada aplicación. ars/usd quedan null si a alguna aplicación le falta el TC.
+function importeTrabajo(o, tr){
+  var r={ars:0, usd:0, sinTC:0, haApl:0, unApl:0};
+  var ds=tr.destinos||[];
+  for(var i=0;i<ds.length;i++){
+    var de=ds[i]; if(de.estadoLote!=='Aplicado') continue;
+    var haR=haAplicadaDe(de);
+    if(esUN(de)) r.unApl+=haR; else r.haApl+=haR;
+    var v=valorizarTarifa(tarifaDe(tr, de), tarifaMonedaDe(tr, de), haR, de.fechaAplicReal||o.fecha||'');
+    if(v.ars==null || v.usd==null) r.sinTC++;
+    if(r.ars!=null){ if(v.ars==null) r.ars=null; else r.ars+=v.ars; }
+    if(r.usd!=null){ if(v.usd==null) r.usd=null; else r.usd+=v.usd; }
+  }
+  return r;
+}
+function importeTrabajoARS(o, tr){ return importeTrabajo(o, tr).ars; }
+// Si el trabajo ya está marcado Facturado / Pagado, el monto sigue al importe cuando cambia la tarifa.
+function sincronizarMontosTrabajo(o, tr){
+  var imp=importeTrabajoARS(o, tr);
+  if(imp==null) return;
+  if(tr.estadoFact==='Facturado') tr.montoFacturado=imp;
+  if(tr.estadoPago==='Sí') tr.montoPagado=imp;
+}
+// Estado de un trabajo según sus lotes: Pendiente / Parcial / Aplicada.
+function estadoTrabajo(tr){
+  var ds=tr.destinos||[];
+  if(!ds.length) return 'Pendiente';
+  var apl=0;
+  for(var i=0;i<ds.length;i++) if(ds[i].estadoLote==='Aplicado') apl++;
+  return apl===0 ? 'Pendiente' : (apl===ds.length ? 'Aplicada' : 'Parcial');
+}
+var contrExpand={};
+function toggleContrTrabajo(key){ contrExpand[key]=!contrExpand[key]; renderContratistas(); }
 function renderContratistas(){
-  // Poblar select de contratistas
   var cs=byId('contrContrFilter'), curC=cs.value;
   cs.innerHTML='<option value="">Todos los contratistas</option>';
   for(var i=0;i<state.contratistas.length;i++) cs.innerHTML+='<option value="'+state.contratistas[i].id+'"'+(state.contratistas[i].id===curC?' selected':'')+'>'+esc(state.contratistas[i].nombre)+'</option>';
-  // Poblar select de subactividad (de los destinos de todas las OT no canceladas)
   var ss=byId('contrSubactFilter'), curS=ss.value;
   var subGlob={};
-  for(var k=0;k<state.ots.length;k++){ if(state.ots[k].estado==='Cancelada') continue; var tk=state.ots[k].trabajos||[]; for(var d0=0;d0<tk.length;d0++){ subGlob[nombreLaborDeTrabajo(tk[d0])]=true; } }
+  for(var k=0;k<state.ots.length;k++){ if(state.ots[k].estado==='Cancelada') continue; var trsG=state.ots[k].trabajos||[]; for(var qg=0;qg<trsG.length;qg++){ var sn=nombreLaborDeTrabajo(trsG[qg]); if(sn && sn!=='—') subGlob[sn]=true; } }
   ss.innerHTML='<option value="">Toda actividad</option>';
   var subKeys=[]; for(var sk in subGlob){ if(subGlob.hasOwnProperty(sk)) subKeys.push(sk); } subKeys.sort();
   for(var ski=0;ski<subKeys.length;ski++) ss.innerHTML+='<option'+(subKeys[ski]===curS?' selected':'')+'>'+esc(subKeys[ski])+'</option>';
-  // Poblar campos
-  var caS=byId('contrCampoFilter'), curCa=caS.value;
-  caS.innerHTML='<option value="">Todos los campos</option>';
-  for(var c2=0;c2<state.campos.length;c2++) caS.innerHTML+='<option value="'+state.campos[c2].id+'"'+(state.campos[c2].id===curCa?' selected':'')+'>'+esc(state.campos[c2].nombre)+'</option>';
-  // Poblar cultivos
+  var tlSet={};
+  for(var kt=0;kt<state.ots.length;kt++){
+    if(state.ots[kt].estado==='Cancelada') continue;
+    var trsT=state.ots[kt].trabajos||[];
+    for(var qt=0;qt<trsT.length;qt++){ var tp=tipoLaborDeTrabajo(trsT[qt]); if(tp) tlSet[tp]=true; }
+  }
+  var optsTLc=[];
+  for(var zt=0;zt<TIPOS_LABOR.length;zt++){ if(tlSet[TIPOS_LABOR[zt].v]) optsTLc.push(TIPOS_LABOR[zt]); }
+  fillSelect('contrTipoLaborFilter','Todo tipo de labor', optsTLc);
+  var fCampoCo=fillSelect('contrCampoFilter','Todos los campos', opcionesCampos());
+  fillSelect('contrLoteFilter','Todos los lotes', lotesDeCampo(fCampoCo));
   var cuS=byId('contrCultFilter'), curCu=cuS.value;
   var cultGlob={};
-  for(var k2=0;k2<state.ots.length;k2++){ var dd=todosDestinos(state.ots[k2]); for(var d2=0;d2<dd.length;d2++) if(dd[d2].cultivo) cultGlob[dd[d2].cultivo]=true; }
+  for(var k2=0;k2<state.ots.length;k2++){ if(state.ots[k2].estado==='Cancelada') continue; var dd=destinosDeOt(state.ots[k2]); for(var d2=0;d2<dd.length;d2++) if(dd[d2].destino.cultivo) cultGlob[dd[d2].destino.cultivo]=true; }
   cuS.innerHTML='<option value="">Todos los cultivos</option>';
   var cultK=[]; for(var uk2 in cultGlob){ if(cultGlob.hasOwnProperty(uk2)) cultK.push(uk2); } cultK.sort();
   for(var cki=0;cki<cultK.length;cki++) cuS.innerHTML+='<option'+(cultK[cki]===curCu?' selected':'')+'>'+esc(cultK[cki])+'</option>';
 
   var filas=contrFilasFiltradas();
   filas.sort(function(a,b){ if(a.contrNom<b.contrNom)return -1; if(a.contrNom>b.contrNom)return 1; return a.o.num-b.o.num; });
-
-  // Chips de filtros activos (qué se está mostrando)
+  var filasTodas=filas; filas=contrAplicarSel(filas); pintarSelContr(filas);
   renderContrChips();
   var rows='';
-  var totImporte=0, totFact=0, totPend=0, totHaApl=0, totHaTot=0;
+  var totImporte=0, totFact=0, totPend=0, totHaApl=0, totHaTot=0, totPagado=0, totAdeudado=0;
+  var totImporteLP=0, totImporteLC=0, nSinTC=0, nAdeudSinTC=0, nSinTarifa=0;
   for(var r=0;r<filas.length;r++){
-    var x=filas[r], o=x.o, tr=x.tr, kTr='\''+o.id+'\',\''+tr.id+'\'';
+    var x=filas[r], o=x.o, tr=x.trabajo;
     var est=tr.estadoFact||'Sin facturar';
-    var fact = est==='Facturado' ? x.importe : (est==='Parcial' ? (Number(tr.montoFacturado)||0) : 0);
-    totImporte+=x.importe; totFact+=fact; totHaApl+=x.haApl; totHaTot+=x.haTot;
-    rows+='<tr>'+
-      '<td class="tdname">'+esc(x.contrNom)+'</td>'+
-      '<td><span class="ot-row-num">#'+o.num+'</span></td>'+
-      '<td>'+esc(x.laborNom)+' <span class="ot-row-meta">'+(tr.laborTipo==='LP'?'propia':'contratada')+'</span></td>'+
+    var fact = x.facturado;
+    var disR = x.ocultos ? ' disabled' : '';
+    var impV = x.importe==null ? (x.importeParcial||0) : x.importe;
+    if(x.importe==null) nSinTC++;
+    totImporte+=impV;
+    if(!x.esUN){ totHaApl+=x.haApl; totHaTot+=x.haTot; }
+    // Facturado, pagado y adeudado son SOLO de las contratadas: las propias no se facturan ni se pagan.
+    if(!x.esPropio){
+      totFact+=fact; totPagado+=x.pagado; totAdeudado+=(x.adeudado||0);
+      if(x.adeudado==null) nAdeudSinTC++;
+      totImporteLC+=impV;
+    } else totImporteLP+=impV;
+    if(x.sinTarifa) nSinTarifa++;
+    var trKey=o.id+'||'+tr.id;
+    var abierto=contrExpand[trKey];
+    rows+='<tr class="contr-row'+(abierto?' contr-open':'')+'">'+
+      '<td class="tdname">'+
+        '<button class="contr-caret" onclick="toggleContrTrabajo(\''+esc(trKey)+'\')" title="Ver lotes">'+(abierto?'▾':'▸')+'</button> '+
+        esc(x.contrNom)+'</td>'+
+      '<td><span class="ot-row-num">#'+o.num+'</span>'+(state.campaniaActivaId?'':'<div style="font-size:10px;color:var(--muted)">'+esc(getCampaniaNombre(o.campaniaId))+'</div>')+(x.parcialFiltro?'<div style="font-size:10px;color:var(--muted)" title="Los filtros dejan afuera lotes de este trabajo: facturado y pagado se muestran en proporción">parte del trabajo</div>':'')+'</td>'+
+      '<td class="tdname">'+esc(x.laborNom)+'<br><span style="font-size:10px;color:var(--muted)">'+esc(labelTipoLabor(x.tipoLabor))+'</span></td>'+
+      '<td>'+(tr.laborTipo==='LP'?'Propia':'Contratada')+'</td>'+
+      '<td>'+estadoBadge(estadoTrabajo(tr))+'</td>'+
       '<td class="tdname">'+esc(x.camposNom.join(', ')||'—')+'</td>'+
       '<td class="tdname">'+esc(x.cultNom.join(', ')||'—')+'</td>'+
-      '<td class="num">'+f(x.haTot,1)+'</td>'+
-      '<td class="num">'+f(x.haApl,1)+'</td>'+
+      '<td class="num">'+f(x.haTot,1)+(x.esUN?' <span style="font-size:10px;color:var(--muted)">unid.</span>':'')+'</td>'+
+      '<td class="num">'+f(x.haApl,1)+(x.esUN?' <span style="font-size:10px;color:var(--muted)">unid.</span>':'')+'</td>'+
       '<td class="num" style="white-space:nowrap"><div style="display:inline-flex;align-items:center;gap:4px;flex-wrap:nowrap;justify-content:flex-end">'+
-        '<input type="number" step="0.01" min="0" value="'+x.tarifa+'" onchange="updateContrTarifa('+kTr+',this.value)" style="width:72px;text-align:right;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:3px 6px">'+
-        '<select onchange="updateContrTarifaMon('+kTr+',this.value)" style="font-size:11px;border:1px solid var(--border);border-radius:6px;padding:3px 4px;background:var(--card);flex-shrink:0">'+
+        '<input type="number"'+disR+' step="0.01" min="0" value="'+(x.tarifa>0?x.tarifa:'')+'" placeholder="$ por ha" onchange="updateContrTarifa(\''+o.id+'\',\''+tr.id+'\',this.value)" style="width:72px;text-align:right;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:3px 6px">'+
+        '<select'+disR+' onchange="updateContrTarifaMon(\''+o.id+'\',\''+tr.id+'\',this.value)" style="font-size:11px;border:1px solid var(--border);border-radius:6px;padding:3px 4px;background:var(--card);flex-shrink:0">'+
         '<option value="ARS"'+((tr.tarifaMoneda||'ARS')==='ARS'?' selected':'')+'>$</option>'+
         '<option value="USD"'+((tr.tarifaMoneda)==='USD'?' selected':'')+'>U$S</option>'+
-        '</select></div></td>'+
+        '</select>'+(x.hayOverride?'<span class="bdg bn" title="Algún lote tiene tarifa propia">±</span>':'')+'</div></td>'+
       '<td class="num" style="color:var(--muted);font-size:11px;white-space:nowrap">'+x.tarifaOtraTxt+'</td>'+
-      '<td class="num" style="white-space:nowrap"><strong>'+fm(x.importe)+'</strong></td>'+
-      '<td><select onchange="updateContrEstado('+kTr+',this.value)" style="font-size:12px;border:1px solid var(--border);border-radius:6px;padding:3px 6px;background:var(--card)">'+
-        '<option'+(est==='Sin facturar'?' selected':'')+'>Sin facturar</option>'+
-        '<option'+(est==='Parcial'?' selected':'')+'>Parcial</option>'+
-        '<option'+(est==='Facturado'?' selected':'')+'>Facturado</option>'+
-        '</select></td>'+
-      '<td class="num" style="white-space:nowrap">'+(est==='Parcial'
-          ? '<span class="mnt-edit"><span class="mnt-val">'+fm(Number(tr.montoFacturado)||0)+'</span><button class="mnt-lapiz" title="Editar monto facturado" onclick="openMontoModal('+kTr+')">✏️</button></span>'
-          : '<span>'+fm(fact)+'</span>')+'</td>'+
+      '<td class="num" style="white-space:nowrap"><strong>'+(x.importe==null?(fm(x.importeParcial)+' '+faltaTCBtn()):fm(x.importe))+'</strong>'+(x.sinTarifa?' <span class="bdg-falta" title="Hay lotes aplicados sin tarifa: cuentan $0">sin tarifa</span>':'')+'</td>'+
+      (x.esPropio
+        ? '<td class="col-na">—</td><td class="num col-na">—</td><td class="col-na">—</td><td class="num col-na">—</td><td class="num col-na">—</td>'
+        : '<td><select'+disR+' onchange="updateContrEstado(\''+o.id+'\',\''+tr.id+'\',this.value)" style="font-size:12px;border:1px solid var(--border);border-radius:6px;padding:3px 6px;background:var(--card)">'+
+            '<option'+(est==='Sin facturar'?' selected':'')+'>Sin facturar</option>'+
+            '<option'+(est==='Parcial'?' selected':'')+'>Parcial</option>'+
+            '<option'+(est==='Facturado'?' selected':'')+'>Facturado</option>'+
+            '</select></td>'+
+          '<td class="num" style="white-space:nowrap">'+(est==='Parcial'
+              ? '<span class="mnt-edit"><span class="mnt-val">'+fm(fact)+'</span><button class="mnt-lapiz" title="Editar monto facturado" onclick="openMontoModal(\''+o.id+'\',\''+tr.id+'\')">✏️</button></span>'
+              : '<span>'+fm(fact)+'</span>')+'</td>'+
+          '<td><select'+disR+' onchange="updateContrPago(\''+o.id+'\',\''+tr.id+'\',this.value)" style="font-size:12px;border:1px solid var(--border);border-radius:6px;padding:3px 6px;background:var(--card)">'+
+            '<option value="No"'+(x.estPago==='No'?' selected':'')+'>No</option>'+
+            '<option value="Parcial"'+(x.estPago==='Parcial'?' selected':'')+'>Parcial</option>'+
+            '<option value="Sí"'+(x.estPago==='Sí'?' selected':'')+'>Sí</option>'+
+            '</select></td>'+
+          '<td class="num" style="white-space:nowrap">'+(x.estPago==='Parcial'
+              ? '<span class="mnt-edit"><span class="mnt-val">'+fm(x.pagado)+'</span><button class="mnt-lapiz" title="Editar monto pagado" onclick="openPagoModal(\''+o.id+'\',\''+tr.id+'\')">✏️</button></span>'
+              : '<span>'+fm(x.pagado)+'</span>')+'</td>'+
+          '<td class="num" style="white-space:nowrap">'+(x.adeudado==null?faltaTCBtn():'<strong class="'+(x.adeudado>0?'bad-sum':'')+'">'+fm(x.adeudado)+'</strong>')+'</td>')+
       '</tr>';
+    // Fila expandida: los LOTES del trabajo, con su tarifa editable (override).
+    if(abierto){
+      var sub='';
+      for(var lz=0;lz<x.lotes.length;lz++){
+        var deL=x.lotes[lz].destino;
+        var haRL=haAplicadaDe(deL);
+        var tarL=tarifaDe(tr, deL);
+        var esOv=(deL.tarifa!==undefined && deL.tarifa!==null && deL.tarifa!=='');
+        var vL= deL.estadoLote==='Aplicado' ? valorizarTarifa(tarL, tarifaMonedaDe(tr,deL), haRL, deL.fechaAplicReal||o.fecha||'') : {ars:0};
+        var impL=vL.ars;
+        sub+='<tr>'+
+          '<td class="tdname" style="padding-left:26px">'+esc(esUN(deL)?(deL.cultivo+' · general del campo'+(deL.obs?' ('+deL.obs+')':'')):nombreDestino(deL))+'</td>'+
+          '<td class="tdname">'+esc(deL.cultivo||'—')+'</td>'+
+          '<td>'+estadoBadge(deL.estadoLote==='Aplicado'?'Aplicada':'Pendiente')+'</td>'+
+          '<td class="num">'+f(Number(deL.ha)||0,1)+'</td>'+
+          '<td class="num">'+(deL.estadoLote==='Aplicado'?f(haRL,1):'—')+'</td>'+
+          '<td class="num"><input type="number"'+disR+' step="0.01" min="0" value="'+(esOv?deL.tarifa:'')+'" placeholder="'+f(tr.tarifa||0,2)+'" '+
+            'onchange="updateDestTarifa(\''+o.id+'\',\''+tr.id+'\',\''+deL.id+'\',this.value)" '+
+            'title="Vacío = usa la tarifa del trabajo. Cargá un valor solo si este lote se paga distinto." '+
+            'style="width:80px;text-align:right;font-size:12px;border:1px solid '+(esOv?'var(--terra)':'var(--border)')+';border-radius:6px;padding:3px 6px"></td>'+
+          '<td class="num"><strong>'+(impL==null?faltaTCBtn():fm(impL))+'</strong></td>'+
+          '</tr>';
+      }
+      rows+='<tr class="contr-sub"><td colspan="17" style="padding:0">'+
+        '<div style="padding:6px 10px 10px 10px;background:#FAFBFC">'+
+        '<div style="font-size:10.5px;color:var(--muted);margin-bottom:4px">Lotes del trabajo · dejá la tarifa vacía para usar la del trabajo ('+f(tr.tarifa||0,2)+')</div>'+
+        '<table class="cons-inner"><thead><tr><th>Lote</th><th>Cultivo</th><th>Estado</th><th class="num">Ha plan</th><th class="num">Ha real</th><th class="num">Tarifa lote</th><th class="num">Importe</th></tr></thead>'+
+        '<tbody>'+sub+'</tbody></table></div></td></tr>';
+    }
   }
-  totPend=totImporte-totFact;
-  byId('contrBody').innerHTML=rows || '<tr><td colspan="12" class="empty">Sin labores para los filtros aplicados.</td></tr>';
-
-  // KPIs
-  var totHaPend=totHaTot-totHaApl;
-  byId('contrKpis').innerHTML=
-    '<div class="kpi kpi-primary"><div class="kpi-lbl">Total a facturar</div><div class="kpi-val">'+fm(totImporte)+'</div></div>'+
+  totPend=totImporteLC-totFact;
+  byId('contrBody').innerHTML=rows || '<tr><td colspan="17" class="empty">Sin labores para los filtros aplicados.</td></tr>';
+  if(!state.campaniaActivaId) byId('contrKpis').innerHTML='<div class="banner-info" style="grid-column:1/-1;margin:0">Los totales de labores son <strong>por campaña</strong>: elegí una en el encabezado. Abajo se listan las labores de todas las campañas.</div>';
+  else byId('contrKpis').innerHTML=
+    '<div class="kpi kpi-total"><div class="kpi-lbl">Costo total de labores</div><div class="kpi-val">'+fm(totImporte)+'</div>'+(nSinTC?'<div class="kpi-sub" style="color:var(--bad)">'+nSinTC+' labor(es) con meses sin TC: no suman completas</div>':'')+(nSinTarifa?'<div class="kpi-sub" style="color:var(--bad)">'+nSinTarifa+' labor(es) aplicadas sin tarifa (cuentan $0)</div>':'')+'</div>'+
+    '<div class="kpi kpi-neutral" title="Labores propias: costo interno, no se factura"><div class="kpi-lbl">Propias</div><div class="kpi-val">'+fm(totImporteLP)+'</div></div>'+
+    '<div class="kpi kpi-primary" title="Labores contratadas: lo que se le paga a terceros"><div class="kpi-lbl">Contratadas</div><div class="kpi-val">'+fm(totImporteLC)+'</div></div>'+
     '<div class="kpi kpi-primary"><div class="kpi-lbl">Facturado</div><div class="kpi-val">'+fm(totFact)+'</div></div>'+
-    '<div class="kpi kpi-attention"><div class="kpi-lbl">Pendiente fact.</div><div class="kpi-val">'+fm(totPend)+'</div></div>'+
-    '<div class="kpi kpi-neutral"><div class="kpi-lbl">Ha adjudicadas</div><div class="kpi-val">'+f(totHaTot,1)+'</div></div>'+
-    '<div class="kpi kpi-primary"><div class="kpi-lbl">Ha aplicadas</div><div class="kpi-val">'+f(totHaApl,1)+'</div></div>'+
-    '<div class="kpi kpi-attention"><div class="kpi-lbl">Ha pendientes</div><div class="kpi-val">'+f(totHaPend,1)+'</div></div>';
-
-  // Gráfico de avance (doble color)
-  renderContrGrafico(filas);
-}
-/* ===== Reporte de labores en PDF (lo mismo que ya muestra la pantalla,
-   agrupado por contratista). Portado/adaptado de client-src/2026-10-30
-   (el original agrupa también por labor específica y suma pagado/
-   adeudado — este tablero todavía no tiene esa UI, se agrega cuando una
-   OT permita elegir una labor puntual y cargar pagos). ===== */
-function descargarPdfContratistas(){
-  cargarScript(JSPDF_URL, function(){ return !!(window.jspdf && window.jspdf.jsPDF); }, function(ok){
-    if(!ok){ alert('No se pudo cargar el generador de PDF. Revisá la conexión y probá de nuevo.'); return; }
-    var filas=contrFilasFiltradas();
-    if(!filas.length){ alert('No hay labores para los filtros elegidos.'); return; }
-    filas.sort(function(a,b){ if(a.contrNom!==b.contrNom) return a.contrNom<b.contrNom?-1:1; return a.o.num-b.o.num; });
-    var doc=armarPdfContratistas(filas);
-    var nom=('Labores '+(state.campaniaActivaId?getCampaniaNombre(state.campaniaActivaId):'todas')).replace(/[^A-Za-z0-9áéíóúñÁÉÍÓÚÑ_-]+/g,'_');
-    doc.save(nom+'.pdf');
-  });
-}
-function armarPdfContratistas(filas){
-  var J=window.jspdf.jsPDF, doc=new J({unit:'mm', format:'a4', orientation:'landscape'});
-  var W=297, H=210, M=12, y=M;
-  var VERDE=[74,101,51], GRIS=[110,110,110], FONDO=[243,246,239], LINEA=[210,215,205];
-  var empresa=(root.espacios[root.activoId]&&root.espacios[root.activoId].nombre)||'';
-  var cols=[{t:'OT',w:16},{t:'Labor',w:26},{t:'Campos',w:48},{t:'Cultivos',w:40},{t:'Ha tot.',w:22,r:1},{t:'Ha apl.',w:22,r:1},{t:'Tarifa $/ha',w:30,r:1},{t:'Importe',w:34,r:1},{t:'Facturado',w:34,r:1}];
-  var x0=M, xs=[]; for(var i=0;i<cols.length;i++){ xs.push(x0); x0+=cols[i].w; }
-  function encabezadoTabla(){
-    doc.setFillColor(VERDE[0],VERDE[1],VERDE[2]); doc.rect(M, y, W-2*M, 7, 'F');
-    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(255,255,255);
-    for(var c=0;c<cols.length;c++){
-      if(cols[c].r) doc.text(cols[c].t, xs[c]+cols[c].w-1.5, y+4.7, {align:'right'});
-      else doc.text(cols[c].t, xs[c]+1.5, y+4.7);
-    }
-    y+=7;
-  }
-  function nuevaHoja(){ doc.addPage(); y=M; encabezadoTabla(); }
-  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(VERDE[0],VERDE[1],VERDE[2]);
-  doc.text('PUNTAL AGRO', M, y+3);
-  doc.setFont('helvetica','normal'); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
-  doc.text(pdfTxt(empresa), W-M, y+3, {align:'right'});
-  y+=10;
-  doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.setTextColor(30,30,30);
-  doc.text('Labores por contratista', M, y);
-  y+=6;
-  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
-  doc.text(pdfTxt(state.campaniaActivaId?('Campaña '+getCampaniaNombre(state.campaniaActivaId)):'Todas las campañas'), M, y);
-  y+=6;
-  doc.setDrawColor(LINEA[0],LINEA[1],LINEA[2]); doc.setLineWidth(0.3); doc.line(M, y, W-M, y);
-  y+=6;
-  // Agrupar por contratista, igual que ya calcula la pantalla.
-  var grupos={}, orden=[];
-  for(var fi=0;fi<filas.length;fi++){
-    var x=filas[fi], k=x.contrNom;
-    if(!grupos[k]){ grupos[k]={filas:[], imp:0, fact:0, haTot:0, haApl:0}; orden.push(k); }
-    var est=x.tr.estadoFact||'Sin facturar';
-    var fact=est==='Facturado' ? x.importe : (est==='Parcial' ? (Number(x.tr.montoFacturado)||0) : 0);
-    grupos[k].filas.push(x); grupos[k].imp+=x.importe; grupos[k].fact+=fact; grupos[k].haTot+=x.haTot; grupos[k].haApl+=x.haApl;
-  }
-  orden.sort();
-  var totImp=0, totFact=0;
-  encabezadoTabla();
-  var par=false;
-  for(var g=0;g<orden.length;g++){
-    var nom=orden[g], G=grupos[nom];
-    if(y+10>H-M-14) nuevaHoja();
-    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(VERDE[0],VERDE[1],VERDE[2]);
-    doc.text(pdfTxt(nom), M+1.5, y+5);
-    y+=7;
-    for(var r=0;r<G.filas.length;r++){
-      var row=G.filas[r], o=row.o, est2=row.tr.estadoFact||'Sin facturar';
-      var fact2=est2==='Facturado' ? row.importe : (est2==='Parcial' ? (Number(row.tr.montoFacturado)||0) : 0);
-      if(y+6>H-M-14) nuevaHoja();
-      if(par){ doc.setFillColor(FONDO[0],FONDO[1],FONDO[2]); doc.rect(M, y, W-2*M, 6, 'F'); }
-      par=!par;
-      var yt=y+4.1;
-      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(30,30,30);
-      doc.text('#'+o.num, xs[0]+1.5, yt);
-      doc.text(doc.splitTextToSize(pdfTxt(row.laborNom), cols[1].w-3)[0], xs[1]+1.5, yt);
-      doc.text(doc.splitTextToSize(pdfTxt(row.camposNom.join(', ')||'—'), cols[2].w-3), xs[2]+1.5, yt);
-      doc.text(doc.splitTextToSize(pdfTxt(row.cultNom.join(', ')||'—'), cols[3].w-3), xs[3]+1.5, yt);
-      doc.text(f(row.haTot,1), xs[4]+cols[4].w-1.5, yt, {align:'right'});
-      doc.text(f(row.haApl,1), xs[5]+cols[5].w-1.5, yt, {align:'right'});
-      doc.text(pdfTxt(f(row.tarifa,2)), xs[6]+cols[6].w-1.5, yt, {align:'right'});
-      doc.setFont('helvetica','bold');
-      doc.text(pdfTxt(fm(row.importe)), xs[7]+cols[7].w-1.5, yt, {align:'right'});
-      doc.setFont('helvetica','normal');
-      doc.text(pdfTxt(fm(fact2)), xs[8]+cols[8].w-1.5, yt, {align:'right'});
-      y+=6;
-    }
-    doc.setDrawColor(LINEA[0],LINEA[1],LINEA[2]); doc.setLineWidth(0.2); doc.line(M, y, W-M, y);
-    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
-    doc.text(pdfTxt('Subtotal '+nom), xs[3]+1.5, y+4.3);
-    doc.text(f(G.haTot,1), xs[4]+cols[4].w-1.5, y+4.3, {align:'right'});
-    doc.text(f(G.haApl,1), xs[5]+cols[5].w-1.5, y+4.3, {align:'right'});
-    doc.text(pdfTxt(fm(G.imp)), xs[7]+cols[7].w-1.5, y+4.3, {align:'right'});
-    doc.text(pdfTxt(fm(G.fact)), xs[8]+cols[8].w-1.5, y+4.3, {align:'right'});
-    y+=8;
-    totImp+=G.imp; totFact+=G.fact;
-  }
-  if(y+14>H-M-14) nuevaHoja();
-  doc.setDrawColor(VERDE[0],VERDE[1],VERDE[2]); doc.setLineWidth(0.5); doc.line(M, y, W-M, y);
-  y+=6;
-  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(30,30,30);
-  doc.text('TOTAL', xs[3]+1.5, y);
-  doc.text(pdfTxt(fm(totImp)), xs[7]+cols[7].w-1.5, y, {align:'right'});
-  doc.text(pdfTxt(fm(totFact)), xs[8]+cols[8].w-1.5, y, {align:'right'});
-  var n=doc.getNumberOfPages();
-  for(var pg=1;pg<=n;pg++){
-    doc.setPage(pg);
-    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
-    doc.text(pdfTxt('Puntal Agro · Labores por contratista · generado el '+fd(todayISO())), M, H-8);
-    doc.text('Página '+pg+' de '+n, W-M, H-8, {align:'right'});
-  }
-  return doc;
+    '<div class="kpi kpi-attention" title="Contratadas: importe aplicado menos lo ya facturado"><div class="kpi-lbl">Saldo a facturar</div><div class="kpi-val">'+fm(totPend)+'</div></div>'+
+    '<div class="kpi kpi-attention"><div class="kpi-lbl">Total adeudado</div><div class="kpi-val">'+fm(totAdeudado)+(nAdeudSinTC?' '+faltaTCBtn():'')+'</div></div>'+
+    '<div class="kpi kpi-primary"><div class="kpi-lbl">Ha aplicadas</div><div class="kpi-val">'+f(totHaApl,1)+' <span style="font-size:11px;font-weight:400;color:var(--muted)">de '+f(totHaTot,1)+'</span></div></div>';
+  renderContrGrafico(filasTodas);
 }
 function renderContrChips(){
   var cont=byId('contrFiltrosActivos'); if(!cont) return;
   var chips=[];
-  // Contratista
   var fContr=byId('contrContrFilter').value;
   if(fContr){ chips.push({k:'Contratista', v:getContratistaNombre(fContr)}); }
-  // Tipo (propio/contratado)
   var fTipo=byId('contrTipoFilter').value;
   if(fTipo==='LP') chips.push({k:'Tipo', v:'Solo propio'});
   else if(fTipo==='LC') chips.push({k:'Tipo', v:'Solo contratado'});
-  // Subactividad
   var fSub=byId('contrSubactFilter').value;
   if(fSub) chips.push({k:'Actividad', v:fSub});
-  // Campo
   var fCamp=byId('contrCampoFilter').value;
   if(fCamp) chips.push({k:'Campo', v:getCampoNombre(fCamp)});
-  // Cultivo
+  var fLoteC=byId('contrLoteFilter')?byId('contrLoteFilter').value:'';
+  if(fLoteC){ var loC=getLoteById(fLoteC); chips.push({k:'Lote', v:loC?loC.nombre:fLoteC}); }
   var fCult=byId('contrCultFilter').value;
   if(fCult) chips.push({k:'Cultivo', v:fCult});
-  // Estado fact.
   var fEst=byId('contrEstadoFilter').value;
   if(fEst) chips.push({k:'Estado', v:fEst});
-  // Fechas
   var fd1=byId('contrDesde').value, fh=byId('contrHasta').value;
   if(fd1 && fh) chips.push({k:'Período', v:fd(fd1)+' a '+fd(fh)});
   else if(fd1) chips.push({k:'Desde', v:fd(fd1)});
   else if(fh) chips.push({k:'Hasta', v:fd(fh)});
-  // Búsqueda
   var q=(byId('contrSearch').value||'').trim();
   if(q) chips.push({k:'Busca', v:'"'+q+'"'});
-
   var html;
   if(!chips.length){
     html='<span class="tf-none">Mostrando todas las labores</span>';
@@ -5942,131 +6266,255 @@ function renderContrChips(){
     html='<span class="tf-lbl">Mostrando:</span> '+partes.join('<span class="tf-sep">·</span>');
   }
   cont.innerHTML=html;
-  // Resaltar los selects/inputs activos y actualizar botón Limpiar (N)
   marcarFiltrosActivos(['contrSearch','contrContrFilter','contrTipoFilter','contrSubactFilter','contrCampoFilter','contrCultFilter','contrEstadoFilter','contrDesde','contrHasta'],'contrClearBtn');
 }
-function renderContrGrafico(filas){
-  // Estado de colapsado por contratista (arrancan expandidos)
-  if(!window.contrCollapsed) window.contrCollapsed={};
-  // Agrupar por contratista: ha adjudicadas (tot) y aplicadas (apl), y desglose por subactividad
-  var grupos={}; var orden=[];
+/* LABORES: resumen por contratista y labor. Tocar una fila filtra el detalle por OT de
+   abajo; el PDF sale con lo que se ve. */
+var contrSel=null;   // {c: contratista, l: labor ('' = todas)}
+function contrAplicarSel(filas){
+  if(!contrSel) return filas;
+  var out=[], hay=false;
+  for(var i=0;i<filas.length;i++){ if(filas[i].contrNom===contrSel.c){ hay=true; if(!contrSel.l || filas[i].laborNom===contrSel.l) out.push(filas[i]); } }
+  if(!hay){ contrSel=null; return filas; }
+  return out;
+}
+function contrElegir(c, l){
+  if(contrSel && contrSel.c===c && (contrSel.l||'')===(l||'')) contrSel=null;
+  else contrSel={c:c, l:l||''};
+  renderContratistas();
+}
+function contrSacarSel(){ contrSel=null; renderContratistas(); }
+function contrNOts(filas){ var s={}, n=0; for(var i=0;i<filas.length;i++){ if(!s[filas[i].o.id]){ s[filas[i].o.id]=true; n++; } } return n; }
+function pintarSelContr(filas){
+  var el=byId('contrSelInfo'); if(!el) return;
+  if(!contrSel){ el.innerHTML=''; return; }
+  var n=contrNOts(filas);
+  el.innerHTML='Mostrando: <strong>'+esc(contrSel.c)+(contrSel.l?' · '+esc(contrSel.l):'')+'</strong> · '+n+' OT'+
+    ' <button type="button" class="lr-x" onclick="contrSacarSel()" title="Ver todas">✕</button>';
+}
+function lrAcc(){ return {haTot:0, haApl:0, unTot:0, unApl:0, imp:0, faltaImp:false, fact:0, pag:0, adeu:0, ots:{}}; }
+function lrSumar(a, x){
+  if(x.esUN){ a.unTot+=x.haTot; a.unApl+=x.haApl; } else { a.haTot+=x.haTot; a.haApl+=x.haApl; }
+  a.imp += x.importe==null ? (x.importeParcial||0) : x.importe;
+  if(x.importe==null) a.faltaImp=true;
+  if(!x.esPropio){ a.fact+=x.facturado; a.pag+=x.pagado; a.adeu+=(x.adeudado||0); }
+  a.ots[x.o.id]=true;
+}
+// Agrupa las filas (trabajos) por contratista y labor.
+function resumenLabores(filas){
+  var g={}, orden=[], tot=lrAcc(), totLC=lrAcc();
   for(var i=0;i<filas.length;i++){
-    var key=filas[i].contrNom;
-    if(!grupos[key]){ grupos[key]={tot:0,apl:0,subs:{},esPropio:filas[i].esPropio}; orden.push(key); }
-    var g=grupos[key];
-    g.tot+=filas[i].haTot; g.apl+=filas[i].haApl;
-    var ss=filas[i].subSet;
-    for(var sn in ss){ if(ss.hasOwnProperty(sn)){ if(!g.subs[sn]) g.subs[sn]={tot:0,apl:0}; g.subs[sn].tot+=ss[sn].tot; g.subs[sn].apl+=ss[sn].apl; } }
+    var x=filas[i], k=x.contrNom;
+    if(!g[k]){ g[k]={nombre:k, esPropio:x.esPropio, acc:lrAcc(), labs:{}, ordenL:[]}; orden.push(k); }
+    var G=g[k];
+    if(!G.labs[x.laborNom]){ G.labs[x.laborNom]=lrAcc(); G.ordenL.push(x.laborNom); }
+    lrSumar(G.labs[x.laborNom], x); lrSumar(G.acc, x); lrSumar(tot, x);
+    if(!x.esPropio) lrSumar(totLC, x);
   }
-  if(!orden.length){ byId('contrGrafico').innerHTML='<p style="font-size:12px;color:var(--muted);padding:6px 2px">Sin datos de avance para graficar.</p>'; return; }
-  // Ordenar: propio al final, resto por ha adjudicadas desc
-  orden.sort(function(a,b){
-    if(grupos[a].esPropio!==grupos[b].esPropio) return grupos[a].esPropio?1:-1;
-    return grupos[b].tot-grupos[a].tot;
-  });
-  var html='';
-  for(var oi=0;oi<orden.length;oi++){
-    var k=orden[oi], g=grupos[k];
-    var pend = g.tot-g.apl;
-    var subArr=[]; for(var sn2 in g.subs){ if(g.subs.hasOwnProperty(sn2)) subArr.push({n:sn2,tot:g.subs[sn2].tot,apl:g.subs[sn2].apl}); }
-    subArr.sort(function(a,b){ return b.tot-a.tot; });
-    var nAct=subArr.length;
-    var colapsado = !!window.contrCollapsed[k];
-    var keyEsc = k.replace(/'/g,"\\'");
-    html+='<div class="cg-grp">'+
-      '<div class="cg-head cg-head-toggle" onclick="toggleContrGrp(\''+keyEsc+'\')" style="cursor:pointer">'+
-        '<span class="cg-caret">'+(colapsado?'▸':'▾')+'</span>'+
-        '<span class="cg-name">'+esc(k)+'</span>'+
-        '<span class="cg-pct">'+nAct+' actividad'+(nAct===1?'':'es')+' · '+f(g.tot,1)+' ha adjudicadas · '+f(g.apl,1)+' aplicadas · '+f(pend,1)+' pendientes</span>'+
-      '</div>';
-    if(!colapsado){
-    if(subArr.length){
-      html+='<div class="cg-sub cg-sub-solo">';
-      for(var si=0;si<subArr.length;si++){
-        var s=subArr[si];
-        var spct = s.tot>0 ? (s.apl/s.tot*100) : 0;
-        html+='<div class="cg-sub-row">'+
-          '<div class="cg-sub-name" title="'+esc(s.n)+'">'+esc(s.n)+'</div>'+
-          '<div class="cg-sub-bar">'+
-            '<div class="cg-sub-fill" style="width:'+spct.toFixed(1)+'%"></div>'+
-            '<span class="cg-sub-lbl">'+f(s.apl,1)+' / '+f(s.tot,1)+' ha ('+spct.toFixed(0)+'%)</span>'+
-          '</div></div>';
-      }
-      html+='</div>';
-    } else {
-      html+='<p style="font-size:11px;color:var(--muted);margin:2px 0 0 2px">Sin actividades para mostrar.</p>';
-    }
-    }
-    html+='</div>';
-  }
-  byId('contrGrafico').innerHTML=html;
-  // Actualizar texto del botón colapsar/expandir todos
-  var btnAll=byId('contrToggleAllBtn');
-  if(btnAll){
-    var algunoExp=false;
-    for(var ci=0;ci<orden.length;ci++){ if(!window.contrCollapsed[orden[ci]]){ algunoExp=true; break; } }
-    btnAll.textContent = algunoExp ? 'Colapsar todos' : 'Expandir todos';
-  }
+  orden.sort(function(a,b){ if(g[a].esPropio!==g[b].esPropio) return g[a].esPropio?1:-1; return a.localeCompare(b); });
+  var out=[]; for(var o=0;o<orden.length;o++){ g[orden[o]].ordenL.sort(); out.push(g[orden[o]]); }
+  return {grupos:out, tot:tot, totLC:totLC};
 }
-function toggleContrGrp(k){
-  if(!window.contrCollapsed) window.contrCollapsed={};
-  window.contrCollapsed[k]=!window.contrCollapsed[k];
-  renderContratistas();
-}
-function toggleAllContrGrp(){
-  if(!window.contrCollapsed) window.contrCollapsed={};
-  // Determinar contratistas actualmente visibles
-  var filas=contrFilasFiltradas();
-  var keys={}; for(var i=0;i<filas.length;i++) keys[filas[i].contrNom]=true;
-  // Si hay al menos uno expandido, colapsar todos; si están todos colapsados, expandir todos
-  var algunoExpandido=false;
-  for(var k in keys){ if(keys.hasOwnProperty(k) && !window.contrCollapsed[k]){ algunoExpandido=true; break; } }
-  for(var k2 in keys){ if(keys.hasOwnProperty(k2)) window.contrCollapsed[k2]=algunoExpandido; }
-  renderContratistas();
-}
-function updateContrTarifa(otId, trId, val){
-  var o=getOtById(otId), tr=getTrabajoById(o, trId); if(!tr) return;
-  tr.tarifa=Number(val)||0;
-  if(_esModoApi()) guardarOTApi(o); else save();
-  renderContratistas();
-}
-function updateContrTarifaMon(otId, trId, val){
-  var o=getOtById(otId), tr=getTrabajoById(o, trId); if(!tr) return;
-  tr.tarifaMoneda=(val==='USD'?'USD':'ARS');
-  if(_esModoApi()) guardarOTApi(o); else save();
-  renderContratistas();
-}
-// Tarifa del trabajo expresada en ARS (convierte si está en USD, con el TC de la fecha de la OT)
-function tarifaARSDeTrabajo(o, tr){
-  var t=Number(tr.tarifa)||0;
-  if((tr.tarifaMoneda||'ARS')==='USD'){ return t*tcDeFecha(o.fecha||''); }
+function lrHa(a, cual){
+  var ha = cual==='tot' ? a.haTot : (cual==='apl' ? a.haApl : a.haTot-a.haApl);
+  var un = cual==='tot' ? a.unTot : (cual==='apl' ? a.unApl : a.unTot-a.unApl);
+  var t = (a.haTot||!a.unTot) ? f(ha,1) : f(un,1)+' <span class="lr-un">unid.</span>';
+  if(cual==='apl' && a.haTot>0) t+=' <span class="lr-pct">'+Math.round(a.haApl/a.haTot*100)+'%</span>';
   return t;
 }
-function updateContrEstado(otId, trId, val){
-  var o=getOtById(otId), tr=getTrabajoById(o, trId); if(!tr) return;
-  if((val==='Parcial'||val==='Facturado') && (!tr.tarifa || Number(tr.tarifa)<=0)){
-    alert('Para marcar "'+val+'" tenés que cargar primero la tarifa.');
-    renderContratistas(); return;
+function lrMon(v, falta){ return fm(v)+(falta?' '+faltaTCBtn():''); }
+function lrCeldas(a, propio){
+  var aFact=Math.max(0, a.imp-a.fact);
+  return '<td class="num">'+lrHa(a,'tot')+'</td><td class="num">'+lrHa(a,'apl')+'</td><td class="num">'+lrHa(a,'pend')+'</td>'+
+    '<td class="num">'+lrMon(a.imp, a.faltaImp)+'</td>'+
+    (propio
+      ? '<td class="num col-na">—</td><td class="num col-na">—</td><td class="num col-na">—</td><td class="num col-na">—</td>'
+      : '<td class="num">'+fm(a.fact)+'</td><td class="num">'+fm(aFact)+'</td><td class="num">'+fm(a.pag)+'</td><td class="num"><strong class="'+(a.adeu>0?'bad-sum':'')+'">'+fm(a.adeu)+'</strong></td>');
+}
+function contrNOtsAcc(a){ var n=0; for(var k in a.ots){ if(a.ots.hasOwnProperty(k)) n++; } return n; }
+function renderContrGrafico(filas){
+  var box=byId('contrGrafico'); if(!box) return;
+  var R=resumenLabores(filas);
+  if(!R.grupos.length){ box.innerHTML='<p style="font-size:12px;color:var(--muted);padding:6px 2px">Sin labores para los filtros aplicados.</p>'; return; }
+  var h='';
+  for(var i=0;i<R.grupos.length;i++){
+    var G=R.grupos[i], cJs=esc(G.nombre).replace(/'/g,"\\'"), selG=contrSel && contrSel.c===G.nombre && !contrSel.l;
+    h+='<tr class="lr-grp'+(selG?' lr-sel':'')+'" onclick="contrElegir(\''+cJs+'\',\'\')"><td colspan="9">'+esc(G.nombre)+(G.esPropio?' <span class="lr-un">(labores propias: no se facturan)</span>':'')+'</td></tr>';
+    for(var l=0;l<G.ordenL.length;l++){
+      var ln=G.ordenL[l], a=G.labs[ln], sel=contrSel && contrSel.c===G.nombre && contrSel.l===ln;
+      h+='<tr class="lr-lab'+(sel?' lr-sel':'')+'" onclick="contrElegir(\''+cJs+'\',\''+esc(ln).replace(/'/g,"\\'")+'\')"><td class="tdname">'+esc(ln)+' <span class="lr-un">· '+contrNOtsAcc(a)+' OT</span></td>'+lrCeldas(a, G.esPropio)+'</tr>';
+    }
+    h+='<tr class="lr-sub" onclick="contrElegir(\''+cJs+'\',\'\')"><td class="tdname">Subtotal '+esc(G.nombre)+'</td>'+lrCeldas(G.acc, G.esPropio)+'</tr>';
   }
+  var T=R.tot, aFactT=Math.max(0, R.totLC.imp-R.totLC.fact);
+  h+='<tr class="lr-tot"><td class="tdname">Total general</td><td class="num">'+lrHa(T,'tot')+'</td><td class="num">'+lrHa(T,'apl')+'</td><td class="num">'+lrHa(T,'pend')+'</td>'+
+    '<td class="num">'+lrMon(T.imp, T.faltaImp)+'</td><td class="num">'+fm(R.totLC.fact)+'</td><td class="num">'+fm(aFactT)+'</td><td class="num">'+fm(R.totLC.pag)+'</td><td class="num">'+fm(R.totLC.adeu)+'</td></tr>';
+  box.innerHTML='<div class="tw"><table class="lr-tbl"><thead><tr><th>Contratista / labor</th><th class="num">A realizar (ha)</th><th class="num">Realizado</th><th class="num">Pendiente</th>'+
+    '<th class="num">Importe</th><th class="num">Facturado</th><th class="num">A facturar</th><th class="num">Pagado</th><th class="num">Adeudado</th></tr></thead><tbody>'+h+'</tbody></table></div>'+
+    '<div class="lr-ayuda">Tocá un contratista o una labor para ver abajo solo esas OT. Facturado, pagado y adeudado son de las labores contratadas.</div>';
+}
+/* ===== Reporte de labores en PDF (con los filtros y la selección que se ven) ===== */
+function descargarPdfLabores(){
+  cargarScript(JSPDF_URL, function(){ return !!(window.jspdf && window.jspdf.jsPDF); }, function(ok){
+    if(!ok){ alert('No se pudo cargar el generador de PDF. Revisá la conexión y probá de nuevo.'); return; }
+    var filas=contrAplicarSel(contrFilasFiltradas());
+    // Las propias no se facturan: el reporte es de lo contratado, salvo que se filtre «Solo propio».
+    var soloP=byId('contrTipoFilter') && byId('contrTipoFilter').value==='LP';
+    filas=filas.filter(function(x){ return soloP ? x.esPropio : !x.esPropio; });
+    if(!filas.length){ alert('No hay labores '+(soloP?'propias':'contratadas')+' para los filtros elegidos.'); return; }
+    filas.sort(function(a,b){ if(a.contrNom!==b.contrNom) return a.contrNom<b.contrNom?-1:1; return a.o.num-b.o.num; });
+    var doc=armarPdfLabores(filas, soloP);
+    var nom=('Labores '+(contrSel?contrSel.c+' ':'')+(state.campaniaActivaId?getCampaniaNombre(state.campaniaActivaId):'')).replace(/[^A-Za-z0-9áéíóúñÁÉÍÓÚÑ_-]+/g,'_');
+    doc.save(nom+'.pdf');
+  });
+}
+function armarPdfLabores(filas, soloP){
+  var J=window.jspdf.jsPDF, doc=new J({unit:'mm', format:'a4', orientation:'landscape'});
+  var W=297, H=210, M=12, y=M;
+  var VERDE=[74,101,51], GRIS=[110,110,110], FONDO=[243,246,239], LINEA=[210,215,205], SUB=[230,236,224];
+  var empresa=(root.espacios[root.activoId]&&root.espacios[root.activoId].nombre)||'';
+  function pie(){
+    var n=doc.getNumberOfPages();
+    for(var p=1;p<=n;p++){ doc.setPage(p); doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+      doc.text(pdfTxt('Puntal Agro · '+empresa), M, H-6); doc.text('Hoja '+p+' de '+n, W-M, H-6, {align:'right'}); }
+  }
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(VERDE[0],VERDE[1],VERDE[2]); doc.text('PUNTAL AGRO', M, y+3);
+  doc.setFont('helvetica','normal'); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]); doc.text(pdfTxt(empresa+' · emitido el '+fd(todayISO())), W-M, y+3, {align:'right'});
+  y+=10;
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(30,30,30);
+  doc.text(pdfTxt('Reporte de labores'+(soloP?' propias':' contratadas')+(contrSel?' · '+contrSel.c+(contrSel.l?' · '+contrSel.l:''):'')), M, y);
+  y+=6;
+  var cont=byId('contrFiltrosActivos'), filt=cont?(cont.innerText||'').replace(/\s+/g,' ').trim():'';
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+  doc.text(pdfTxt('Campaña '+(state.campaniaActivaId?getCampaniaNombre(state.campaniaActivaId):'todas')+(filt?' · '+filt:'')), M, y);
+  y+=4;
+  doc.setDrawColor(LINEA[0],LINEA[1],LINEA[2]); doc.setLineWidth(0.3); doc.line(M, y, W-M, y); y+=6;
+  var R=resumenLabores(filas), T=R.tot;
+  var kp=soloP ? [['Importe', fm(T.imp)], ['Ha realizadas', f(T.haApl,1)+' de '+f(T.haTot,1)]]
+               : [['Importe', fm(T.imp)], ['Facturado', fm(T.fact)], ['A facturar', fm(Math.max(0,T.imp-T.fact))], ['Pagado', fm(T.pag)], ['Adeudado', fm(T.adeu)]];
+  var wk=(W-2*M)/kp.length;
+  for(var k=0;k<kp.length;k++){
+    doc.setFontSize(7.5); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]); doc.text(pdfTxt(kp[k][0]).toUpperCase(), M+k*wk, y);
+    doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(30,30,30); doc.text(pdfTxt(kp[k][1]), M+k*wk, y+6); doc.setFont('helvetica','normal');
+  }
+  y+=13;
+  function tabla(cols, filasT){
+    var xs=[], x0=M; for(var c=0;c<cols.length;c++){ xs.push(x0); x0+=cols[c].w; }
+    function enc(){ doc.setFillColor(VERDE[0],VERDE[1],VERDE[2]); doc.rect(M, y, W-2*M, 7, 'F'); doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(255,255,255);
+      for(var c=0;c<cols.length;c++){ if(cols[c].r) doc.text(cols[c].t, xs[c]+cols[c].w-1.5, y+4.7, {align:'right'}); else doc.text(cols[c].t, xs[c]+1.5, y+4.7); } y+=7; }
+    enc();
+    var par=false;
+    for(var r=0;r<filasT.length;r++){
+      var F=filasT[r], alto=6;
+      if(y+alto>H-M-6){ doc.addPage(); y=M; enc(); }
+      if(F.tipo==='grp'){ doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(VERDE[0],VERDE[1],VERDE[2]); doc.text(pdfTxt(F.v[0]), M+1.5, y+4.3); y+=alto; par=false; continue; }
+      if(F.tipo==='sub' || F.tipo==='tot'){ doc.setFillColor(F.tipo==='tot'?VERDE[0]:SUB[0], F.tipo==='tot'?VERDE[1]:SUB[1], F.tipo==='tot'?VERDE[2]:SUB[2]); doc.rect(M, y, W-2*M, alto, 'F'); }
+      else { if(par){ doc.setFillColor(FONDO[0],FONDO[1],FONDO[2]); doc.rect(M, y, W-2*M, alto, 'F'); } par=!par; }
+      doc.setFont('helvetica', F.tipo==='det'?'normal':'bold'); doc.setFontSize(8);
+      if(F.tipo==='tot') doc.setTextColor(255,255,255); else doc.setTextColor(30,30,30);
+      for(var c2=0;c2<cols.length;c2++){
+        // Un texto a la izquierda puede ocupar las columnas vacías que le siguen (ej.: «Subtotal …»).
+        var wc=cols[c2].w; if(!cols[c2].r){ for(var c3=c2+1;c3<cols.length && !cols[c3].r && (F.v[c3]==null||F.v[c3]==='');c3++) wc+=cols[c3].w; }
+        var tx=doc.splitTextToSize(pdfTxt(F.v[c2]==null?'':F.v[c2]), wc-3)[0]||'';
+        if(cols[c2].r) doc.text(tx, xs[c2]+cols[c2].w-1.5, y+4.2, {align:'right'}); else doc.text(tx, xs[c2]+1.5+(c2===0&&F.tipo==='det'&&F.ind?3:0), y+4.2);
+      }
+      y+=alto;
+    }
+  }
+  function haTxt(a, cual){ var v=cual==='tot'?a.haTot:(cual==='apl'?a.haApl:a.haTot-a.haApl); return f(v,1)+(cual==='apl'&&a.haTot>0?' ('+Math.round(a.haApl/a.haTot*100)+'%)':''); }
+  doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(30,30,30); doc.text('Resumen por contratista y labor', M, y); y+=3;
+  var colsR=soloP
+    ? [{t:'Contratista / labor',w:120},{t:'A realizar (ha)',w:40,r:1},{t:'Realizado',w:40,r:1},{t:'Pendiente',w:35,r:1},{t:'Importe',w:38,r:1}]
+    : [{t:'Contratista / labor',w:75},{t:'A realizar (ha)',w:25,r:1},{t:'Realizado',w:27,r:1},{t:'Pendiente',w:22,r:1},{t:'Importe',w:27,r:1},{t:'Facturado',w:25,r:1},{t:'A facturar',w:25,r:1},{t:'Pagado',w:22,r:1},{t:'Adeudado',w:25,r:1}];
+  function celR(a){ var b=[haTxt(a,'tot'), haTxt(a,'apl'), haTxt(a,'pend'), fm(a.imp)]; if(!soloP) b=b.concat([fm(a.fact), fm(Math.max(0,a.imp-a.fact)), fm(a.pag), fm(a.adeu)]); return b; }
+  var fr=[];
+  for(var g=0;g<R.grupos.length;g++){
+    var G=R.grupos[g]; fr.push({tipo:'grp', v:[G.nombre]});
+    for(var l=0;l<G.ordenL.length;l++) fr.push({tipo:'det', ind:true, v:[G.ordenL[l]].concat(celR(G.labs[G.ordenL[l]]))});
+    fr.push({tipo:'sub', v:['Subtotal '+G.nombre].concat(celR(G.acc))});
+  }
+  fr.push({tipo:'tot', v:['Total general'].concat(celR(T))});
+  y+=2; tabla(colsR, fr);
+  y+=8; if(y>H-M-30){ doc.addPage(); y=M; }
+  doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(30,30,30); doc.text('Detalle por OT', M, y); y+=5;
+  var colsD=soloP
+    ? [{t:'OT',w:16},{t:'Fecha',w:20},{t:'Labor',w:50},{t:'Campo · lotes',w:95},{t:'Ha aplic.',w:25,r:1},{t:'Tarifa',w:28,r:1},{t:'Importe',w:39,r:1}]
+    : [{t:'OT',w:14},{t:'Fecha',w:18},{t:'Labor',w:38},{t:'Campo · lotes',w:70},{t:'Ha aplic.',w:18,r:1},{t:'Tarifa',w:22,r:1},{t:'Importe',w:25,r:1},{t:'Facturado',w:24,r:1},{t:'Pagado',w:22,r:1},{t:'Adeudado',w:22,r:1}];
+  var fd2=[], grupoAct=null, accG=null;
+  function cierraGrupo(){ if(grupoAct===null) return; var b=['Subtotal '+grupoAct,'','','',f(accG.haApl,1),'',fm(accG.imp)]; if(!soloP) b=b.concat([fm(accG.fact), fm(accG.pag), fm(accG.adeu)]); fd2.push({tipo:'sub', v:b}); }
+  for(var i=0;i<filas.length;i++){
+    var x=filas[i];
+    if(x.contrNom!==grupoAct){ cierraGrupo(); grupoAct=x.contrNom; accG=lrAcc(); fd2.push({tipo:'grp', v:[x.contrNom]}); }
+    lrSumar(accG, x);
+    var lotesN=[]; for(var q=0;q<x.lotes.length;q++) lotesN.push(nombreDestinoCorto(x.lotes[q].destino));
+    var imp=x.importe==null?(x.importeParcial||0):x.importe;
+    var v=['#'+x.o.num, fd(x.o.fecha), x.laborNom, x.camposNom.join(', ')+' · '+lotesN.join(', '), f(x.haApl,1), x.tarifa>0?((x.trabajo.tarifaMoneda==='USD'?'U$S ':'$ ')+f(x.tarifa,2)):'-', fm(imp)+(x.importe==null?' *':'')];
+    if(!soloP) v=v.concat([fm(x.facturado), fm(x.pagado), x.adeudado==null?'-':fm(x.adeudado)]);
+    fd2.push({tipo:'det', v:v});
+  }
+  cierraGrupo();
+  tabla(colsD, fd2);
+  if(T.faltaImp){ y+=5; doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(GRIS[0],GRIS[1],GRIS[2]); doc.text(pdfTxt('* Hay aplicaciones sin tipo de cambio del mes: ese importe está incompleto.'), M, y); }
+  pie();
+  return doc;
+}
+function updateContrTarifa(otId, trId, val){
+  var o=getOtById(otId); if(!o) return;
+  var tr=getTrabajoById(o, trId); if(!tr) return;
+  tr.tarifa=Number(val)||0;
+  sincronizarMontosTrabajo(o, tr);
+  guardarOTApi(o); renderContratistas();
+}
+function updateContrTarifaMon(otId, trId, val){
+  var o=getOtById(otId); if(!o) return;
+  var tr=getTrabajoById(o, trId); if(!tr) return;
+  tr.tarifaMoneda=(val==='USD'?'USD':'ARS');
+  sincronizarMontosTrabajo(o, tr);
+  guardarOTApi(o); renderContratistas();
+}
+// Tarifa propia de un LOTE dentro del trabajo. Vacío = hereda la del trabajo.
+function updateDestTarifa(otId, trId, destId, val){
+  var o=getOtById(otId); if(!o) return;
+  var tr=getTrabajoById(o, trId); if(!tr) return;
+  var de=null; for(var i=0;i<(tr.destinos||[]).length;i++) if(tr.destinos[i].id===destId){ de=tr.destinos[i]; break; }
+  if(!de) return;
+  if(val===''||val===null||val===undefined) delete de.tarifa; else de.tarifa=Number(val)||0;
+  sincronizarMontosTrabajo(o, tr);
+  guardarOTApi(o); renderContratistas();
+}
+function updateContrEstado(otId, trId, val){
+  var o=getOtById(otId); if(!o) return;
+  var tr=getTrabajoById(o, trId); if(!tr) return;
+  var imp=importeTrabajoARS(o, tr);
+  if(val==='Facturado' && imp==null){ alert('Falta el tipo de cambio del mes de alguna aplicación (Maestros → TC): no se puede calcular el importe en pesos.'); renderContratistas(); return; }
+  if((val==='Parcial'||val==='Facturado') && !(imp>0)){ alert('Todavía no hay importe para facturar: hace falta la tarifa (del trabajo o de cada lote) y al menos un lote aplicado.'); renderContratistas(); return; }
   tr.estadoFact=val;
-  if(val==='Facturado'){ tr.montoFacturado=importeTrabajoARS(o, tr); }
-  else if(val==='Sin facturar'){ tr.montoFacturado=0; }
-  if(_esModoApi()) guardarOTApi(o); else save();
-  renderContratistas();
+  if(val==='Facturado') tr.montoFacturado=imp;
+  else if(val==='Sin facturar') tr.montoFacturado=0;
+  guardarOTApi(o); renderContratistas();
+}
+// PAGO del trabajo: No / Parcial / Sí. Lo adeudado sale de acá, no de la facturación.
+function updateContrPago(otId, trId, val){
+  var o=getOtById(otId); if(!o) return;
+  var tr=getTrabajoById(o, trId); if(!tr) return;
+  var imp=importeTrabajoARS(o, tr);
+  if(val==='Sí' && imp==null){ alert('Falta el tipo de cambio del mes de alguna aplicación (Maestros → TC): no se puede calcular el importe en pesos.'); renderContratistas(); return; }
+  if((val==='Sí'||val==='Parcial') && !(imp>0)){ alert('Todavía no hay importe aplicado para pagar.'); renderContratistas(); return; }
+  tr.estadoPago=val;
+  if(val==='Sí') tr.montoPagado=imp;
+  else if(val==='No') tr.montoPagado=0;
+  guardarOTApi(o); renderContratistas();
 }
 function openMontoModal(otId, trId){
-  var o=getOtById(otId), tr=getTrabajoById(o, trId); if(!tr) return;
-  var haApl=haTrabajo(tr, true), tarifa=tarifaARSDeTrabajo(o, tr);
-  var importe=importeTrabajoARS(o, tr);
-  var actual=Number(tr.montoFacturado)||0;
-  var contrNom = tr.contratistaId ? getContratistaNombre(tr.contratistaId) : 'Labor propia';
-  var mc=byId('modalContent');
-  mc.className='modal';
-  mc.innerHTML='<h3>Editar monto facturado — OT #'+o.num+' · '+esc(nombreLaborDeTrabajo(tr))+'</h3>'+
-    '<p style="font-size:11px;color:var(--muted);margin-bottom:12px">'+esc(contrNom)+' · '+f(haApl,1)+' ha aplicadas × '+fm(tarifa)+'/ha = <strong>'+fm(importe)+'</strong> (importe total a facturar)</p>'+
-    '<div class="fld"><label>Monto facturado (parcial)</label>'+
-      '<input type="number" id="montoModalInput" step="0.01" min="0" value="'+actual+'" style="width:100%;text-align:right" autofocus>'+
-    '</div>'+
+  var o=getOtById(otId); if(!o) return;
+  var tr=getTrabajoById(o, trId); if(!tr) return;
+  var I=importeTrabajo(o, tr), importe=I.ars||0, actual=Number(tr.montoFacturado)||0;
+  var contrNom=(tr.contratistaId ? getContratistaNombre(tr.contratistaId) : (tr.laborTipo==='LC'?ETIQUETA_LC_SIN:'Labor propia'))+' · '+nombreLaborDeTrabajo(tr);
+  var cant=I.haApl+I.unApl, suf=I.unApl&&!I.haApl?'unid.':'ha';
+  var mc=byId('modalContent'); mc.className='modal';
+  mc.innerHTML='<h3>Editar monto facturado — OT #'+o.num+'</h3>'+
+    '<p style="font-size:11px;color:var(--muted);margin-bottom:12px">'+esc(contrNom)+' · '+f(cant,1)+' '+suf+' aplicadas = <strong>'+(I.ars==null?'sin valuar (falta TC)':fm(importe))+'</strong> (importe total a facturar)</p>'+
+    '<div class="fld"><label>Monto facturado (parcial)</label><input type="number" id="montoModalInput" step="0.01" min="0" value="'+actual+'" style="width:100%;text-align:right"></div>'+
     '<p id="montoModalHint" style="font-size:11px;color:var(--muted);margin-top:8px"></p>'+
     '<div class="fact"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveMontoModal(\''+o.id+'\',\''+tr.id+'\','+importe+')">Guardar</button></div>';
   byId('modalBg').classList.add('on');
@@ -6077,22 +6525,57 @@ function openMontoModal(otId, trId){
     var upd=function(){
       var v=Number(inp.value)||0;
       if(importe>0 && v>importe){ hint.textContent='⚠ El monto supera el importe total ('+fm(importe)+').'; hint.style.color='#B45309'; }
-      else if(importe>0){ var pend=importe-v; hint.textContent='Quedarían '+fm(pend)+' pendientes de facturar.'; hint.style.color='var(--muted)'; }
+      else if(importe>0){ hint.textContent='Quedarían '+fm(importe-v)+' pendientes de facturar.'; hint.style.color='var(--muted)'; }
       else hint.textContent='';
     };
     inp.addEventListener('input', upd); upd();
-    inp.addEventListener('keydown', function(e){ if(e.key==='Enter'){ saveMontoModal(o.id, tr.id, importe); } });
+    inp.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); saveMontoModal(o.id, tr.id, importe); } });
   }
 }
 function saveMontoModal(otId, trId, importe){
-  var o=getOtById(otId), tr=getTrabajoById(o, trId); if(!tr) return;
+  var o=getOtById(otId); if(!o) return;
+  var tr=getTrabajoById(o, trId); if(!tr) return;
   var inp=byId('montoModalInput'); if(!inp) return;
-  var v=Number(inp.value)||0;
-  if(v<0) v=0;
+  var v=Number(inp.value)||0; if(v<0) v=0;
   tr.montoFacturado=v;
   if(importe>0 && v>=importe){ tr.estadoFact='Facturado'; tr.montoFacturado=importe; }
-  if(_esModoApi()) guardarOTApi(o); else save();
-  closeModal(); renderContratistas();
+  guardarOTApi(o); closeModal(); renderContratistas();
+}
+// Monto pagado parcial de un trabajo.
+function openPagoModal(otId, trId){
+  var o=getOtById(otId); if(!o) return;
+  var tr=getTrabajoById(o, trId); if(!tr) return;
+  var I=importeTrabajo(o, tr), importe=I.ars||0, actual=Number(tr.montoPagado)||0;
+  var contrNom=(tr.contratistaId ? getContratistaNombre(tr.contratistaId) : (tr.laborTipo==='LC'?ETIQUETA_LC_SIN:'Labor propia'))+' · '+nombreLaborDeTrabajo(tr);
+  var mc=byId('modalContent'); mc.className='modal';
+  mc.innerHTML='<h3>Editar monto pagado — OT #'+o.num+'</h3>'+
+    '<p style="font-size:11px;color:var(--muted);margin-bottom:12px">'+esc(contrNom)+' · importe aplicado: <strong>'+(I.ars==null?'sin valuar (falta TC)':fm(importe))+'</strong></p>'+
+    '<div class="fld"><label>Monto pagado (parcial)</label><input type="number" id="pagoModalInput" step="0.01" min="0" value="'+actual+'" style="width:100%;text-align:right"></div>'+
+    '<p id="pagoModalHint" style="font-size:11px;color:var(--muted);margin-top:8px"></p>'+
+    '<div class="fact"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="savePagoModal(\''+o.id+'\',\''+tr.id+'\','+importe+')">Guardar</button></div>';
+  byId('modalBg').classList.add('on');
+  var inp=byId('pagoModalInput');
+  if(inp){
+    inp.focus(); inp.select();
+    var hint=byId('pagoModalHint');
+    var updP=function(){
+      var v=Number(inp.value)||0;
+      if(importe>0 && v>importe){ hint.textContent='⚠ El monto supera el importe aplicado ('+fm(importe)+').'; hint.style.color='#B45309'; }
+      else if(importe>0){ hint.textContent='Quedarían '+fm(importe-v)+' adeudados.'; hint.style.color='var(--muted)'; }
+      else hint.textContent='';
+    };
+    inp.addEventListener('input', updP); updP();
+    inp.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); savePagoModal(o.id, tr.id, importe); } });
+  }
+}
+function savePagoModal(otId, trId, importe){
+  var o=getOtById(otId); if(!o) return;
+  var tr=getTrabajoById(o, trId); if(!tr) return;
+  var inp=byId('pagoModalInput'); if(!inp) return;
+  var v=Number(inp.value)||0; if(v<0) v=0;
+  tr.montoPagado=v;
+  if(importe>0 && v>=importe){ tr.estadoPago='Sí'; tr.montoPagado=importe; }
+  guardarOTApi(o); closeModal(); renderContratistas();
 }
 function getOtById(id){ for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===id) return state.ots[i]; return null; }
 
