@@ -429,7 +429,7 @@ CREATE INDEX idx_actividades_empresa  ON actividades(empresa_id, campania_id);
 CREATE TABLE ordenes_trabajo (
     id           TEXT NOT NULL,
     empresa_id   TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-    num          INTEGER NOT NULL,
+    num          NUMERIC NOT NULL, -- puede tener decimales: sub-OT del Excel del cliente (38.1)
     campania_id  TEXT REFERENCES campanias(id),
     fecha        DATE,
     obs          TEXT,
@@ -504,7 +504,7 @@ CREATE TABLE comprobantes (
     campania_id     TEXT REFERENCES campanias(id),
     obs             TEXT,
     ref_ot_trabajo  TEXT,
-    ref_ot_num      INTEGER,
+    ref_ot_num      NUMERIC,
     ref_tanda       TEXT,   -- tanda de aplicación de la OT que generó el comprobante
     PRIMARY KEY (id, empresa_id),
     FOREIGN KEY (proveedor_id, empresa_id)   REFERENCES terceros(id, empresa_id)   ON DELETE RESTRICT,
@@ -523,6 +523,8 @@ CREATE TABLE movimientos (
     origen_deposito_id   TEXT,
     destino_deposito_id  TEXT,
     ref_destino_id       TEXT, -- id del destino (lote) dentro del JSONB destinos de la OT, si aplica
+    precio               NUMERIC(16,4), -- precio unitario de compra / stock inicial (alimenta el promedio ponderado)
+    moneda               TEXT,          -- 'ARS' | 'USD' del precio de esta línea
     PRIMARY KEY (id, empresa_id),
     FOREIGN KEY (comprobante_id, empresa_id)      REFERENCES comprobantes(id, empresa_id)     ON DELETE CASCADE,
     FOREIGN KEY (insumo_id, empresa_id)           REFERENCES insumos(id, empresa_id)          ON DELETE RESTRICT,
@@ -546,6 +548,22 @@ CREATE TABLE config_operativa (
 -- con varios usuarios en simultáneo, guardar el TC de un mes podía pisar en
 -- silencio el de otro mes que acababa de cargar otro usuario. Cada mes es
 -- ahora su propia fila — guardar uno no toca los demás.
+-- Cierres de stock: conciliación a una fecha. Bloquea movimientos y
+-- aplicaciones con fecha <= la del último cierre. precios = {insumoId: precio}
+-- fijados a mano (rigen desde el día siguiente); comp_ids = comprobantes de
+-- ajuste que generó (se borran al anular el cierre).
+CREATE TABLE cierres_stock (
+    id          TEXT NOT NULL,
+    empresa_id  TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    fecha       DATE NOT NULL,
+    precios     JSONB NOT NULL DEFAULT '{}',
+    comp_ids    TEXT[] NOT NULL DEFAULT '{}',
+    creado_el   DATE,
+    creado_por  TEXT,
+    PRIMARY KEY (id, empresa_id)
+);
+CREATE INDEX idx_cierres_stock_empresa ON cierres_stock(empresa_id, fecha);
+
 CREATE TABLE tipo_cambio_mensual (
     empresa_id TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
     anio_mes   TEXT NOT NULL,  -- 'YYYY-MM'

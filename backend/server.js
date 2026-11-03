@@ -55,7 +55,11 @@ app.use(cors({
     callback(null, false); // rechazar silenciosamente
   }
 }));
-app.use(express.json({ limit: '2mb' }));
+// La carga desde Excel manda la campaña entera de una vez (OT, movimientos):
+// esas rutas aceptan más que el resto.
+const jsonChico = express.json({ limit: '2mb' });
+const jsonGrande = express.json({ limit: '40mb' });
+app.use((req, res, next) => (req.path.indexOf('/api/carga-excel/') === 0 ? jsonGrande : jsonChico)(req, res, next));
 
 // ── RATE LIMITING (en memoria, login) ───────────────────────────────────────
 const _loginRateMap = new Map();
@@ -2501,7 +2505,7 @@ app.post('/api/ordenes-trabajo', async (req, res) => {
     const numRes = await client.query(
       `UPDATE contadores_ot
           SET siguiente = GREATEST(siguiente,
-                (SELECT COALESCE(MAX(num), 0) + 1 FROM ordenes_trabajo WHERE empresa_id = $1)) + 1
+                (SELECT COALESCE(FLOOR(MAX(num)), 0) + 1 FROM ordenes_trabajo WHERE empresa_id = $1)) + 1
         WHERE empresa_id = $1
         RETURNING siguiente - 1 AS num`,
       [empresaId]
@@ -2614,7 +2618,8 @@ app.get('/api/comprobantes', async (req, res) => {
 
     const movs = await pool.query(
       `SELECT id, comprobante_id AS "comprobanteId", insumo_id AS "insumoId", cantidad AS "cant",
-              origen_deposito_id AS "origenId", destino_deposito_id AS "destinoId", ref_destino_id AS "refDest"
+              origen_deposito_id AS "origenId", destino_deposito_id AS "destinoId", ref_destino_id AS "refDest",
+              precio, moneda
          FROM movimientos WHERE empresa_id = $1`,
       [empresaId]
     );
@@ -2629,14 +2634,28 @@ app.get('/api/comprobantes', async (req, res) => {
   }
 });
 
+// Fecha (YYYY-MM-DD) del último cierre de stock de la empresa, o null. Todo lo
+// fechado hasta ese día queda cerrado (como bloqueoFecha() del cliente).
+async function fechaCierreStock(db, empresaId) {
+  const r = await db.query(
+    `SELECT to_char(MAX(fecha), 'YYYY-MM-DD') AS f FROM cierres_stock WHERE empresa_id = $1`, [empresaId]);
+  return r.rows[0].f || null;
+}
+function msgCierre(fc) {
+  const p = fc.split('-');
+  return 'El stock está cerrado al ' + p[2] + '/' + p[1] + '/' + p[0].slice(2) +
+    ': no se pueden cargar, editar ni borrar movimientos con fecha anterior o igual.';
+}
+
 async function _guardarLineasComprobante(client, compId, empresaId, lineas) {
   await client.query('DELETE FROM movimientos WHERE comprobante_id=$1 AND empresa_id=$2', [compId, empresaId]);
   for (const ln of (lineas || [])) {
     const lnId = ln.id || (compId + '_' + Math.random().toString(36).slice(2, 8));
     await client.query(
-      `INSERT INTO movimientos (id, empresa_id, comprobante_id, insumo_id, cantidad, origen_deposito_id, destino_deposito_id, ref_destino_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [lnId, empresaId, compId, ln.insumoId, ln.cant || 0, ln.origenId || null, ln.destinoId || null, ln.refDest || null]
+      `INSERT INTO movimientos (id, empresa_id, comprobante_id, insumo_id, cantidad, origen_deposito_id, destino_deposito_id, ref_destino_id, precio, moneda)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [lnId, empresaId, compId, ln.insumoId, ln.cant || 0, ln.origenId || null, ln.destinoId || null, ln.refDest || null,
+       Number(ln.precio) > 0 ? Number(ln.precio) : null, Number(ln.precio) > 0 ? (ln.moneda === 'USD' ? 'USD' : 'ARS') : null]
     );
   }
 }
@@ -2652,6 +2671,9 @@ app.post('/api/comprobantes', async (req, res) => {
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
     if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
+
+    const fcPost = await fechaCierreStock(client, empresaId);
+    if (fcPost && c.fecha && String(c.fecha).slice(0, 10) <= fcPost) { client.release(); return res.status(409).json({ error: msgCierre(fcPost) }); }
 
     const id = c.id || ('comp_' + Date.now());
     await client.query('BEGIN');
@@ -2686,6 +2708,12 @@ app.put('/api/comprobantes/:id', async (req, res) => {
     if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
     const bloqueo = await verificarLockPropio('comprobantes', req.params.id, sesion);
     if (bloqueo) { client.release(); return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre }); }
+    const fcPut = await fechaCierreStock(client, empresaId);
+    if (fcPut) {
+      const ant = await client.query(`SELECT to_char(fecha,'YYYY-MM-DD') AS f FROM comprobantes WHERE id=$1 AND empresa_id=$2`, [req.params.id, empresaId]);
+      const fAnt = ant.rows[0] ? ant.rows[0].f : null;
+      if ((fAnt && fAnt <= fcPut) || (c.fecha && String(c.fecha).slice(0, 10) <= fcPut)) { client.release(); return res.status(409).json({ error: msgCierre(fcPut) }); }
+    }
 
     await client.query('BEGIN');
     await client.query(
@@ -2719,12 +2747,308 @@ app.delete('/api/comprobantes/:id', async (req, res) => {
     const bloqueo = await verificarLockPropio('comprobantes', req.params.id, sesion);
     if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
 
+    const fcDel = await fechaCierreStock(pool, empresaId);
+    if (fcDel) {
+      const ant = await pool.query(`SELECT to_char(fecha,'YYYY-MM-DD') AS f FROM comprobantes WHERE id=$1 AND empresa_id=$2`, [req.params.id, empresaId]);
+      if (ant.rows[0] && ant.rows[0].f && ant.rows[0].f <= fcDel) return res.status(409).json({ error: msgCierre(fcDel) });
+    }
     // ON DELETE CASCADE en movimientos se encarga de las líneas.
     await pool.query('DELETE FROM comprobantes WHERE id=$1 AND empresa_id=$2', [req.params.id, empresaId]);
     res.json({ status: 'ok' });
   } catch (err) {
     console.error('/api/comprobantes DELETE error:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DATOS OPERATIVOS DE LABORES E INSUMOS DE UNA EMPRESA
+// Lo que borra el Reset del tablero (client-src/2026-10-30: movimientos, OT,
+// cierres, TC mensual y tarifas de referencia; los catálogos no se tocan) y
+// lo que reemplaza la carga desde Excel antes de escribir lo nuevo.
+// ─────────────────────────────────────────────────────────────────────────────
+async function borrarOperativoInsumosOt(client, empresaId) {
+  const n = {};
+  // comprobantes antes que OT: ref_ot_trabajo es ON DELETE RESTRICT.
+  n.movimientos = (await client.query('SELECT COUNT(*)::int AS c FROM movimientos WHERE empresa_id=$1', [empresaId])).rows[0].c;
+  await client.query('DELETE FROM comprobantes WHERE empresa_id=$1', [empresaId]);
+  n.OT = (await client.query('DELETE FROM ordenes_trabajo WHERE empresa_id=$1', [empresaId])).rowCount;
+  await client.query('DELETE FROM cierres_stock WHERE empresa_id=$1', [empresaId]);
+  await client.query('DELETE FROM tipo_cambio_mensual WHERE empresa_id=$1', [empresaId]);
+  await client.query('DELETE FROM tarifas_referencia_labor WHERE empresa_id=$1', [empresaId]);
+  await client.query('DELETE FROM contadores_ot WHERE empresa_id=$1', [empresaId]);
+  return n;
+}
+
+app.delete('/api/insumos-ot/datos', async (req, res) => {
+  const empresaId = req.query.empresaId;
+  const client = await pool.connect();
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { client.release(); return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
+    await client.query('BEGIN');
+    const n = await borrarOperativoInsumosOt(client, empresaId);
+    await client.query('COMMIT');
+    res.json({ status: 'ok', borrados: n });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('/api/insumos-ot/datos DELETE error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/carga-excel/registro — carga desde Excel de Labores e Insumos.
+// Portado de IMP.aplicar() de client-src/2026-10-30/cargar_datos.html (parte
+// "reg"): agrega labores y unidades que falten (globales), REEMPLAZA los
+// insumos, depósitos y terceros de la empresa y todo su operativo (OT,
+// movimientos, cierres, TC, tarifas). La lectura del Excel sigue en el
+// navegador; acá se escribe todo en una transacción.
+// ─────────────────────────────────────────────────────────────────────────────
+app.post('/api/carga-excel/registro', async (req, res) => {
+  const b = req.body || {};
+  const empresaId = b.empresaId;
+  const client = await pool.connect();
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
+    if (sesion.rol !== 'admin_general' && sesion.rol !== 'admin_cliente') {
+      client.release();
+      return res.status(403).json({ error: 'La carga masiva desde Excel la hace un administrador' });
+    }
+    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+
+    const arr = x => (Array.isArray(x) ? x : []);
+    const labores = arr(b.labores), unidades = arr(b.unidades), insumos = arr(b.insumos);
+    const depositos = arr(b.depositos), terceros = arr(b.terceros), ots = arr(b.ots), comps = arr(b.comprobantes);
+    const opIns = {}; for (const o of arr(b.insumosOperativos)) if (o && o.id) opIns[o.id] = o;
+
+    await client.query('BEGIN');
+
+    // Campaña del Excel ('26-27') -> la del catálogo ('26/27', camp_2627).
+    const campRes = await client.query('SELECT id, nombre FROM campanias');
+    const campPorNombre = {};
+    for (const r of campRes.rows) {
+      campPorNombre[normalizarNombreCampania(r.id)] = campPorNombre[normalizarNombreCampania(r.id)] || r.id;
+      campPorNombre[normalizarNombreCampania(r.nombre)] = r.id;
+    }
+    async function campaniaReal(c) {
+      if (!c) return null;
+      const k = normalizarNombreCampania(c);
+      if (campPorNombre[k]) return campPorNombre[k];
+      const mx = await client.query('SELECT COALESCE(MAX(orden),0)+1 AS o FROM campanias');
+      await client.query('INSERT INTO campanias (id, nombre, orden, activa) VALUES ($1,$1,$2,false) ON CONFLICT (id) DO NOTHING', [c, mx.rows[0].o]);
+      campPorNombre[k] = c;
+      return c;
+    }
+    const campReg = await campaniaReal(b.campania);
+
+    // Labores y unidades (globales): solo se agregan; si ya hay una con ese nombre/sigla se usa esa.
+    const laborIdMap = {};
+    for (const l of labores) {
+      if (!l || !l.nombre) continue;
+      const ex = await client.query('SELECT id FROM labores WHERE trim(lower(nombre)) = trim(lower($1))', [l.nombre]);
+      if (ex.rows.length) { laborIdMap[l.id] = ex.rows[0].id; continue; }
+      await client.query('INSERT INTO labores (id, nombre, unidad_labor, precio_ref, activo) VALUES ($1,$2,$3,$4,true) ON CONFLICT (id) DO NOTHING',
+        [l.id, l.nombre, l.unidadLabor || null, Number(l.precioRef) || 0]);
+      laborIdMap[l.id] = l.id;
+    }
+    const unidadIdMap = {};
+    for (const u of unidades) {
+      if (!u || !u.sigla) continue;
+      const ex = await client.query('SELECT id FROM unidades WHERE trim(lower(sigla)) = trim(lower($1))', [u.sigla]);
+      if (ex.rows.length) { unidadIdMap[u.id] = ex.rows[0].id; continue; }
+      await client.query('INSERT INTO unidades (id, sigla, nombre, activo) VALUES ($1,$2,$3,true) ON CONFLICT (id) DO NOTHING',
+        [u.id, u.sigla, u.nombre || u.sigla]);
+      unidadIdMap[u.id] = u.id;
+    }
+
+    // Borrar lo de la empresa (operativo primero: movimientos/OT apuntan a los catálogos).
+    const borrados = await borrarOperativoInsumosOt(client, empresaId);
+    borrados['insumos'] = (await client.query('DELETE FROM insumos WHERE empresa_id=$1', [empresaId])).rowCount;
+    borrados['depósitos'] = (await client.query('DELETE FROM depositos WHERE empresa_id=$1', [empresaId])).rowCount;
+    await client.query('DELETE FROM choferes WHERE empresa_id=$1', [empresaId]);
+    borrados['terceros'] = (await client.query('DELETE FROM terceros WHERE empresa_id=$1', [empresaId])).rowCount;
+
+    // Como /api/maestros: datos lleva el objeto entero, con su id y empresaId.
+    const sinIdEmp = o => ({ ...o, id: o.id, empresaId });
+    for (const x of insumos) {
+      const d = sinIdEmp(x);
+      if (d.unidadId && unidadIdMap[d.unidadId]) d.unidadId = unidadIdMap[d.unidadId];
+      const op = opIns[x.id];
+      if (op) { if (op.depositoId) d.depositoId = op.depositoId; d.stockMin = Number(op.stockMin) || 0; d.moneda = op.moneda === 'USD' ? 'USD' : 'ARS'; }
+      await client.query('INSERT INTO insumos (id, empresa_id, datos) VALUES ($1,$2,$3)', [x.id, empresaId, d]);
+    }
+    for (const x of depositos) await client.query('INSERT INTO depositos (id, empresa_id, datos) VALUES ($1,$2,$3)', [x.id, empresaId, sinIdEmp(x)]);
+    for (const x of terceros) await client.query('INSERT INTO terceros (id, empresa_id, datos) VALUES ($1,$2,$3)', [x.id, empresaId, sinIdEmp(x)]);
+
+    // OT con su número del Excel
+    let maxNum = 0;
+    for (const o of ots) {
+      const num = Number(o.num) || 0; if (num > maxNum) maxNum = num;
+      await client.query(
+        `INSERT INTO ordenes_trabajo (id, empresa_id, num, campania_id, fecha, obs, estado, ultimo_registro, impresa, rapida)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,NULL,false,false)`,
+        [o.id, empresaId, num, await campaniaReal(o.campaniaId), o.fecha || null, o.obs || null, o.estado || 'Pendiente']
+      );
+      const trs = arr(o.trabajos).map(t => ({ ...t, laborId: (t.laborId && laborIdMap[t.laborId]) || t.laborId || null }));
+      await _guardarTrabajosOt(client, o.id, empresaId, trs);
+    }
+    await client.query(
+      `INSERT INTO contadores_ot (empresa_id, siguiente) VALUES ($1,$2)
+       ON CONFLICT (empresa_id) DO UPDATE SET siguiente = EXCLUDED.siguiente`,
+      [empresaId, Math.max(Number(b.nextOt) || 0, maxNum + 1)]
+    );
+
+    // Comprobantes y movimientos
+    let nLineas = 0;
+    for (const c of comps) {
+      await client.query(
+        `INSERT INTO comprobantes (id, empresa_id, fecha, tipo, comp_tipo, comp_nro, proveedor_id, campania_id, obs, ref_ot_trabajo, ref_ot_num, ref_tanda)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [c.id, empresaId, c.fecha || null, c.tipo || null, c.compTipo || null, c.compNro || null, c.proveedorId || null,
+         await campaniaReal(c.campaniaId), c.obs || null, c.refOtTrabajo || null, c.refOtNum || null, c.refTanda || null]
+      );
+      await _guardarLineasComprobante(client, c.id, empresaId, c.lineas);
+      nLineas += arr(c.lineas).length;
+    }
+
+    // La campaña del Excel pasa a ser la activa (como IMP.aplicar del cliente).
+    if (campReg) await client.query('UPDATE campanias SET activa = (id = $1)', [campReg]);
+
+    const informe = b.informe || {};
+    await client.query(
+      `INSERT INTO cargas_excel (id, empresa_id, usuario_id, partes, resumen, avisos)
+       VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb)`,
+      ['carga_' + Date.now(), empresaId, sesion.id, JSON.stringify({ plan: false, reg: true }),
+       JSON.stringify(informe.resumen || []), JSON.stringify(informe.avisos || [])]
+    );
+    await client.query('COMMIT');
+    res.json({ status: 'ok', borrados,
+      escritos: { insumos: insumos.length, 'depósitos': depositos.length, terceros: terceros.length, OT: ots.length, movimientos: nLineas } });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('/api/carga-excel/registro POST error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' + (err && err.code === '23505' ? ': hay nombres repetidos en el Excel' : '') });
+  } finally {
+    client.release();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CIERRES DE STOCK (portado de client-src/2026-10-30: openCierreStock /
+// confirmarCierreStock / anularUltimoCierre). El cierre y sus comprobantes de
+// ajuste se graban en una sola transacción; anular solo se puede con el último.
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/cierres-stock', async (req, res) => {
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    const empresaId = req.query.empresaId;
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    const r = await pool.query(
+      `SELECT id, to_char(fecha,'YYYY-MM-DD') AS fecha, precios, comp_ids AS "compIds",
+              to_char(creado_el,'YYYY-MM-DD') AS el, creado_por AS por
+         FROM cierres_stock WHERE empresa_id = $1 ORDER BY fecha`, [empresaId]);
+    res.json(r.rows);
+  } catch (err) {
+    console.error('/api/cierres-stock GET error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.post('/api/cierres-stock', async (req, res) => {
+  const b = req.body || {};
+  const empresaId = b.empresaId;
+  const client = await pool.connect();
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { client.release(); return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
+    const fecha = String(b.fecha || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { client.release(); return res.status(400).json({ error: 'Falta la fecha del cierre' }); }
+
+    await client.query('BEGIN');
+    // Serializa cierres concurrentes de la misma empresa.
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['cierre_stock:' + empresaId]);
+    const fc = await fechaCierreStock(client, empresaId);
+    if (fc && fecha <= fc) {
+      await client.query('ROLLBACK'); client.release();
+      return res.status(409).json({ error: 'La fecha tiene que ser posterior al último cierre (' + fc + ').' });
+    }
+    const comps = Array.isArray(b.comprobantes) ? b.comprobantes : [];
+    const compIds = [];
+    for (const c of comps) {
+      const cid = c.id || ('comp_' + Date.now() + '_' + compIds.length);
+      await client.query(
+        `INSERT INTO comprobantes (id, empresa_id, fecha, tipo, comp_tipo, comp_nro, proveedor_id, campania_id, obs, ref_ot_trabajo, ref_ot_num, ref_tanda)
+         VALUES ($1,$2,$3,$4,$5,$6,NULL,NULL,$7,NULL,NULL,NULL)`,
+        [cid, empresaId, fecha, c.tipo || null, c.compTipo || 'Cierre', c.compNro || null, c.obs || null]
+      );
+      await _guardarLineasComprobante(client, cid, empresaId, c.lineas);
+      compIds.push(cid);
+    }
+    const id = b.id || ('cierre_' + Date.now());
+    const precios = (b.precios && typeof b.precios === 'object') ? b.precios : {};
+    await client.query(
+      `INSERT INTO cierres_stock (id, empresa_id, fecha, precios, comp_ids, creado_el, creado_por)
+       VALUES ($1,$2,$3,$4::jsonb,$5,CURRENT_DATE,$6)`,
+      [id, empresaId, fecha, JSON.stringify(precios), compIds, sesion.nombre || null]
+    );
+    await client.query('COMMIT');
+    res.status(201).json({ id, fecha, precios, compIds, por: sesion.nombre || null });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('/api/cierres-stock POST error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
+  }
+});
+
+app.delete('/api/cierres-stock/:id', async (req, res) => {
+  const empresaId = req.query.empresaId;
+  const client = await pool.connect();
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { client.release(); return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
+
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['cierre_stock:' + empresaId]);
+    const ult = await client.query(
+      `SELECT id, comp_ids FROM cierres_stock WHERE empresa_id=$1 ORDER BY fecha DESC LIMIT 1`, [empresaId]);
+    if (!ult.rows.length || ult.rows[0].id !== req.params.id) {
+      await client.query('ROLLBACK'); client.release();
+      return res.status(409).json({ error: 'Solo se puede anular el último cierre de stock.' });
+    }
+    const ids = ult.rows[0].comp_ids || [];
+    if (ids.length) await client.query('DELETE FROM comprobantes WHERE empresa_id=$1 AND id = ANY($2)', [empresaId, ids]);
+    await client.query('DELETE FROM cierres_stock WHERE id=$1 AND empresa_id=$2', [req.params.id, empresaId]);
+    await client.query('COMMIT');
+    res.json({ status: 'ok' });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('/api/cierres-stock DELETE error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
   }
 });
 

@@ -150,7 +150,7 @@ footer{border-top:1px solid var(--border);background:var(--card);padding:10px 24
     <div class="paso-n">2</div>
     <div class="paso-c">
       <h2>Archivos</h2>
-      <div class="lead">Por ahora solo se puede importar el Plan de Uso del Suelo. La carga de Registro de Labores e Insumos está en desarrollo.</div>
+      <div class="lead">Podés importar uno solo o los dos. Si importás solo el de Registros, las órdenes de trabajo se cruzan con los lotes que ya están cargados en el Plan de Uso.</div>
       <div class="files">
         <div class="drop" id="dropPlan">
           <div class="drop-t">Plan de Uso del Suelo</div>
@@ -158,10 +158,10 @@ footer{border-top:1px solid var(--border);background:var(--card);padding:10px 24
           <input type="file" id="fPlan" accept=".xlsx,.xlsm,.xls" onchange="leerArchivo('plan', this.files[0])">
           <div class="res" id="resPlan"></div>
         </div>
-        <div class="drop" id="dropReg" style="opacity:.5">
+        <div class="drop" id="dropReg">
           <div class="drop-t">Registro de Labores e Insumos</div>
-          <div class="drop-s">Próximamente. Por ahora esta parte no está disponible en la plataforma.</div>
-          <input type="file" id="fReg" accept=".xlsx,.xlsm,.xls" disabled>
+          <div class="drop-s">Excel con <b>Altas, StockInsumos, MovtoInsumos y ConsumosLotes</b> (ej.: RegistrosLaboresInsumos…2627.xlsx)</div>
+          <input type="file" id="fReg" accept=".xlsx,.xlsm,.xls" onchange="leerArchivo('reg', this.files[0])">
           <div class="res" id="resReg"></div>
         </div>
       </div>
@@ -1260,7 +1260,7 @@ function avisarEmpresaExcel(){
 
 // ---------- revisión ----------
 function planActivo(){ return LIB.plan && USAR.plan ? LIB.plan : null; }
-function regActivo(){ return null; /* Fase 1: Registro de Labores e Insumos aún no migrado al backend */ }
+function regActivo(){ return LIB.reg && USAR.reg ? LIB.reg : null; }
 function reanalizar(){
   PAQ = null;
   byId('vista').innerHTML = ''; byId('btnImp').classList.add('oculto'); byId('btnInf').classList.add('oculto'); byId('prog').textContent = '';
@@ -1296,7 +1296,7 @@ function pintarRevision(){
   var lead = [];
   if(plan) lead.push('el Plan de Uso reemplaza los lotes y actividades de la empresa');
   if(reg) lead.push('Registros reemplaza insumos, depósitos, proveedores, stock, movimientos y órdenes de trabajo');
-  byId('p3lead').innerHTML = 'Al importar, '+esc(lead.join('; '))+'.' + (reg ? ' Revisá las equivalencias: lo marcado como <span class="sug">sugerido</span> lo propuse yo por el nombre y conviene confirmarlo.' : '');
+  byId('p3lead').innerHTML = 'Al importar, '+esc(lead.join('; '))+'.' + (reg ? ' Revisá las equivalencias: lo marcado como <span class="sug">sugerido</span> fue propuesto por el nombre y conviene confirmarlo.' : '');
   // Lotes sin equivalencia
   var h = '';
   if(reg){
@@ -1390,19 +1390,14 @@ function pintarVista(){
 }
 
 // ---------- importar ----------
-// Fase 1: solo Plan de Uso del Suelo. La lectura/revisión del Excel (IMP.leerPlan,
-// IMP.analizar, IMP.construir) sigue siendo 100% client-side, igual que la entregó
-// el cliente; lo único que cambia es que el "aplicar" ya no escribe en
-// localStorage — llama a /api/carga-excel/plan, que hace el borrado y alta real
-// en Postgres dentro de una transacción.
-function importar(){
-  if(!PAQ) return;
-  var partes = { plan:!!planActivo(), reg:!!regActivo() };
-  if(!confirm('¿Importar en '+nombreEmpresa(empresaId())+'?\n\nSe borran y reemplazan los datos actuales de esa empresa en Plan de Uso. No se puede deshacer (se puede volver a importar).')) return;
-  byId('btnImp').disabled = true;
-  byId('prog').textContent = 'Importando…';
+// La lectura/revisión del Excel (IMP.leerPlan, IMP.leerRegistros, IMP.analizar,
+// IMP.construir) sigue siendo 100% client-side, igual que la entregó el cliente.
+// Lo que cambia es el "aplicar": en vez de escribir en localStorage, el Plan va a
+// /api/carga-excel/plan y Labores e Insumos a /api/carga-excel/registro, cada uno
+// borrando y reemplazando lo de la empresa dentro de una transacción.
+function payloadPlan(){
   var P = PAQ.plan || { campos:[], lotes:[], actividades:[] };
-  var payload = {
+  return {
     empresaId: empresaId(),
     campos: P.campos || [],
     lotes: (P.lotes || []).map(function(l){
@@ -1415,22 +1410,75 @@ function importar(){
     campanias: PAQ.campanias || [],
     informe: PAQ.informe
   };
-  apiPost('/api/carga-excel/plan', payload, function(err){
-    if(err){
-      byId('btnImp').disabled = false; byId('prog').textContent = '';
-      alert('Falló la importación: '+(err.error||'Error desconocido'));
-      return;
-    }
-    // Las herramientas abren en la empresa recién cargada. PA.setEmpresaActiva
-    // solo toca el localStorage de este navegador; lo que realmente deciden
-    // tablero_uso_suelo.html y las demás al abrir (vía PA.loadContext(null,…))
-    // es la empresa activa GUARDADA EN LA SESIÓN del servidor, así que hay
-    // que pegarle a /api/context?empresaId=… (mismo mecanismo que usa el
-    // selector de empresa de index.html) para que quede activada de verdad.
-    apiGet('/api/context?empresaId='+encodeURIComponent(empresaId()), function(){
-      pintarHecho({ escritos:{ lotes:payload.lotes.length, actividades:payload.actividades.length }, borrados:{} }, partes);
-    });
+}
+function payloadRegistro(){
+  var R = PAQ.reg, E = R.espacio, i, j;
+  // Los consumos de una OT van a un trabajo (comprobantes.ref_ot_trabajo): se toma el
+  // trabajo del lote de sus líneas. El tablero reconoce además cada línea por su lote.
+  var trDeDest = {};
+  for(i=0;i<E.ots.length;i++){ var trs=E.ots[i].trabajos||[]; for(j=0;j<trs.length;j++){ var ds=trs[j].destinos||[]; for(var k=0;k<ds.length;k++) trDeDest[ds[k].id]=trs[j].id; } }
+  var lineasPorComp = {};
+  for(i=0;i<E.movtos.length;i++){ var m=E.movtos[i]; (lineasPorComp[m.comprobanteId]=lineasPorComp[m.comprobanteId]||[]).push(m); }
+  var comps = E.comprobantes.map(function(c){
+    var ls = lineasPorComp[c.id] || [], refTr = null;
+    if(c.refOt){ for(var q=0;q<ls.length && !refTr;q++) if(ls[q].refDest && trDeDest[ls[q].refDest]) refTr = trDeDest[ls[q].refDest]; }
+    return { id:c.id, fecha:c.fecha||null, tipo:c.tipo||null, compTipo:c.comp_tipo||null, compNro:c.comp_nro||null,
+      proveedorId:c.proveedorId||null, campaniaId:c.campaniaId||null, obs:c.obs||null,
+      refOtTrabajo:refTr, refOtNum:c.refOtNum||null, refTanda:c.refTanda||null,
+      lineas: ls.map(function(m){ return { id:m.id, insumoId:m.insumoId, cant:m.cant, origenId:m.origenId||null, destinoId:m.destinoId||null,
+        refDest:m.refDest||null, precio:(Number(m.precio)>0?Number(m.precio):null), moneda:(Number(m.precio)>0?(m.moneda||'ARS'):null) }; }) };
   });
+  return {
+    empresaId: empresaId(), campania: R.campania || '',
+    labores: R.labores || [], unidades: R.unidades || [],
+    insumos: R.insumos || [], depositos: R.depositos || [], terceros: R.terceros || [],
+    insumosOperativos: E.insumos || [],
+    ots: E.ots.map(function(o){ return { id:o.id, num:o.num, fecha:o.fecha||null, campaniaId:o.campaniaId||null, obs:o.obs||'', estado:o.estado||'Pendiente',
+      trabajos:(o.trabajos||[]).map(function(t){ return { id:t.id, laborId:t.laborId||null, laborTipo:t.laborTipo||null, contratistaId:t.contratistaId||null,
+        tarifa:t.tarifa||null, tarifaMoneda:t.tarifaMoneda||'ARS', esResiembra:!!t.esResiembra, estadoFact:t.estadoFact||'Sin facturar',
+        montoFacturado:Number(t.montoFacturado)||0, estadoPago:t.estadoPago||'No', montoPagado:Number(t.montoPagado)||0,
+        plantilla:t.plantilla||[], destinos:t.destinos||[] }; }) }; }),
+    comprobantes: comps,
+    nextOt: E.nextOt || 1,
+    informe: PAQ.informe
+  };
+}
+function importar(){
+  if(!PAQ) return;
+  var partes = { plan:!!(planActivo() && PAQ.plan), reg:!!(regActivo() && PAQ.reg) };
+  if(!partes.plan && !partes.reg) return;
+  if(!confirm('¿Importar en '+nombreEmpresa(empresaId())+'?\n\nSe borran y reemplazan los datos actuales de esa empresa en '+(partes.plan&&partes.reg?'Plan de Uso y en Labores e Insumos':partes.plan?'Plan de Uso':'Labores e Insumos')+'. No se puede deshacer (se puede volver a importar).')) return;
+  byId('btnImp').disabled = true;
+  var res = { escritos:{}, borrados:{} };
+  var fallo = function(err){
+    byId('btnImp').disabled = false; byId('prog').textContent = '';
+    alert('Falló la importación: '+((err&&err.error)||'Error desconocido')+(partes.plan&&partes.reg&&res.escritos.lotes!==undefined?'\n\nEl Plan de Uso sí se importó; Labores e Insumos no.':''));
+  };
+  var terminar = function(){
+    // Las herramientas abren en la empresa recién cargada: la empresa activa que deciden
+    // tablero_uso_suelo.html y las demás al abrir es la GUARDADA EN LA SESIÓN del
+    // servidor, así que hay que pegarle a /api/context?empresaId=… (como index.html).
+    apiGet('/api/context?empresaId='+encodeURIComponent(empresaId()), function(){ pintarHecho(res, partes); });
+  };
+  var registro = function(){
+    if(!partes.reg){ terminar(); return; }
+    byId('prog').textContent = 'Importando labores e insumos…';
+    apiPost('/api/carga-excel/registro', payloadRegistro(), function(err, r){
+      if(err){ fallo(err); return; }
+      var k; for(k in (r.escritos||{})) res.escritos[k]=r.escritos[k];
+      for(k in (r.borrados||{})) res.borrados[k]=r.borrados[k];
+      terminar();
+    });
+  };
+  if(partes.plan){
+    byId('prog').textContent = 'Importando plan de uso…';
+    var pp = payloadPlan();
+    apiPost('/api/carga-excel/plan', pp, function(err){
+      if(err){ fallo(err); return; }
+      res.escritos.lotes = pp.lotes.length; res.escritos.actividades = pp.actividades.length;
+      registro();
+    });
+  } else registro();
 }
 function pintarHecho(res, partes){
   var cnt = '', k;
