@@ -701,6 +701,9 @@
       if ((niveles[CTX.permiso.nivel] || 0) < (niveles[accion] || 1)) return false;
       if (opts) {
         var hts = CTX.permiso.herramientas || [];
+        // herramientas=[] significa "todas" solo con nivel 'administrar'; con
+        // 'ver'/'cargar' significa que no tiene ninguna tildada.
+        if (opts.herramienta && !hts.length && CTX.permiso.nivel !== 'administrar') return false;
         if (opts.herramienta && hts.length) {
           var tieneHt = false;
           for (var i = 0; i < hts.length; i++) { if (hts[i] === opts.herramienta) { tieneHt = true; break; } }

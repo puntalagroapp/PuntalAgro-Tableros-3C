@@ -294,6 +294,18 @@ function puedeEscribirMaestroEmpresa(sesion, permiso) {
     permiso.nivel === 'administrar' || permiso.nivel === 'cargar';
 }
 
+// Nivel del usuario sobre una herramienta (ver < cargar < administrar).
+// herramientas=[] significa "todas" solo con nivel 'administrar' (admin_general y
+// admin_cliente lo tienen siempre vía obtenerPermiso); con 'ver'/'cargar' la
+// herramienta tiene que estar tildada en el permiso.
+const NIVEL_RANGO = { ver: 1, cargar: 2, administrar: 3 };
+function puedeEnHerramienta(permiso, herramienta, nivelRequerido) {
+  if (!permiso) return false;
+  if ((NIVEL_RANGO[permiso.nivel] || 0) < (NIVEL_RANGO[nivelRequerido] || 1)) return false;
+  if (permiso.nivel === 'administrar') return true;
+  return (permiso.herramientas || []).indexOf(herramienta) !== -1;
+}
+
 // Depósito general (sin campoId): lo ve cualquiera de la empresa, pero solo lo
 // crea/edita/borra nivel 'administrar' (admin_general/admin_cliente siempre
 // tienen ese nivel vía obtenerPermiso). Depósito de campo: alcanza 'cargar' +
@@ -2459,6 +2471,7 @@ app.post('/api/ordenes-trabajo', async (req, res) => {
     if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
 
     await client.query('BEGIN');
     await client.query(
@@ -2506,6 +2519,7 @@ app.put('/api/ordenes-trabajo/:id', async (req, res) => {
     if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
     const bloqueo = await verificarLockPropio('ordenes_trabajo', req.params.id, sesion);
     if (bloqueo) { client.release(); return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre }); }
 
@@ -2539,6 +2553,7 @@ app.delete('/api/ordenes-trabajo/:id', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
     const bloqueo = await verificarLockPropio('ordenes_trabajo', req.params.id, sesion);
     if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
 
@@ -2618,6 +2633,7 @@ app.post('/api/comprobantes', async (req, res) => {
     if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
 
     const id = c.id || ('comp_' + Date.now());
     await client.query('BEGIN');
@@ -2649,6 +2665,7 @@ app.put('/api/comprobantes/:id', async (req, res) => {
     if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
     const bloqueo = await verificarLockPropio('comprobantes', req.params.id, sesion);
     if (bloqueo) { client.release(); return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre }); }
 
@@ -2680,6 +2697,7 @@ app.delete('/api/comprobantes/:id', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
     const bloqueo = await verificarLockPropio('comprobantes', req.params.id, sesion);
     if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
 
@@ -2792,6 +2810,7 @@ app.put('/api/config-operativa', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
 
     await pool.query(
       `INSERT INTO config_operativa (empresa_id, tc_usd, tc_apertura, tc_cierre)
@@ -2819,6 +2838,7 @@ app.put('/api/config-operativa/tc-mensual/:anioMes', async (req, res) => {
     }
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
 
     await pool.query(
       `INSERT INTO tipo_cambio_mensual (empresa_id, anio_mes, valor)
@@ -2841,6 +2861,7 @@ app.delete('/api/config-operativa/tc-mensual/:anioMes', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
 
     await pool.query(
       'DELETE FROM tipo_cambio_mensual WHERE empresa_id = $1 AND anio_mes = $2',

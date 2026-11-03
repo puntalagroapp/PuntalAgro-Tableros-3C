@@ -474,6 +474,8 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
 .reg-kpi .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
 .reg-kpi .v{font-size:17px;font-weight:600;margin-top:2px}
 .otl-acciones{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+/* Permisos: ocultar acciones según nivel */
+body.nivel-ver .need-cargar, body.nivel-ver .need-admin, body.nivel-cargar .need-admin{display:none!important}
 #ot-pantalla .ot-form-title{display:none}
 .otp-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 12px}
 .otp-tab{text-align:left;padding:10px 12px;border-radius:9px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-family:inherit;color:var(--muted);font-size:12px;line-height:1.35}
@@ -627,7 +629,7 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
       <span class="ws-sel-lbl">Campaña por defecto:</span>
       <select id="campaniaDefSel" onchange="setCampaniaDefecto(this.value)" title="Campaña sugerida al registrar OT y movimientos. En cada registro podés elegir otra."></select>
     </div>
-    <button class="btn" onclick="openCierreStock()" title="Conciliar stock teórico vs real al cierre de campaña y registrar ajustes">📋 Cerrar stock</button>
+    <button class="btn need-admin" onclick="openCierreStock()" title="Conciliar stock teórico vs real al cierre de campaña y registrar ajustes">📋 Cerrar stock</button>
     <button class="btn btn-primary" onclick="exportExcel()">Exportar Excel</button>
     <a class="hnav-btn" href="index.html#ges" onclick="return otConfirmarSalida()">← Menú</a>
     <button class="hnav-btn" onclick="salir()">Salir</button>
@@ -644,7 +646,7 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
   <button class="inst-btn" data-tab="costos" onclick="setTab('costos',this)">Costos</button>
   <button class="inst-btn" data-tab="maestros" onclick="setTab('maestros',this)">Maestros</button>
   <div class="inst-right">
-    <button class="btn btn-sm btn-danger" onclick="openResetModal()" title="Borrar todos los datos del espacio activo">↺ Reset</button>
+    <button class="btn btn-sm btn-danger need-admin" onclick="openResetModal()" title="Borrar todos los datos del espacio activo">↺ Reset</button>
   </div>
 </div>
 
@@ -677,7 +679,7 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
 
 <!-- =============== MOVIMIENTOS =============== -->
 <div class="page" id="page-movtos">
-  <div class="card">
+  <div class="card need-cargar">
     <div class="chd"><span class="ct-lg">Nuevo movimiento de insumos</span></div>
     <form id="movForm" onsubmit="saveMov(event)">
       <div class="form-row r4">
@@ -742,7 +744,7 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
 <!-- =============== ÓRDENES DE TRABAJO =============== -->
 <div class="page" id="page-ot">
   <div id="ot-list-view">
-    <div class="otl-acciones">
+    <div class="otl-acciones need-cargar">
       <button type="button" class="btn btn-primary btn-lg" onclick="abrirNuevaOT()">＋ Nueva orden de trabajo</button>
       <button type="button" class="btn btn-lg" onclick="openOtRapida()" title="Registrar en un paso una labor que ya se hizo">⚡ OT rápida (labor ya hecha)</button>
     </div>
@@ -1923,6 +1925,33 @@ function inyectarCatalogosDesdePA(empresaId){
 // Guard de solo lectura para catálogos compartidos. Si están en modo lectura
 // (origen contexto), avisa dónde se editan y corta la acción (devuelve true).
 // Los catálogos compartidos se gestionan en Plan de Uso del Suelo y Maestros (modelo §8).
+/* ================================================================
+   PERMISOS (pa-core). Portado de client-src/2026-10-30. Solo controla la
+   pantalla: el backend rechaza igual las escrituras sin nivel suficiente.
+================================================================ */
+// Nivel del usuario en esta herramienta: ver < cargar < administrar. Sin contexto: todo.
+function puede(nivel){
+  if(!CTX || typeof PA==='undefined' || !PA.can) return true;
+  return PA.can(nivel,{herramienta:HERRAMIENTA});
+}
+function guard(nivel){
+  if(puede(nivel)) return true;
+  toast(nivel==='administrar' ? 'Esta acción requiere permiso de administrar.' : 'Tu usuario tiene permiso solo de consulta.');
+  return false;
+}
+function nivelUsuario(){ if(puede('administrar')) return 'administrar'; if(puede('cargar')) return 'cargar'; return 'ver'; }
+function aplicarNivelUI(){
+  var n=nivelUsuario();
+  document.body.classList.remove('nivel-ver','nivel-cargar','nivel-administrar');
+  document.body.classList.add('nivel-'+n);
+}
+var _sinAcceso=false;
+function mostrarSinAcceso(){
+  _sinAcceso=true;
+  var m=document.querySelector('main');
+  if(m) m.innerHTML='<div class="card" style="max-width:520px;margin:40px auto;text-align:center;padding:28px"><div class="ct-lg" style="margin-bottom:8px">Sin acceso a esta herramienta</div><p style="font-size:12px;color:var(--muted)">Tu usuario no tiene permiso para el Registro de Labores e Insumos en esta empresa. Pedíselo al administrador.</p><p style="margin-top:14px"><a class="btn" href="index.html">Volver al inicio</a></p></div>';
+  var ib=document.querySelector('.inst-bar'); if(ib) ib.style.display='none';
+}
 function bloqueadoSiReadOnly(queCatalogo){
   if(state && state.catalogosReadOnly){
     var donde = {
@@ -2426,6 +2455,9 @@ function switchWs(id){
       var emp=null;
       for(var i=0;i<CTX.empresasDisponibles.length;i++){ if(CTX.empresasDisponibles[i].id===id){ emp=CTX.empresasDisponibles[i]; break; } }
       syncRootConContexto(id, emp?(emp.razonSocial||emp.nombre):null, function(){
+        if(!puede('ver')){ mostrarSinAcceso(); return; }
+        if(_sinAcceso){ location.reload(); return; } // la pantalla se reemplazó: rearmarla
+        aplicarNivelUI();
         refreshCtx();
         setTab(currentTab, document.querySelector('.inst-btn[data-tab="'+currentTab+'"]'));
         toast('Empresa: '+(emp?(emp.razonSocial||emp.nombre):id));
@@ -2450,6 +2482,7 @@ function switchWs(id){
 var cierreTmp=null; // { corte, filas:[{insumoId,insumo,un,dep,teorico,real,precio,moneda}] }
 
 function openCierreStock(){
+  if(!guard('administrar')) return;
   var campActual = getCampaniaNombre(state.campaniaActivaId) || '';
   // sugerir fecha de corte: 30/6 (fin de campaña agrícola típica)
   var hoy=new Date();
@@ -2540,6 +2573,7 @@ function renderCierreStockPaso2(){
 }
 
 function confirmarCierreStock(){
+  if(!guard('administrar')) return;
   var t=cierreTmp; if(!t) return;
   var corte=t.corte;
   var nota='Cierre de stock'+(t.camp?' · campaña '+t.camp:'')+' al '+fd(corte);
@@ -2892,6 +2926,7 @@ function renderMovLineas(){
 function onMovTipoChange(){ renderMovLineas(); }
 function saveMov(e){
   e.preventDefault();
+  if(!guard('cargar')) return;
   var tipoNom=byId('m_tipo').value;
   var t=getTipoMov(tipoNom);
   if(!t){ alert('Seleccioná un tipo de movimiento.'); return; }
@@ -2933,6 +2968,7 @@ function resetMovForm(){
   renderMovLineas();
 }
 function delMov(comprobanteId){
+  if(!guard('cargar')) return;
   var cab=getComprobanteById(comprobanteId);
   if(!cab){ // compat: por si llega un id de línea suelto
     var ml=null; for(var i=0;i<state.movtos.length;i++) if(state.movtos[i].id===comprobanteId){ ml=state.movtos[i]; break; }
@@ -3018,6 +3054,7 @@ function renderMovtos(){
 function getProveedorNombre(id){ var ps=state.proveedores||[]; for(var i=0;i<ps.length;i++) if(ps[i].id===id) return ps[i].nombre; return ''; }
 var comprobanteEditLockId=null;
 function openMovEditModal(comprobanteId){
+  if(!guard('cargar')) return;
   var cab=getComprobanteById(comprobanteId);
   if(!cab){ // compat: id de línea
     var ml0=null; for(var i0=0;i0<state.movtos.length;i0++) if(state.movtos[i0].id===comprobanteId){ ml0=state.movtos[i0]; break; }
@@ -3070,6 +3107,7 @@ function _renderMovEditModal(cab, comprobanteId){
   byId('modalBg').classList.add('on');
 }
 function saveMovEditModal(comprobanteId, nLineas){
+  if(!guard('cargar')) return;
   var cab=getComprobanteById(comprobanteId);
   if(!cab || cab.refOt) return;
   var t=getTipoMov(cab.tipo);
@@ -3995,6 +4033,7 @@ function precargarTarifaRef(tr, campaniaId){
 // vSig: ventana a la que se vuelve después de guardar una edición (por defecto, la actual).
 function saveOT(e, vSig){
   if(e) e.preventDefault();
+  if(!guard('cargar')) return;
   if(otPant.modo==='ver') return;
   // OT nueva: un Enter (o el submit) en las ventanas 1 y 2 pasa a la siguiente; se emite desde la 3.
   if(otPant.modo==='nueva' && e && e.type==='submit' && otPant.v!==3){ otIr(otPant.v+1); return; }
@@ -4078,6 +4117,7 @@ function saveOT(e, vSig){
 var editOtId=null; // null = modo nuevo; id = editando esa OT
 // Editar = abrir la OT en la ventana 1 (la pantalla es la misma para ver y editar).
 function startEditOT(id){
+  if(!guard('cargar')) return;
   var o=getOtById(id); if(!o) return;
   if(o.estado==='Cancelada'){ alert('Esta OT está cancelada. Reactivala antes de editar.'); return; }
   abrirOT(id, 1);
@@ -4118,6 +4158,7 @@ function liberarLockOT(){ if(otLockId){ unlockRegistro('ordenes_trabajo', otLock
 function nPendientesOT(o){ var p=destinosDeOt(o), n=0; for(var i=0;i<p.length;i++) if(p[i].destino.estadoLote!=='Aplicado') n++; return n; }
 
 function abrirNuevaOT(){
+  if(!guard('cargar')) return;
   if(!otSalirSinPerder()) return;
   closeModal();
   liberarLockOT();
@@ -4563,6 +4604,7 @@ function recalcEstadoOT(o){
 // datos locales viejos guardaban el id de la OT).
 function compEsDeOt(c, o){ if(!c.refOt) return false; if(c.refOt===o.id) return true; return !!getTrabajoById(o, c.refOt); }
 function delOT(id){
+  if(!guard('cargar')) return;
   var o=null; for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===id){ o=state.ots[i]; break; }
   if(!o) return;
   if(!confirm('¿Eliminar la OT #'+o.num+'? Se eliminarán también todos los movimientos automáticos generados por sus aplicaciones.')) return;
@@ -4589,6 +4631,7 @@ function monedaOptions(sel){
 ================================================================ */
 var otrTmp=null;
 function openOtRapida(){
+  if(!guard('cargar')) return;
   if(!state.depositos.length){ alert('No hay depósitos cargados. Cargalos en Maestros → Depósitos.'); return; }
   if(!otSalirSinPerder()) return;
   var camp=(state.campaniaActivaId && campaniaExiste(state.campaniaActivaId)) ? state.campaniaActivaId : '';
@@ -4699,6 +4742,7 @@ function renderOtRapida(){
     '<div class="fact"><span style="flex:1"></span><button class="btn btn-barra" onclick="closeModal()">Cerrar sin guardar</button><button class="btn btn-primary btn-barra" onclick="saveOtRapida()">✓ Confirmar OT</button></div>';
 }
 function saveOtRapida(){
+  if(!guard('cargar')) return;
   var t=otrTmp, un=otrEsUN();
   if(!t.campania || !campaniaExiste(t.campania)){ alert('Toda OT tiene que tener una campaña.'); return; }
   if(!t.fecha){ alert('Cargá la fecha de aplicación.'); return; }
@@ -5046,6 +5090,7 @@ function regSync(){ aplicTmp.lotesSel={}; for(var k in aplicTmp.est){ if(aplicTm
 // Arma el estado de la carga (aplicTmp). false si no queda nada pendiente. Si la OT volvió
 // a pendiente, precarga lo guardado (o.ultimoRegistro).
 function iniciarRegistro(otId){
+  if(!guard('cargar')) return;
   var o=getOtById(otId); if(!o || o.estado==='Cancelada') return false;
   var pares=destinosDeOt(o), pend=[];
   for(var i=0;i<pares.length;i++){ if(pares[i].destino.estadoLote!=='Aplicado') pend.push(pares[i]); }
@@ -5263,6 +5308,7 @@ function registroSinCambios(o){
   return true;
 }
 function confirmarRegistro(){
+  if(!guard('cargar')) return;
   var o=getOtById(aplicTmp.otId); if(!o || o.estado==='Cancelada') return;
   if(cambiosDeCultivo(o.id).length){ alert('Cambió el plan de uso en lotes de esta OT: el cultivo de la orden ya no está en el plan.\n\nAntes de confirmar, elegí a qué cultivo va cada lote.'); abrirCambioCultivo(o.id); return; }
   if(!regValidar(o,1) || (regHaySi() && !regValidar(o,2))) return;
@@ -5354,6 +5400,7 @@ function restaurarRegistro(o, si){
 }
 /* ===== Volver a pendiente: devuelve el stock y guarda lo cargado en o.ultimoRegistro ===== */
 function volverAPendiente(otId){
+  if(!guard('cargar')) return;
   var o=getOtById(otId); if(!o) return;
   var pares=destinosDeOt(o), apl=[], i, fb=fechaBloqueo();
   for(i=0;i<pares.length;i++){ if(pares[i].destino.estadoLote==='Aplicado') apl.push(pares[i]); }
@@ -5602,6 +5649,7 @@ function pintarAvisoCultivo(contId){
 }
 var ccTmp=null;
 function abrirCambioCultivo(otId){
+  if(!guard('cargar')) return;
   if(otHayCambios()){ alert('Primero guardá o descartá los cambios de la OT que tenés abierta.'); return; }
   var gs=cambiosDeCultivo(otId||'');
   if(!gs.length){ toast('No hay cambios de cultivo para resolver.'); return; }
@@ -5650,6 +5698,7 @@ function renderCambioCultivo(){
     '<div class="fact"><span style="flex:1"></span><button class="btn btn-barra" onclick="closeModal()">Cancelar</button><button class="btn btn-primary btn-barra" onclick="aplicarCambioCultivo()">✓ Aplicar</button></div>';
 }
 function aplicarCambioCultivo(){
+  if(!guard('cargar')) return;
   if(!ccTmp) return;
   var gs=cambiosDeCultivo(ccTmp.otId), hoy=todayISO(), nP=0, nM=0, otsTocadas={};
   for(var i=0;i<gs.length;i++){
@@ -5767,6 +5816,7 @@ function tandasDe(pares){
    con los mismos datos cargados (fecha, superficie, depósito, entregado, devoluciones).
    Si se confirma sin cambiar nada, vuelven exactamente los mismos movimientos. ===== */
 function corregirTanda(otId, tandaId){
+  if(!guard('cargar')) return;
   var o=getOtById(otId); if(!o) return;
   if(o.estado==='Cancelada'){ alert('La OT está cancelada.'); return; }
   var afect=paresDeTanda(o, tandaId);
@@ -5794,6 +5844,7 @@ function corregirTanda(otId, tandaId){
 }
 
 function cancelOT(otId){
+  if(!guard('cargar')) return;
   if(!confirm('¿Cancelar esta OT? Los movimientos ya generados se mantienen.')) return;
   var o=null; for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===otId){ o=state.ots[i]; break; }
   if(!o) return;
@@ -5801,6 +5852,7 @@ function cancelOT(otId){
   guardarOTApi(o); otTrasAccion(otId); toast('OT cancelada');
 }
 function reactivateOT(otId){
+  if(!guard('cargar')) return;
   if(!confirm('¿Reactivar esta OT? Volverá al estado según los lotes ya aplicados.')) return;
   var o=null; for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===otId){ o=state.ots[i]; break; }
   if(!o) return;
@@ -6514,6 +6566,7 @@ function armarPdfLabores(filas, soloP){
   return doc;
 }
 function updateContrTarifa(otId, trId, val){
+  if(!guard('cargar')){ renderContratistas(); return; }
   var o=getOtById(otId); if(!o) return;
   var tr=getTrabajoById(o, trId); if(!tr) return;
   tr.tarifa=Number(val)||0;
@@ -6521,6 +6574,7 @@ function updateContrTarifa(otId, trId, val){
   guardarOTApi(o); renderContratistas();
 }
 function updateContrTarifaMon(otId, trId, val){
+  if(!guard('cargar')){ renderContratistas(); return; }
   var o=getOtById(otId); if(!o) return;
   var tr=getTrabajoById(o, trId); if(!tr) return;
   tr.tarifaMoneda=(val==='USD'?'USD':'ARS');
@@ -6529,6 +6583,7 @@ function updateContrTarifaMon(otId, trId, val){
 }
 // Tarifa propia de un LOTE dentro del trabajo. Vacío = hereda la del trabajo.
 function updateDestTarifa(otId, trId, destId, val){
+  if(!guard('cargar')){ renderContratistas(); return; }
   var o=getOtById(otId); if(!o) return;
   var tr=getTrabajoById(o, trId); if(!tr) return;
   var de=null; for(var i=0;i<(tr.destinos||[]).length;i++) if(tr.destinos[i].id===destId){ de=tr.destinos[i]; break; }
@@ -6538,6 +6593,7 @@ function updateDestTarifa(otId, trId, destId, val){
   guardarOTApi(o); renderContratistas();
 }
 function updateContrEstado(otId, trId, val){
+  if(!guard('cargar')){ renderContratistas(); return; }
   var o=getOtById(otId); if(!o) return;
   var tr=getTrabajoById(o, trId); if(!tr) return;
   var imp=importeTrabajoARS(o, tr);
@@ -6550,6 +6606,7 @@ function updateContrEstado(otId, trId, val){
 }
 // PAGO del trabajo: No / Parcial / Sí. Lo adeudado sale de acá, no de la facturación.
 function updateContrPago(otId, trId, val){
+  if(!guard('cargar')){ renderContratistas(); return; }
   var o=getOtById(otId); if(!o) return;
   var tr=getTrabajoById(o, trId); if(!tr) return;
   var imp=importeTrabajoARS(o, tr);
@@ -6561,6 +6618,7 @@ function updateContrPago(otId, trId, val){
   guardarOTApi(o); renderContratistas();
 }
 function openMontoModal(otId, trId){
+  if(!guard('cargar')) return;
   var o=getOtById(otId); if(!o) return;
   var tr=getTrabajoById(o, trId); if(!tr) return;
   var I=importeTrabajo(o, tr), importe=I.ars||0, actual=Number(tr.montoFacturado)||0;
@@ -6588,6 +6646,7 @@ function openMontoModal(otId, trId){
   }
 }
 function saveMontoModal(otId, trId, importe){
+  if(!guard('cargar')) return;
   var o=getOtById(otId); if(!o) return;
   var tr=getTrabajoById(o, trId); if(!tr) return;
   var inp=byId('montoModalInput'); if(!inp) return;
@@ -6598,6 +6657,7 @@ function saveMontoModal(otId, trId, importe){
 }
 // Monto pagado parcial de un trabajo.
 function openPagoModal(otId, trId){
+  if(!guard('cargar')) return;
   var o=getOtById(otId); if(!o) return;
   var tr=getTrabajoById(o, trId); if(!tr) return;
   var I=importeTrabajo(o, tr), importe=I.ars||0, actual=Number(tr.montoPagado)||0;
@@ -6624,6 +6684,7 @@ function openPagoModal(otId, trId){
   }
 }
 function savePagoModal(otId, trId, importe){
+  if(!guard('cargar')) return;
   var o=getOtById(otId); if(!o) return;
   var tr=getTrabajoById(o, trId); if(!tr) return;
   var inp=byId('pagoModalInput'); if(!inp) return;
@@ -7078,6 +7139,7 @@ function mesesCampania(){
   return arr;
 }
 function updateTCMes(ym,val){
+  if(!guard('administrar')){ renderMTC(); return; }
   if(!state.tcMensual) state.tcMensual={};
   var v=Number(val)||0;
   if(v>0){
@@ -7089,6 +7151,7 @@ function updateTCMes(ym,val){
   }
 }
 function updateTCEspecial(campo,val){
+  if(!guard('administrar')){ renderMTC(); return; }
   var v=Number(val)||0;
   if(campo==='apertura') state.tcApertura=v;
   else if(campo==='cierre') state.tcCierre=v;
@@ -7142,6 +7205,7 @@ function insSortArrow(key){
 var insDraft={};
 function insVal(x, campo){ var d=insDraft[x.id]; return (d && d.hasOwnProperty(campo)) ? d[campo] : x[campo]; }
 function insDraftSet(id, campo, valor, el){
+  if(!guard('cargar')){ renderMInsumos(); return; }
   var d=insDraft[id]||(insDraft[id]={}); d[campo]=valor;
   var x=getInsumo(id), igual=true;
   for(var k in d){ if(d.hasOwnProperty(k) && x && String(d[k])!==String(x[k]==null?'':x[k])) igual=false; }
@@ -7153,6 +7217,7 @@ function insDraftSet(id, campo, valor, el){
   }
 }
 function insGuardarFila(id){
+  if(!guard('cargar')) return;
   var d=insDraft[id]; if(!d) return;
   var idx=-1; for(var i=0;i<state.insumos.length;i++) if(state.insumos[i].id===id){ idx=i; break; }
   if(idx<0) return;
@@ -7583,6 +7648,7 @@ function renderMLabores(key, conTarifa){
 }
 // Guarda tarifa y/o moneda de una labor en la campaña activa del header. Pasar null en el que no se toca.
 function onTarifaRefChange(laborId, valor, moneda){
+  if(!guard('administrar')){ renderMLabores('laboresLP', true); return; }
   var campId=state.campaniaActivaId||'';
   if(!campId) return;
   var actual=getTarifaRef(laborId, campId);
@@ -7700,6 +7766,7 @@ function exportExcel(){
    RESET (con doble confirmación)
 ================================================================ */
 function openResetModal(){
+  if(!guard('administrar')) return;
   var nombre=root.espacios[root.activoId].nombre;
   byId('modalContent').className='modal modal-danger';
   byId('modalContent').innerHTML=
@@ -7724,6 +7791,7 @@ function openResetModal(){
   setTimeout(function(){ byId('resetConfirm').focus(); },50);
 }
 function confirmReset(){
+  if(!guard('administrar')) return;
   var nombre=root.espacios[root.activoId].nombre;
   var typed=byId('resetConfirm').value;
   if(typed!==nombre){ alert('El nombre tipeado no coincide. Si querés borrar, escribí exactamente: '+nombre); return; }
@@ -7772,6 +7840,8 @@ function init(){
 // Inicialización de la UI una vez que el estado/contexto están listos.
 function arrancarUI(){
   refreshWsSelect();
+  if(!puede('ver')){ mostrarSinAcceso(); return; }
+  aplicarNivelUI();
   refreshCtx();
   byId('m_fecha').value=todayISO();
   byId('o_fecha').value=todayISO();
