@@ -2465,8 +2465,14 @@ app.post('/api/ordenes-trabajo', async (req, res) => {
       `INSERT INTO contadores_ot (empresa_id, siguiente) VALUES ($1, 1) ON CONFLICT (empresa_id) DO NOTHING`,
       [empresaId]
     );
+    // GREATEST con el máximo existente: si el contador quedó atrasado (restore,
+    // limpieza a mano), se corrige solo en vez de chocar con un número ya usado.
     const numRes = await client.query(
-      `UPDATE contadores_ot SET siguiente = siguiente + 1 WHERE empresa_id = $1 RETURNING siguiente - 1 AS num`,
+      `UPDATE contadores_ot
+          SET siguiente = GREATEST(siguiente,
+                (SELECT COALESCE(MAX(num), 0) + 1 FROM ordenes_trabajo WHERE empresa_id = $1)) + 1
+        WHERE empresa_id = $1
+        RETURNING siguiente - 1 AS num`,
       [empresaId]
     );
     const num = numRes.rows[0].num;

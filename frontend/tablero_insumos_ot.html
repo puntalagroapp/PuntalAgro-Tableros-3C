@@ -1683,7 +1683,7 @@ function trabajoDeDestino(o, destId){ var p=buscarDestino(o, destId); return p ?
 function guardarOTApi(o, callback){
   espejoLegacy(o);
   if (!_esModoApi() || !CTX) { if(callback) callback(); return; }
-  var cb=function(err){ if(err) console.error('Error guardando OT:', err); if(callback) callback(); };
+  var cb=function(err){ if(err){ console.error('Error guardando OT:', err); alert('No se pudo guardar la orden de trabajo en el servidor: '+((err&&err.error)||'error de conexión')+'.\nRecargá la página para ver el estado real antes de volver a intentar.'); } if(callback) callback(); };
   if (o._synced) apiPut('/api/ordenes-trabajo/'+encodeURIComponent(o.id), _otPayload(o), cb);
   else apiPost('/api/ordenes-trabajo', _otPayload(o), function(err, resp){
     if(!err && resp){ o.id=resp.id; o.num=resp.num; o._synced=true; }
@@ -1693,7 +1693,7 @@ function guardarOTApi(o, callback){
 function eliminarOTApi(id, callback){
   if (!_esModoApi() || !CTX) { if(callback) callback(); return; }
   apiDelete('/api/ordenes-trabajo/'+encodeURIComponent(id)+'?empresaId='+encodeURIComponent(CTX.empresaActivaId), function(err){
-    if(err) console.error('Error eliminando OT:', err);
+    if(err){ console.error('Error eliminando OT:', err); alert('No se pudo borrar la orden de trabajo en el servidor: '+((err&&err.error)||'error de conexión')+'.'); }
     if(callback) callback();
   });
 }
