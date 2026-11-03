@@ -1974,6 +1974,14 @@ app.delete('/api/campos/:id', async (req, res) => {
 // cliente). Transaccional: si falla cualquier paso, no queda nada a medio
 // reemplazar. Queda auditado en cargas_excel.
 // ─────────────────────────────────────────────────────────────────────────────
+// '25-26', '25/26', '2025/2026', ' 25 / 26 ' -> '25/26'. Lo que no tenga esa
+// forma se compara tal cual (minúsculas, sin espacios en los bordes).
+function normalizarNombreCampania(s) {
+  const t = String(s || '').trim().toLowerCase();
+  const m = t.match(/^(?:camp_)?(\d{2}|\d{4})\s*[-\/_ ]?\s*(\d{2}|\d{4})$/);
+  return m ? m[1].slice(-2) + '/' + m[2].slice(-2) : t;
+}
+
 app.post('/api/carga-excel/plan', async (req, res) => {
   const b = req.body || {};
   const empresaId = b.empresaId;
@@ -1998,19 +2006,29 @@ app.post('/api/carga-excel/plan', async (req, res) => {
 
     await client.query('BEGIN');
 
-    // Campañas (catálogo global): agrega las que falten, con orden correlativo.
+    // Campañas (catálogo global): el Excel las trae como texto ('25-26'). Se
+    // reconocen contra las existentes por nombre normalizado (25-26 = 25/26 =
+    // 2025/2026) para no duplicar; solo se agregan las que de verdad faltan.
+    const campaniaIdMap = {};
     if (campanias.length) {
+      const exRes = await client.query('SELECT id, nombre FROM campanias');
+      const porNombre = {};
+      for (const r of exRes.rows) {
+        porNombre[normalizarNombreCampania(r.id)] = porNombre[normalizarNombreCampania(r.id)] || r.id;
+        porNombre[normalizarNombreCampania(r.nombre)] = r.id;
+      }
       const maxRes = await client.query('SELECT COALESCE(MAX(orden),0) AS m FROM campanias');
       let maxO = Number(maxRes.rows[0].m) || 0;
       for (const cid of campanias) {
-        const ex = await client.query('SELECT 1 FROM campanias WHERE id=$1', [cid]);
-        if (!ex.rows.length) {
-          maxO += 1;
-          await client.query(
-            'INSERT INTO campanias (id, nombre, orden, activa) VALUES ($1,$2,$3,false) ON CONFLICT (id) DO NOTHING',
-            [cid, cid, maxO]
-          );
-        }
+        const clave = normalizarNombreCampania(cid);
+        if (porNombre[clave]) { campaniaIdMap[cid] = porNombre[clave]; continue; }
+        maxO += 1;
+        await client.query(
+          'INSERT INTO campanias (id, nombre, orden, activa) VALUES ($1,$2,$3,false) ON CONFLICT (id) DO NOTHING',
+          [cid, cid, maxO]
+        );
+        porNombre[clave] = cid;
+        campaniaIdMap[cid] = cid;
       }
     }
 
@@ -2097,7 +2115,7 @@ app.post('/api/carga-excel/plan', async (req, res) => {
       await client.query(
         `INSERT INTO actividades (id, empresa_id, lote_id, campania_id, tipo_actividad_id, ha, es_segunda, tenencia_id)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [a.id, empresaId, a.loteId || null, a.campaniaId || null,
+        [a.id, empresaId, a.loteId || null, (a.campaniaId && campaniaIdMap[a.campaniaId]) || a.campaniaId || null,
          tipoIdReal || null, a.ha != null ? a.ha : null, a.esSegunda || false, a.tenenciaId || null]
       );
     }
