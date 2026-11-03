@@ -1296,7 +1296,7 @@ function pintarRevision(){
   var lead = [];
   if(plan) lead.push('el Plan de Uso reemplaza los lotes y actividades de la empresa');
   if(reg) lead.push('Registros reemplaza insumos, depósitos, proveedores, stock, movimientos y órdenes de trabajo');
-  byId('p3lead').innerHTML = 'Al importar, '+esc(lead.join('; '))+'.' + (reg ? ' Revisá las equivalencias: lo marcado como <span class="sug">sugerido</span> lo propuse yo por el nombre y conviene confirmarlo.' : '');
+  byId('p3lead').innerHTML = 'Al importar, '+esc(lead.join('; '))+'.' + (reg ? ' Revisá las equivalencias: lo marcado como <span class="sug">sugerido</span> fue propuesto por el nombre y conviene confirmarlo.' : '');
   // Lotes sin equivalencia
   var h = '';
   if(reg){
