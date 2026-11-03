@@ -2128,6 +2128,8 @@ function save(){ saveRoot(); }
 function f(v,d){ d=d||0; if(v==null||isNaN(Number(v))) return '—'; return Number(v).toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d}); }
 function fp(v){ if(v==null||isNaN(Number(v))) return '—'; return Number(v).toFixed(1)+'%'; }
 function fm(v){ if(v==null||isNaN(Number(v))) return '—'; return '$ '+Number(v).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+// Importe en dólares: sin decimales salvo que sea chico (menos de U$S 1.000), para que no se redondee a 0.
+function fmUsdNum(v){ v=Number(v)||0; var d=(Math.abs(v)<1000)?2:0; return v.toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d}); }
 function fd(d){ if(!d) return '—'; var p=String(d).split('-'); if(p.length<3) return d; return p[2]+'/'+p[1]+'/'+p[0].slice(2); }
 function uid(){ return 'x'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36); }
 function salir(){
@@ -6718,7 +6720,7 @@ function renderCostos(){
     // vARS está en ARS; si visualizo en USD, convierto con TC de la fecha (o global si no hay fecha)
     if(monVis==='ARS') return fm(vARS);
     var tc=tcDeFecha(fecha||'');
-    return 'U$S '+ (tc>0 ? Number(vARS/tc).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0}) : '—');
+    return 'U$S '+ (tc>0 ? fmUsdNum(vARS/tc) : '—');
   };
   // Para totales agregados (varias fechas) uso un TC ponderado: convierto cada componente en su fecha al acumular.
   // Por eso acumulo SIEMPRE en ARS y, además, acumulo el equivalente en USD fecha-a-fecha.
@@ -6828,13 +6830,13 @@ function renderCostos(){
   var pick = function(ars,usd){ return monVis==='USD' ? usd : ars; };
   var fMM = function(ars,usd){ // formatea según moneda visible usando el acumulado correcto
     var v=pick(ars,usd);
-    if(monVis==='USD') return 'U$S '+Number(v).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0});
+    if(monVis==='USD') return 'U$S '+fmUsdNum(v);
     return fm(v);
   };
   var fHa = function(ars,usd){ // $/ha o U$S/ha
     if(totHa<=0) return '—';
     var v=pick(ars,usd)/totHa;
-    if(monVis==='USD') return 'U$S '+Number(v).toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1});
+    if(monVis==='USD') return 'U$S '+Number(v).toLocaleString('es-AR',{minimumFractionDigits:(Math.abs(v)<10?2:1),maximumFractionDigits:(Math.abs(v)<10?2:1)});
     return fm(v);
   };
 
@@ -6936,7 +6938,7 @@ function detalleRows(detalle, filtro, monVis, full){
     var x=detalle[i];
     if(!filtro(x)) continue;
     var costo = monVis==='USD' ? x.costoUSD : x.costoARS;
-    var costoTxt = (monVis==='USD'?'U$S ':'$ ')+Number(costo).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0});
+    var costoTxt = (monVis==='USD') ? 'U$S '+fmUsdNum(costo) : fm(costo);
     var precioTxt = x.precio>0 ? (x.monedaOrig==='USD'?'U$S ':'$ ')+f(x.precio,2) : (x.sinPrecio?'<span style="color:#C0392B">sin precio</span>':'—');
     if(full){
       html+='<tr>'+
@@ -6986,7 +6988,7 @@ function detalleAgrupado(detalle, filtro, monVis, modo){
   for(var g=0;g<orden.length;g++){
     var v=grupos[orden[g]];
     var costo = monVis==='USD' ? v.usd : v.ars;
-    var costoTxt = (monVis==='USD'?'U$S ':'$ ')+Number(costo).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0});
+    var costoTxt = (monVis==='USD') ? 'U$S '+fmUsdNum(costo) : fm(costo);
     var cantTxt = f(v.cant,2)+(v.un?(' '+v.un):'');
     html+='<tr class="mb-det">'+
       '<td class="tdname" style="padding-left:24px">'+esc(v.label)+(v.sinPrecio?' <span style="color:#C07A30;font-size:10px">(sin precio)</span>':'')+' <span style="color:var(--muted);font-size:10px">· '+cantTxt+'</span></td>'+
