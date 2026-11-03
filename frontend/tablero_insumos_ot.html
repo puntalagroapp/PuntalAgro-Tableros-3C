@@ -482,6 +482,13 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
 .stk-win-lbl{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .tw-scroll{overflow-y:auto;overflow-x:auto}
 .tw-scroll thead th{position:sticky;top:0;z-index:1}
+.cons-labor td{background:#F4F6F1;border-top:1px solid #C9D3BC;padding-top:7px;padding-bottom:7px}
+.cons-ot-sep td{border-top:2px solid var(--green)!important}
+.cons-ot-num{font-family:var(--mono);font-weight:600;color:var(--green);margin-right:6px}
+.cons-fecha{color:var(--muted);font-size:11px}
+.cons-campo{display:block;font-size:10.5px;color:var(--muted);font-weight:400;margin-top:1px}
+.cons-contr{margin-left:8px;font-size:11px;color:var(--muted);font-weight:400}
+.cons-ins-nom{padding-left:18px!important}
 .camp-bdg{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:600;font-family:var(--mono);white-space:nowrap;background:#EAF0E3;color:#3B5226;border:1px solid #C9D8B9}
 .info-i:hover,.info-i:focus{background:#4A6533;color:#fff;border-color:#4A6533;outline:none}
 .info-pop{position:fixed;z-index:300;max-width:340px;width:calc(100vw - 32px);background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 30px rgba(15,25,35,.18);padding:12px 14px;font-size:12px;line-height:1.5;color:var(--text);text-transform:none;letter-spacing:0;font-weight:400;text-align:left}
@@ -963,22 +970,27 @@ body.nivel-ver .need-cargar, body.nivel-ver .need-admin, body.nivel-cargar .need
         <select id="consLoteFilter" onchange="renderConsumos()"><option value="">Todos los lotes</option></select>
         <select id="consCultFilter" onchange="renderConsumos()"><option value="">Todos los cultivos</option></select>
         <select id="consContrFilter" onchange="renderConsumos()"><option value="">Todos los contratistas</option></select>
+        <select id="consTipoLaborFilter" onchange="renderConsumos()"><option value="">Toda labor</option></select>
+        <select id="consCatFilter" onchange="renderConsumos()"><option value="">Todas las categorías</option></select>
         <select id="consInsFilter" onchange="renderConsumos()"><option value="">Todos los insumos</option></select>
-        <input type="date" id="consDesde" onchange="renderConsumos()" title="Desde">
-        <input type="date" id="consHasta" onchange="renderConsumos()" title="Hasta">
-        <button class="btn btn-sm" onclick="clearConsFilters()">Limpiar filtros</button>
-        <button class="btn btn-sm" onclick="openHistoriaLote()">📋 Historia del lote</button>
+        <span style="display:flex;flex-basis:100%;flex-wrap:wrap;align-items:center;gap:8px">
+          <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Desde</span>
+          <input type="date" id="consDesde" onchange="renderConsumos()" title="Desde">
+          <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Hasta</span>
+          <input type="date" id="consHasta" onchange="renderConsumos()" title="Hasta">
+          <button class="btn btn-sm" onclick="clearConsFilters()">Limpiar filtros</button>
+        </span>
       </div>
     </div>
   </div>
 
   <div class="card">
-    <div class="chd"><span class="ct-lg">Consumo por lote</span><span class="ct" id="consInsHint"></span></div>
-    <div class="tw" style="max-height:520px;overflow-y:auto">
+    <div class="chd"><span class="ct-lg">Consumo por lote</span><span class="camp-bdg" id="campBdgCons"></span><span class="ct" id="consInsHint"></span><button class="btn btn-primary btn-barra" style="margin-left:auto" onclick="openHistoriaLote()" title="Lo que se hizo en un lote, por fecha (labor, producto y dosis), para ver o descargar en PDF">📄 Historia del lote (PDF)</button></div>
+    <div class="tw tw-scroll" style="max-height:520px;overflow-y:auto">
       <table>
         <thead><tr>
-          <th>OT</th><th>Fecha</th><th>Campo</th><th>Lote</th><th>Cultivo</th><th class="num">Ha</th><th>Subactividad</th><th>Contratista</th>
-          <th>Insumo</th><th>Un.</th><th class="num">Consumido</th><th class="num">Dev. stock</th><th class="num">Dev. baja</th><th class="num">Dosis real</th>
+          <th>OT · Fecha</th><th>Lote · Campo · Cultivo</th><th class="num">Sup. apl.</th>
+          <th>Insumo / Labor</th><th>Un.</th><th>Banda</th><th class="num">Dosis real</th><th class="num">Consumido</th>
         </tr></thead>
         <tbody id="consLoteBody"></tbody>
       </table>
@@ -1024,7 +1036,7 @@ body.nivel-ver .need-cargar, body.nivel-ver .need-admin, body.nivel-cargar .need
   </div>
 
   <div class="card">
-    <div class="chd"><span class="ct-lg">Detalle por OT</span><span id="contrSelInfo" class="lr-selinfo"></span><span style="font-size:11px;color:var(--muted);margin-left:auto">la tarifa, la facturación y los pagos se cargan acá</span></div>
+    <div class="chd"><span class="ct-lg">Detalle por OT</span><span class="camp-bdg" id="campBdgContr"></span><span id="contrSelInfo" class="lr-selinfo"></span><span style="font-size:11px;color:var(--muted);margin-left:auto">la tarifa, la facturación y los pagos se cargan acá</span></div>
     <div class="tw tw-scroll" style="max-height:520px;overflow-y:auto">
       <table>
         <thead><tr>
@@ -6160,39 +6172,45 @@ function reactivateOT(otId){
 function clearConsFilters(){
   byId('consSearch').value='';
   byId('consCampoFilter').value=''; byId('consLoteFilter').value=''; byId('consCultFilter').value='';
-  byId('consContrFilter').value=''; byId('consInsFilter').value='';
+  byId('consContrFilter').value=''; byId('consInsFilter').value=''; byId('consCatFilter').value='';
+  var ctl=byId('consTipoLaborFilter'); if(ctl) ctl.value='';
   byId('consDesde').value=''; byId('consHasta').value='';
   renderConsumos();
 }
 function renderConsumos(){
+  refreshCampBadges();
   pintarAvisoCultivo('page-consumos');
   // === Poblar selects de filtros ===
-  var cc=byId('consCampoFilter'); var curCa=cc.value;
-  cc.innerHTML='<option value="">Todos los campos</option>';
-  for(var ca=0;ca<state.campos.length;ca++){
-    cc.innerHTML+='<option value="'+state.campos[ca].id+'"'+(state.campos[ca].id===curCa?' selected':'')+'>'+esc(state.campos[ca].nombre)+'</option>';
-  }
-  var fcamp=cc.value;
-  var ls=byId('consLoteFilter'); var curL=ls.value;
-  ls.innerHTML='<option value="">Todos los lotes</option>';
+  var fcamp=fillSelect('consCampoFilter','Todos los campos', opcionesCampos());
+  var optsLoteK=[];
   for(var li=0;li<state.lotes.length;li++){
     if(fcamp && state.lotes[li].campoId!==fcamp) continue;
-    ls.innerHTML+='<option value="'+state.lotes[li].id+'"'+(state.lotes[li].id===curL?' selected':'')+'>'+esc(state.lotes[li].nombre)+' ('+esc(getCampoNombre(state.lotes[li].campoId))+')</option>';
+    optsLoteK.push({v:state.lotes[li].id, t:state.lotes[li].nombre+' ('+getCampoNombre(state.lotes[li].campoId)+')'});
   }
-  var fl=ls.value;
+  var fl=fillSelect('consLoteFilter','Todos los lotes', optsLoteK);
   // Cultivos: derivados de los destinos aplicados existentes
+  // La campaña la filtra el selector del HEADER.
+  var fcampania=state.campaniaActivaId||'';
   var cultSet={}, contrSet={}, insSet={};
+  var laborSet={};
   for(var k0=0;k0<state.ots.length;k0++){
     var o0=state.ots[k0]; if(o0.estado==='Cancelada') continue;
-    var ps0=destinosDeOt(o0), ds0=[];
-    for(var p0=0;p0<ps0.length;p0++){ ds0.push(ps0[p0].destino); if(ps0[p0].trabajo.contratistaId) contrSet[ps0[p0].trabajo.contratistaId]=true; }
-    for(var d0=0;d0<ds0.length;d0++){
-      if(ds0[d0].estadoLote!=='Aplicado') continue;
-      if(ds0[d0].cultivo) cultSet[ds0[d0].cultivo]=true;
-      var ln0=ds0[d0].lineas||[];
+    if(fcampania && (o0.campaniaId||'')!==fcampania) continue;
+    var pares0=destinosDeOt(o0);
+    for(var d0=0;d0<pares0.length;d0++){
+      var de0=pares0[d0].destino, tr0=pares0[d0].trabajo;
+      if(de0.estadoLote!=='Aplicado' || !destinoVisible(de0)) continue;
+      if(tr0.contratistaId) contrSet[tr0.contratistaId]=true;
+      if(de0.cultivo) cultSet[de0.cultivo]=true;
+      var tp0=tipoLaborDeTrabajo(tr0); if(tp0) laborSet[tp0]=true;
+      var ln0=de0.lineas||[];
       for(var x0=0;x0<ln0.length;x0++){ if((Number(ln0[x0].usado)||0)>0) insSet[ln0[x0].insumoId]=true; }
     }
   }
+  // Filtro de TIPO DE LABOR: solo los tipos realmente presentes en los consumos.
+  var optsTL=[];
+  for(var tl=0;tl<TIPOS_LABOR.length;tl++){ if(laborSet[TIPOS_LABOR[tl].v]) optsTL.push(TIPOS_LABOR[tl]); }
+  var ftipoLabor=fillSelect('consTipoLaborFilter','Toda labor', optsTL);
   var cuS=byId('consCultFilter'); var curCu=cuS.value;
   cuS.innerHTML='<option value="">Todos los cultivos</option>';
   for(var cu in cultSet){ if(cultSet.hasOwnProperty(cu)){ cuS.innerHTML+='<option value="'+esc(cu)+'"'+(cu===curCu?' selected':'')+'>'+esc(cu)+'</option>'; } }
@@ -6203,13 +6221,35 @@ function renderConsumos(){
     coS.innerHTML+='<option value="'+state.contratistas[ci2].id+'"'+(state.contratistas[ci2].id===curCo?' selected':'')+'>'+esc(state.contratistas[ci2].nombre)+'</option>';
   }
   var fcontr=coS.value;
-  var inS=byId('consInsFilter'); var curIn=inS.value;
-  inS.innerHTML='<option value="">Todos los insumos</option>';
-  for(var ii=0;ii<state.insumos.length;ii++){
-    if(!insSet[state.insumos[ii].id]) continue;
-    inS.innerHTML+='<option value="'+state.insumos[ii].id+'"'+(state.insumos[ii].id===curIn?' selected':'')+'>'+esc(state.insumos[ii].nombre)+'</option>';
+  // Categoría -> insumo. Ambos se derivan de lo REALMENTE consumido (insSet), no del
+  // catálogo completo: no tiene sentido ofrecer un insumo que nunca se aplicó.
+  var catSetC={};
+  for(var ic=0;ic<state.insumos.length;ic++){
+    if(!insSet[state.insumos[ic].id]) continue;
+    var catC=state.insumos[ic].cat||'';
+    if(catC) catSetC[catC]=true;
   }
-  var fins=inS.value;
+  var optsCatC=[];
+  for(var kc=0;kc<state.catInsumos.length;kc++){ if(catSetC[state.catInsumos[kc]]) optsCatC.push({v:state.catInsumos[kc], t:state.catInsumos[kc]}); }
+  var fcat=fillSelect('consCatFilter','Todas las categorías', optsCatC);
+  var optsInsC=[];
+  for(var ii=0;ii<state.insumos.length;ii++){
+    var xI=state.insumos[ii];
+    if(!insSet[xI.id]) continue;
+    if(fcat && (xI.cat||'')!==fcat) continue;
+    // Sin categoría elegida, agrupar por rubro (misma lógica que el resto de los selects)
+    optsInsC.push({v:xI.id, t:xI.nombre, g:(fcat?null:(xI.cat||'Sin categoría'))});
+  }
+  if(!fcat){
+    optsInsC.sort(function(a,b){
+      var ia=state.catInsumos.indexOf(a.g), ib=state.catInsumos.indexOf(b.g);
+      if(ia<0) ia=999; if(ib<0) ib=999;
+      if(ia!==ib) return ia-ib;
+      if(a.g!==b.g) return String(a.g).localeCompare(String(b.g));
+      return a.t.localeCompare(b.t);
+    });
+  }
+  var fins=fillSelect('consInsFilter','Todos los insumos', optsInsC);
   var fd1=byId('consDesde').value, fh=byId('consHasta').value;
   var q=(byId('consSearch').value||'').toLowerCase();
 
@@ -6219,58 +6259,82 @@ function renderConsumos(){
   var sorted=state.ots.slice().sort(function(a,b){ return (b.fecha||'').localeCompare(a.fecha||''); });
   for(var k=0;k<sorted.length;k++){
     var o=sorted[k]; if(o.estado==='Cancelada') continue;
-    var ps=destinosDeOt(o);
-    for(var d=0;d<ps.length;d++){
-      var de=ps[d].destino, trC=ps[d].trabajo;
-      if(fcontr && trC.contratistaId!==fcontr) continue;
-      if(de.estadoLote!=='Aplicado') continue;
+    if(fcampania && (o.campaniaId||'')!==fcampania) continue;
+    var paresK=destinosDeOt(o);
+    var primeraDeOt=true;   // para el separador grueso entre OT
+    for(var d=0;d<paresK.length;d++){
+      var de=paresK[d].destino, tr=paresK[d].trabajo;
+      if(de.estadoLote!=='Aplicado' || !destinoVisible(de)) continue;
+      if(fcontr && tr.contratistaId!==fcontr) continue;
+      if(ftipoLabor && tipoLaborDeTrabajo(tr)!==ftipoLabor) continue;
       if(fcamp && de.campoId!==fcamp) continue;
       if(fl && de.loteId!==fl) continue;
       if(fcult && de.cultivo!==fcult) continue;
       var fApp=de.fechaAplicReal||'';
       if(fd1 && fApp<fd1) continue;
       if(fh && fApp>fh) continue;
-      var loteNom=esUN(de)?'General del campo':nombreDestino(de);
+      var esU=esUN(de);
+      var loteNom=esU ? 'General del campo' : nombreDestino(de);
       var campoNom=getCampoNombre(de.campoId);
-      var contrNom=getContratistaNombre(trC.contratistaId);
-      var laborNom=nombreLaborDeTrabajo(trC);
+      var contrNom=getContratistaNombre(tr.contratistaId);
+      var laborNom=nombreLaborDeTrabajo(tr);
+      var haReal=(de.haReal!==undefined && de.haReal!==null && de.haReal!=='') ? Number(de.haReal) : Number(de.ha)||0;
+      // Filas del trabajo-sobre-lote: primero la LABOR, después sus insumos.
+      var filasIns='';
+      var totConsumido=0;
       var lns=de.lineas||[];
       for(var j=0;j<lns.length;j++){
         var ln=lns[j];
         var usado=Number(ln.usado)||0;
         if(usado<=0) continue;
         if(fins && ln.insumoId!==fins) continue;
+        if(fcat){ var insLn=getInsumo(ln.insumoId); if(!insLn || (insLn.cat||'')!==fcat) continue; }
         var ins=getInsumo(ln.insumoId);
         if(!ins) continue;
         if(q){
           var hay='OT'+o.num+' '+campoNom+' '+loteNom+' '+(de.cultivo||'')+' '+laborNom+' '+contrNom+' '+ins.nombre;
           if(hay.toLowerCase().indexOf(q)<0) continue;
         }
-        var haRc=haAplicadaDe(de);
-        var dosisReal = esUN(de) ? usado : (ln.dosisReal!=null ? Number(ln.dosisReal) : (haRc>0 ? usado/haRc : 0));
-        rows+='<tr>'+
-          '<td>#'+o.num+'</td>'+
-          '<td>'+fd(fApp)+'</td>'+
-          '<td class="tdname">'+esc(campoNom)+'</td>'+
-          '<td class="tdname">'+esc(loteNom)+'</td>'+
-          '<td class="tdname">'+esc(de.cultivo||'—')+'</td>'+
-          '<td class="num">'+f(haRc,1)+'</td>'+
-          '<td class="tdname">'+esc(laborNom)+'</td>'+
-          '<td class="tdname">'+esc(contrNom||'—')+'</td>'+
-          '<td class="tdname">'+esc(ins.nombre)+'</td>'+
+        // Dosis real: sobre la ha REALMENTE aplicada.
+        var dosisReal = esU ? null : ((ln.dosisReal!==undefined && ln.dosisReal!==null) ? Number(ln.dosisReal) : (haReal>0 ? usado/haReal : 0));
+        filasIns+='<tr class="cons-ins">'+
+          '<td></td><td></td><td></td>'+
+          '<td class="tdname cons-ins-nom">'+esc(ins.nombre)+'</td>'+
           '<td>'+esc(ins.un)+'</td>'+
+          '<td>'+badgeBanda(ins.bandaTox)+'</td>'+
+          '<td class="num">'+(dosisReal==null?'<span style="color:var(--muted)">—</span>':f(dosisReal,3))+'</td>'+
           '<td class="num"><strong>'+f(usado,2)+'</strong></td>'+
-          '<td class="num">'+f(Number(ln.devStock)||0,2)+'</td>'+
-          '<td class="num">'+f(Number(ln.devBaja)||0,2)+'</td>'+
-          '<td class="num">'+f(dosisReal,3)+'</td>'+
           '</tr>';
+        totConsumido+=usado;
         nReg++;
-        if(!esUN(de)){ haSet[de.loteId]=haRc; lotesSet[de.loteId]=true; }
         insDistintos[ln.insumoId]=true;
       }
+      // Si hay filtro de insumo/categoría y este trabajo no tiene ninguno, se omite entero.
+      if((fins||fcat||q) && !filasIns) continue;
+      // Fila de la LABOR y, debajo, sus insumos: TODO en la misma tabla (nada anidado).
+      // Antes los insumos iban en una tabla adentro de una celda: sus columnas no se
+      // alineaban con el encabezado y cada bloque calculaba anchos distintos.
+      var sepClass = primeraDeOt ? ' cons-ot-sep' : '';
+      rows+='<tr class="cons-labor'+sepClass+'">'+
+        '<td class="tdname"><span class="cons-ot-num">#'+o.num+'</span><span class="cons-fecha">'+fd(fApp)+'</span></td>'+
+        '<td class="tdname"><strong>'+esc(loteNom)+'</strong>'+(esU?' <span class="bdg by">UN</span>':'')+
+          '<span class="cons-campo">'+esc(campoNom)+' · '+esc(de.cultivo||'—')+(esU&&de.obs?' · '+esc(de.obs):'')+'</span></td>'+
+        '<td class="num">'+f(haReal,1)+(esU?' <span style="font-size:10px;color:var(--muted)">unid.</span>':'')+'</td>'+
+        '<td class="tdname"><strong>'+esc(laborNom)+'</strong>'+
+          '<span class="bdg '+(tr.laborTipo==='LP'?'bg':'bv')+'" style="margin-left:6px">'+(tr.laborTipo==='LP'?'Propia':'Contratada')+'</span>'+
+          (tr.esResiembra?'<span class="bdg bn" style="margin-left:4px">Resiembra</span>':'')+
+          (contrNom?('<span class="cons-contr">'+esc(contrNom)+'</span>'):'')+'</td>'+
+        '<td>'+(esU?'unid.':'ha')+'</td>'+
+        '<td></td>'+
+        '<td class="num" style="color:var(--muted)">—</td>'+
+        '<td class="num"><strong>'+f(haReal,2)+'</strong></td>'+
+        '</tr>'+
+        filasIns;
+      primeraDeOt=false;
+      if(!esU){ haSet[de.id]=haReal; lotesSet[de.loteId]=true; }
     }
   }
-  byId('consLoteBody').innerHTML=rows || '<tr><td colspan="14" class="empty">Sin consumos registrados para los filtros aplicados.</td></tr>';
+  byId('consLoteBody').innerHTML=rows || '<tr><td colspan="8" class="empty">Sin consumos registrados para los filtros aplicados.</td></tr>';
 
   // Si se filtró por un insumo puntual, mostrar el total de ese insumo en el hint
   var hint='';
@@ -6278,11 +6342,13 @@ function renderConsumos(){
     var sumU=0;
     for(var kk=0;kk<state.ots.length;kk++){
       var oo=state.ots[kk]; if(oo.estado==='Cancelada') continue;
-      var pss=destinosDeOt(oo);
-      for(var dd=0;dd<pss.length;dd++){
-        var ded=pss[dd].destino;
-        if(fcontr && pss[dd].trabajo.contratistaId!==fcontr) continue;
-        if(ded.estadoLote!=='Aplicado') continue;
+      if(fcampania && (oo.campaniaId||'')!==fcampania) continue;
+      var paresH=destinosDeOt(oo);
+      for(var dd=0;dd<paresH.length;dd++){
+        var ded=paresH[dd].destino, trH=paresH[dd].trabajo;
+        if(ded.estadoLote!=='Aplicado' || !destinoVisible(ded)) continue;
+        if(fcontr && trH.contratistaId!==fcontr) continue;
+        if(ftipoLabor && tipoLaborDeTrabajo(trH)!==ftipoLabor) continue;
         if(fcamp && ded.campoId!==fcamp) continue;
         if(fl && ded.loteId!==fl) continue;
         if(fcult && ded.cultivo!==fcult) continue;
@@ -6304,7 +6370,7 @@ function renderConsumos(){
   var nIns=0; for(var iz in insDistintos){ if(insDistintos.hasOwnProperty(iz)) nIns++; }
   byId('consKpis').innerHTML=
     '<div class="kpi kpi-neutral"><div class="kpi-lbl">Registros (filtro)</div><div class="kpi-val">'+nReg+'</div></div>'+
-    '<div class="kpi kpi-neutral"><div class="kpi-lbl">Ha aplicadas</div><div class="kpi-val">'+f(haTot,1)+'</div></div>'+
+    '<div class="kpi kpi-neutral" title="Suma de las labores aplicadas: un lote con dos labores cuenta dos veces. Las unidades de negocio no suman."><div class="kpi-lbl">Ha trabajadas</div><div class="kpi-val">'+f(haTot,1)+'</div><div class="kpi-sub">suma de labores</div></div>'+
     '<div class="kpi kpi-neutral"><div class="kpi-lbl">Lotes</div><div class="kpi-val">'+nLotes+'</div></div>'+
     '<div class="kpi kpi-neutral"><div class="kpi-lbl">Insumos distintos</div><div class="kpi-val">'+nIns+'</div></div>';
 }
@@ -6543,6 +6609,8 @@ function estadoTrabajo(tr){
 var contrExpand={};
 function toggleContrTrabajo(key){ contrExpand[key]=!contrExpand[key]; renderContratistas(); }
 function renderContratistas(){
+  refreshCampBadges();
+  var dis=puede('cargar')?'':' disabled';
   var cs=byId('contrContrFilter'), curC=cs.value;
   cs.innerHTML='<option value="">Todos los contratistas</option>';
   for(var i=0;i<state.contratistas.length;i++) cs.innerHTML+='<option value="'+state.contratistas[i].id+'"'+(state.contratistas[i].id===curC?' selected':'')+'>'+esc(state.contratistas[i].nombre)+'</option>';
@@ -6581,7 +6649,7 @@ function renderContratistas(){
     var x=filas[r], o=x.o, tr=x.trabajo;
     var est=tr.estadoFact||'Sin facturar';
     var fact = x.facturado;
-    var disR = x.ocultos ? ' disabled' : '';
+    var disR = x.ocultos ? ' disabled' : dis;   // trabajo con lotes de campos sin permiso: solo lectura
     var impV = x.importe==null ? (x.importeParcial||0) : x.importe;
     if(x.importe==null) nSinTC++;
     totImporte+=impV;
