@@ -1792,8 +1792,11 @@ function guardarInsumoOperativoApi(idx, cb){
 // Rellena en state los catálogos compartidos desde PA.demo.*, mapeando al formato
 // que el tablero ya espera. Si PA no está (archivo suelto), deja los del state local.
 // Marca catalogosReadOnly=true cuando el origen es el contexto (para bloquear edición).
-// Campaña elegida a mano en el encabezado durante esta sesión ('' = no se eligió).
+// Campaña elegida a mano en el encabezado ('' = no se eligió). Es una preferencia del
+// usuario en este navegador: se guarda en localStorage para que sobreviva a una recarga.
+var _CAMP_PREF_KEY='pa_ot_campania_defecto';
 var _campaniaElegida='';
+try{ _campaniaElegida=localStorage.getItem(_CAMP_PREF_KEY)||''; }catch(e){}
 function inyectarCatalogosDesdePA(empresaId){
   if(typeof PA==='undefined' || !PA.demo || !empresaId){ state.catalogosReadOnly=false; return; }
   state.catalogosReadOnly=true;
@@ -7562,6 +7565,7 @@ function refreshCtx(){
 // ni impone: en cada registro se puede elegir otra. Refresca los defaults de los forms.
 function setCampaniaDefecto(id){
   state.campaniaActivaId=id; _campaniaElegida=id;
+  try{ localStorage.setItem(_CAMP_PREF_KEY, id||''); }catch(e){}
   var mc=byId('m_campania'); if(mc) mc.value=id;
   var oc=byId('o_campania'); if(oc) oc.value=id;
   toast('Campaña por defecto: '+(getCampaniaNombre(id)||id));
