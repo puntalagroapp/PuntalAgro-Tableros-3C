@@ -218,7 +218,9 @@ CREATE TABLE lotes (
     ambiente      TEXT,                          -- código de ambientes.datos->>'codigo'
     explotable    NUMERIC(10,2),                 -- NULL = pendiente de carga (no es 0)
     activo        BOOLEAN NOT NULL DEFAULT true,
-    tipo_override TEXT                           -- 'AGR'/'GAN' manual; NULL = usar el sugerido
+    tipo_override TEXT,                          -- 'AGR'/'GAN' manual; NULL = usar el sugerido
+    -- Mapa del lote (KML/KMZ del Plan de Uso): [{id, nombre, ha, ring:[[lat,lng],…]}]. NULL = sin mapa.
+    geo           JSONB
 );
 -- Único por empresa (no por campo): así lo valida hoy el frontend
 -- (tablero_uso_suelo.html compara contra TODOS los lotes de la empresa).

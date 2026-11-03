@@ -392,6 +392,43 @@ tbody tr.lote-start:first-child td{border-top:none}
 .hist-mini-table thead th{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600;padding:6px 12px;border-bottom:1px solid var(--border);text-align:left;background:#FAFBFC;position:static}
 .hist-mini-table tbody td{padding:6px 12px;border-bottom:1px solid #F5F7FA;font-size:11px;vertical-align:middle}
 .hist-mini-table tbody tr:last-child td{border-bottom:none}
+/* ---------- Mapa ---------- */
+.mapa-sub{font-size:11px;color:var(--muted);margin-right:6px}
+.mapa-wrap{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:12px}
+.mapa-cv{position:relative;z-index:0;height:calc(100vh - 330px);min-height:460px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:#DDE3D6}
+.mapa-vacio{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px;color:var(--muted);font-size:13px;z-index:500;background:#F4F6F9}
+.mapa-vacio b{color:var(--text)}
+.mapa-side{display:flex;flex-direction:column;gap:10px;font-size:12px;max-height:calc(100vh - 330px);min-height:460px;overflow-y:auto}
+.mapa-blk{border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.mapa-blk-t{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:7px}
+.mapa-ley{display:flex;align-items:center;gap:7px;padding:2px 0}
+.mapa-ley i{width:14px;height:14px;border-radius:3px;flex:0 0 auto;border:1px solid rgba(0,0,0,.15)}
+.mapa-ley span{flex:1}
+.mapa-ley em{font-style:normal;color:var(--muted);font-variant-numeric:tabular-nums}
+.mapa-sel-n{font-size:15px;font-weight:600}
+.mapa-sel-r{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px solid #F0F2F5}
+.mapa-sel-r:last-child{border-bottom:none}
+.mapa-sel-r span:first-child{color:var(--muted)}
+.mapa-sin{color:var(--muted);line-height:1.6}
+.mapa-cv.lejos .pamap-lbl{display:none}
+.mapa-cv.medio .pamap-txt{font-size:10px}
+.leaflet-popup-content{font-family:var(--sans);font-size:12px;margin:10px 12px}
+.modal.modal-kml{max-width:960px;width:94%}
+.kml-paso{display:grid;grid-template-columns:auto 200px auto 1fr;gap:8px 10px;align-items:center;margin-bottom:10px}
+.kml-estado{font-size:12px;color:var(--muted);margin:4px 0 8px}
+.kml-tw{max-height:52vh;overflow-y:auto;border:1px solid var(--border);border-radius:8px}
+.kml-tw table{width:100%;border-collapse:collapse}
+.kml-tw th{position:sticky;top:0;background:#F7F8FA;font-size:10px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);font-weight:500;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+.kml-tw td{padding:6px 8px;border-bottom:1px solid #F0F2F5;font-size:12px;vertical-align:middle;font-variant-numeric:tabular-nums}
+.kml-chip{display:inline-flex;align-items:center;gap:4px;background:#EEF3E8;color:#3A5128;border-radius:12px;padding:2px 4px 2px 9px;margin:2px 4px 2px 0;font-size:11.5px;font-weight:500}
+.kml-chip button{border:none;background:none;color:#7A8899;cursor:pointer;font-size:13px;line-height:1;padding:0 3px}
+.kml-chip button:hover{color:#C8642D}
+.kml-add{font-family:var(--sans);font-size:11px;border:1px dashed #B9C3D0;border-radius:12px;padding:2px 6px;background:#fff;color:var(--muted);max-width:150px}
+.kml-sug{font-size:10px;color:#92400E;background:#FFFBEB;border-radius:8px;padding:1px 6px;margin-left:4px}
+.kml-dif{color:#A84D1F}
+.kml-pie{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.5}
+@media (max-width:900px){.mapa-wrap{grid-template-columns:1fr}.mapa-side{max-height:none;min-height:0}.kml-paso{grid-template-columns:auto 1fr}}
+
 .print-ctx{display:none}
 @media print {
   @page { margin: 12mm; size: landscape; }
@@ -457,6 +494,7 @@ tbody tr.lote-start:first-child td{border-top:none}
   <span class="nav-lbl">MÓDULO:</span>
   <button class="nav-btn" data-view="padron" onclick="setView('padron',this)">Padrón de lotes</button>
   <button class="nav-btn active" data-view="plan" onclick="setView('plan',this)">Plan de uso</button>
+  <button class="nav-btn" data-view="mapa" onclick="setView('mapa',this)">Mapa</button>
   <button class="nav-btn" data-view="reportes" onclick="setView('reportes',this)">Reportes</button>
   <button class="nav-btn" data-view="historico" onclick="setView('historico',this)">Histórico / Rotación</button>
   <button class="nav-btn" data-view="maestros" onclick="setView('maestros',this)">Maestros</button>
@@ -878,6 +916,24 @@ tbody tr.lote-start:first-child td{border-top:none}
   </div>
 </div>
 
+<!-- VISTA MAPA -->
+<div class="view" id="view-mapa">
+  <div class="card">
+    <div class="chd">
+      <span class="ct" id="mapaTit">Mapa de lotes</span>
+      <div class="ct-actions">
+        <span class="mapa-sub" id="mapaSub"></span>
+        <button class="btn-sm" onclick="abrirCargaKML()">⬆ Cargar KML / KMZ de un campo</button>
+      </div>
+    </div>
+    <div id="mapaBarra"></div>
+    <div class="mapa-wrap">
+      <div class="mapa-cv" id="mapaCanvas"><div class="mapa-vacio" id="mapaVacio"></div></div>
+      <div class="mapa-side" id="mapaSide"></div>
+    </div>
+  </div>
+</div>
+
 <!-- VISTA MAESTROS -->
 <div class="view" id="view-maestros">
   <div class="card" id="cardAmbientes">
@@ -950,6 +1006,26 @@ tbody tr.lote-start:first-child td{border-top:none}
 
 <!-- DROPDOWN GLOBAL DE CULTIVOS (se reposiciona al abrir) -->
 <div id="ddGlobal"></div>
+
+<!-- MODAL: Cargar KML / KMZ -->
+<div class="modal-bg" id="modalKML">
+  <div class="modal modal-kml">
+    <div class="modal-title">Cargar mapa de lotes (KML / KMZ)</div>
+    <div class="modal-sub">Exportá la planimetría del campo desde Google Earth (un polígono por lote). Cada polígono se asocia a uno o más lotes del padrón: revisá las sugerencias antes de guardar. Al guardar se <b>reemplaza</b> el mapa que ese campo tenía.</div>
+    <div class="kml-paso">
+      <label class="modal-lbl">Campo</label>
+      <select class="modal-input" id="kmlCampo" onchange="kmlCambioCampo()"></select>
+      <label class="modal-lbl">Archivo</label>
+      <input type="file" id="kmlFile" accept=".kml,.kmz" multiple onchange="kmlLeerArchivos(this.files)">
+    </div>
+    <div id="kmlEstado" class="kml-estado"></div>
+    <div id="kmlTabla"></div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="cerrarCargaKML()">Cancelar</button>
+      <button class="modal-ok" id="kmlGuardar" onclick="guardarKML()" disabled>Guardar mapa del campo</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL: Editar / Agregar LOTE -->
 <div class="modal-bg" id="modalLote">
@@ -1205,6 +1281,735 @@ var CAMPANIAS = ['22-23','23-24','24-25','25-26','26-27','27-28'];
 var LOTES = [{"l":"EC 1A","c":"EC","s":28.0,"a":"G1","p":{"22-23":[{"c":"PPFe","ha":28.0,"seg":false}],"23-24":[{"c":"PPFe","ha":28.0,"seg":false}],"24-25":[{"c":"G","ha":28.0,"seg":false},{"c":"PI","ha":28.0,"seg":true}],"25-26":[{"c":"PPAlf","ha":28.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":28.0,"seg":false}],"27-28":[]}},{"l":"EC 1A CN","c":"EC","s":21.0,"a":"G2","p":{"22-23":[{"c":"CN","ha":21.0,"seg":false}],"23-24":[{"c":"CN","ha":21.0,"seg":false}],"24-25":[{"c":"CN","ha":21.0,"seg":false}],"25-26":[{"c":"CN","ha":21.0,"seg":false}],"26-27":[{"c":"CN","ha":21.0,"seg":false}],"27-28":[]}},{"l":"EC 1B","c":"EC","s":27.0,"a":"G1","p":{"22-23":[{"c":"PPFe","ha":27.0,"seg":false}],"23-24":[{"c":"PPFe","ha":20.0,"seg":false}],"24-25":[{"c":"G","ha":20.0,"seg":false},{"c":"PI","ha":20.0,"seg":true}],"25-26":[{"c":"PPFe","ha":20.0,"seg":false}],"26-27":[{"c":"PPFe","ha":20.0,"seg":false}],"27-28":[]}},{"l":"EC 1B CN","c":"EC","s":20.0,"a":"G2","p":{"22-23":[{"c":"CN","ha":20.0,"seg":false}],"23-24":[{"c":"CN","ha":20.0,"seg":false}],"24-25":[{"c":"CN","ha":20.0,"seg":false}],"25-26":[{"c":"CN","ha":20.0,"seg":false}],"26-27":[{"c":"CN","ha":20.0,"seg":false}],"27-28":[]}},{"l":"EC 2A","c":"EC","s":27.0,"a":"G1","p":{"22-23":[{"c":"PPFe","ha":27.0,"seg":false}],"23-24":[{"c":"PPFe","ha":19.0,"seg":false}],"24-25":[{"c":"G","ha":19.0,"seg":false},{"c":"PI","ha":19.0,"seg":true}],"25-26":[{"c":"PPFe","ha":19.0,"seg":false}],"26-27":[{"c":"PPFe","ha":19.0,"seg":false}],"27-28":[]}},{"l":"EC 2A CN","c":"EC","s":20.0,"a":"G2","p":{"22-23":[{"c":"CN","ha":20.0,"seg":false}],"23-24":[{"c":"CN","ha":20.0,"seg":false}],"24-25":[{"c":"CN","ha":20.0,"seg":false}],"25-26":[{"c":"CN","ha":10.5,"seg":false}],"26-27":[{"c":"CN","ha":10.5,"seg":false}],"27-28":[]}},{"l":"EC 2A CN1","c":"EC","s":0,"a":"G1","p":{"25-26":[{"c":"CN","ha":9.5,"seg":false}],"26-27":[{"c":"CN","ha":9.5,"seg":false},{"c":"VI","ha":9.5,"seg":true}],"27-28":[{"c":"MzP","ha":9.5,"seg":false},{"c":"PI","ha":9.5,"seg":true}]}},{"l":"EC 2B","c":"EC","s":45.0,"a":"G2","p":{"22-23":[{"c":"CN","ha":45.0,"seg":false}],"23-24":[{"c":"CN","ha":45.0,"seg":false}],"24-25":[{"c":"CN","ha":45.0,"seg":false}],"25-26":[{"c":"CN","ha":30.0,"seg":false}],"26-27":[{"c":"CN","ha":30.0,"seg":false}],"27-28":[]}},{"l":"EC 2B CN1","c":"EC","s":0,"a":"G1","p":{"25-26":[{"c":"CN","ha":15.0,"seg":false},{"c":"VI","ha":15.0,"seg":true}],"26-27":[{"c":"G","ha":15.0,"seg":false},{"c":"VI","ha":15.0,"seg":true}],"27-28":[{"c":"MzP","ha":15.0,"seg":false},{"c":"PI","ha":15.0,"seg":true}]}},{"l":"EC 3 loma","c":"EC","s":26.0,"a":"A2","p":{"22-23":[{"c":"Mz","ha":26.0,"seg":false}],"23-24":[{"c":"G","ha":26.0,"seg":false},{"c":"PI","ha":26.0,"seg":true}],"24-25":[{"c":"PPAlf","ha":26.0,"seg":false}],"25-26":[{"c":"PPAlf","ha":26.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":26.0,"seg":false}],"27-28":[]}},{"l":"EC 3 CN","c":"EC","s":57.0,"a":"G2","p":{"22-23":[{"c":"CN","ha":57.0,"seg":false}],"23-24":[{"c":"CN","ha":57.0,"seg":false}],"24-25":[{"c":"CN","ha":57.0,"seg":false}],"25-26":[{"c":"CN","ha":57.0,"seg":false}],"26-27":[{"c":"CN","ha":57.0,"seg":false}],"27-28":[]}},{"l":"EC 4","c":"EC","s":35.0,"a":"G1","p":{"22-23":[{"c":"PPFe","ha":35.0,"seg":false}],"23-24":[{"c":"PPFe","ha":35.0,"seg":false}],"24-25":[{"c":"G","ha":35.0,"seg":false},{"c":"VI","ha":35.0,"seg":true}],"25-26":[{"c":"Sj1ª","ha":35.0,"seg":false}],"26-27":[{"c":"G","ha":35.0,"seg":false},{"c":"PI","ha":35.0,"seg":true}],"27-28":[{"c":"PPAlf","ha":35.0,"seg":false}]}},{"l":"EC 4","c":"EC","s":20.0,"a":"A2","p":{"22-23":[{"c":"PPFe","ha":20.0,"seg":false}],"23-24":[{"c":"PPFe","ha":20.0,"seg":false}],"24-25":[{"c":"G","ha":20.0,"seg":false},{"c":"VI","ha":20.0,"seg":true}],"25-26":[{"c":"Mz","ha":20.0,"seg":false}],"26-27":[{"c":"Sj1ª","ha":20.0,"seg":false}],"27-28":[{"c":"Tr","ha":20.0,"seg":false},{"c":"Sj2ª","ha":20.0,"seg":true}]}},{"l":"EC 5","c":"EC","s":78.0,"a":"G1","p":{"22-23":[{"c":"CN","ha":78.0,"seg":false},{"c":"VI","ha":78.0,"seg":true}],"23-24":[{"c":"VI","ha":78.0,"seg":false},{"c":"PI","ha":78.0,"seg":true}],"24-25":[{"c":"PPAlf","ha":78.0,"seg":false}],"25-26":[{"c":"PPAlf","ha":78.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":78.0,"seg":false}],"27-28":[]}},{"l":"EC 6 loma","c":"EC","s":30.0,"a":"G1","p":{"22-23":[{"c":"MzP","ha":30.0,"seg":false},{"c":"VI","ha":30.0,"seg":true}],"23-24":[{"c":"VI","ha":30.0,"seg":false},{"c":"PI","ha":30.0,"seg":true}],"24-25":[{"c":"PPAlf","ha":30.0,"seg":false}],"25-26":[{"c":"PPAlf","ha":30.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":30.0,"seg":false}],"27-28":[]}},{"l":"EC 6 bajo","c":"EC","s":36.0,"a":"G4","p":{"22-23":[{"c":"CN","ha":36.0,"seg":false}],"23-24":[{"c":"CN","ha":36.0,"seg":false}],"24-25":[{"c":"CN","ha":36.0,"seg":false}],"25-26":[{"c":"CN","ha":36.0,"seg":false}],"26-27":[{"c":"CN","ha":36.0,"seg":false}],"27-28":[]}},{"l":"EC 7","c":"EC","s":27.0,"a":"G1","p":{"22-23":[{"c":"PPAlf","ha":27.0,"seg":false}],"23-24":[{"c":"PPAlf","ha":27.0,"seg":false}],"24-25":[{"c":"G","ha":27.0,"seg":false},{"c":"VI","ha":27.0,"seg":true}],"25-26":[{"c":"Sj1ª","ha":27.0,"seg":false}],"26-27":[{"c":"G","ha":27.0,"seg":false},{"c":"PI","ha":27.0,"seg":true}],"27-28":[{"c":"PPAlf","ha":27.0,"seg":false}]}},{"l":"EC 12 loma","c":"EC","s":4.0,"a":"A2","p":{"22-23":[{"c":"PPAlf","ha":4.0,"seg":false}],"23-24":[{"c":"PPAlf","ha":4.0,"seg":false}],"24-25":[{"c":"G","ha":4.0,"seg":false},{"c":"VI","ha":4.0,"seg":true}],"25-26":[{"c":"Mz","ha":4.0,"seg":false}],"26-27":[{"c":"Sj1ª","ha":4.0,"seg":false}],"27-28":[{"c":"Tr","ha":4.0,"seg":false},{"c":"Sj2ª","ha":4.0,"seg":true}]}},{"l":"EC 8","c":"EC","s":20.0,"a":"G1","p":{"22-23":[{"c":"CN","ha":20.0,"seg":false}],"23-24":[{"c":"MzSPE","ha":18.0,"seg":false}],"24-25":[{"c":"G","ha":18.0,"seg":false},{"c":"PI","ha":18.0,"seg":true}],"25-26":[{"c":"PPAlf","ha":18.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":18.0,"seg":false}],"27-28":[]}},{"l":"EC 10-1","c":"EC","s":26.0,"a":"G1","p":{"22-23":[{"c":"PPFe","ha":26.0,"seg":false}],"23-24":[{"c":"MzT","ha":25.0,"seg":false}],"24-25":[{"c":"G","ha":25.0,"seg":false},{"c":"PI","ha":25.0,"seg":true}],"25-26":[{"c":"PPAlf","ha":25.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":25.0,"seg":false}],"27-28":[]}},{"l":"EC 10-2","c":"EC","s":27.0,"a":"G1","p":{"22-23":[{"c":"CN","ha":27.0,"seg":false}],"23-24":[{"c":"MzD","ha":25.0,"seg":false}],"24-25":[{"c":"G","ha":25.0,"seg":false},{"c":"PI","ha":25.0,"seg":true}],"25-26":[{"c":"PPAlf","ha":25.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":25.0,"seg":false}],"27-28":[]}},{"l":"EC 10-3","c":"EC","s":20.0,"a":"G1","p":{"22-23":[{"c":"MzP","ha":20.0,"seg":false}],"23-24":[{"c":"MzP","ha":20.0,"seg":false}],"24-25":[{"c":"G","ha":20.0,"seg":false},{"c":"PI","ha":20.0,"seg":true}],"25-26":[{"c":"PPAlf","ha":20.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":20.0,"seg":false}],"27-28":[]}},{"l":"EC 11 loma","c":"EC","s":25.0,"a":"G1","p":{"22-23":[{"c":"PPFe","ha":25.0,"seg":false}],"23-24":[{"c":"PPFe","ha":25.0,"seg":false}],"24-25":[{"c":"PPFe","ha":25.0,"seg":false}],"25-26":[{"c":"G","ha":25.0,"seg":false},{"c":"PI","ha":25.0,"seg":true}],"26-27":[{"c":"PPAlf","ha":25.0,"seg":false}],"27-28":[]}},{"l":"EC 11 bajo","c":"EC","s":33.0,"a":"G4","p":{"22-23":[{"c":"CN","ha":33.0,"seg":false}],"23-24":[{"c":"CN","ha":33.0,"seg":false}],"24-25":[{"c":"CN","ha":33.0,"seg":false}],"25-26":[{"c":"CN","ha":33.0,"seg":false}],"26-27":[{"c":"CN","ha":33.0,"seg":false}],"27-28":[]}},{"l":"EC 12","c":"EC","s":54.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":54.0,"seg":false}],"23-24":[{"c":"CN","ha":54.0,"seg":false}],"24-25":[{"c":"CN","ha":54.0,"seg":false}],"25-26":[{"c":"CN","ha":54.0,"seg":false}],"26-27":[{"c":"CN","ha":54.0,"seg":false}],"27-28":[]}},{"l":"EC 13 loma","c":"EC","s":35.0,"a":"A2","p":{"22-23":[{"c":"Tr","ha":35.0,"seg":false},{"c":"Sj2ª","ha":35.0,"seg":true}],"23-24":[{"c":"G","ha":34.0,"seg":false}],"24-25":[{"c":"Tr","ha":34.0,"seg":false},{"c":"Sj2ª","ha":34.0,"seg":true}],"25-26":[{"c":"Mz","ha":34.0,"seg":false}],"26-27":[{"c":"Sj1ª","ha":34.0,"seg":false}],"27-28":[{"c":"Tr","ha":34.0,"seg":false},{"c":"Sj2ª","ha":34.0,"seg":true}]}},{"l":"EC 13 CN","c":"EC","s":40.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":40.0,"seg":false}],"23-24":[{"c":"CN","ha":40.0,"seg":false}],"24-25":[{"c":"CN","ha":40.0,"seg":false}],"25-26":[{"c":"CN","ha":40.0,"seg":false}],"26-27":[{"c":"CN","ha":40.0,"seg":false}],"27-28":[]}},{"l":"EC 14","c":"EC","s":65.0,"a":"A2","p":{"22-23":[{"c":"G","ha":65.0,"seg":false}],"23-24":[{"c":"Tr","ha":65.0,"seg":false},{"c":"Sj2ª","ha":65.0,"seg":true}],"24-25":[{"c":"Mz","ha":64.0,"seg":false}],"25-26":[{"c":"Tr","ha":64.0,"seg":false},{"c":"Sj2ª","ha":64.0,"seg":true}],"26-27":[{"c":"Mz","ha":64.0,"seg":false}],"27-28":[{"c":"Sj1ª","ha":64.0,"seg":false}]}},{"l":"EC 14 CN","c":"EC","s":13.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":10.0,"seg":false}],"23-24":[{"c":"CN","ha":10.0,"seg":false}],"24-25":[{"c":"CN","ha":10.0,"seg":false}],"25-26":[{"c":"CN","ha":10.0,"seg":false}],"26-27":[{"c":"CN","ha":10.0,"seg":false}],"27-28":[]}},{"l":"EC 15","c":"EC","s":17.0,"a":"A2","p":{"22-23":[{"c":"G","ha":17.0,"seg":false}],"23-24":[{"c":"PI","ha":17.0,"seg":false}],"24-25":[{"c":"PPFe","ha":17.0,"seg":false}],"25-26":[{"c":"PPFe","ha":17.0,"seg":false}],"26-27":[{"c":"PPFe","ha":17.0,"seg":false}],"27-28":[]}},{"l":"EC 15 CN","c":"EC","s":42.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":40.0,"seg":false}],"23-24":[{"c":"CN","ha":40.0,"seg":false}],"24-25":[{"c":"CN","ha":40.0,"seg":false}],"25-26":[{"c":"CN","ha":40.0,"seg":false}],"26-27":[{"c":"CN","ha":40.0,"seg":false}],"27-28":[]}},{"l":"EC 16","c":"EC","s":29.0,"a":"A2","p":{"22-23":[{"c":"G","ha":29.0,"seg":false}],"23-24":[{"c":"PI","ha":29.0,"seg":false}],"24-25":[{"c":"PPAlf","ha":29.0,"seg":false}],"25-26":[{"c":"PPAlf","ha":29.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":29.0,"seg":false}],"27-28":[]}},{"l":"EC 16 bajo","c":"EC","s":20.0,"a":"G1","p":{"22-23":[{"c":"PPAlf","ha":20.0,"seg":false}],"23-24":[{"c":"PPAlf","ha":20.0,"seg":false}],"24-25":[{"c":"PPAlf","ha":20.0,"seg":false},{"c":"VI","ha":20.0,"seg":true}],"25-26":[{"c":"G","ha":20.0,"seg":false},{"c":"PI","ha":20.0,"seg":true}],"26-27":[{"c":"PPFe","ha":20.0,"seg":false}],"27-28":[]}},{"l":"EC DP1","c":"EC","s":47.0,"a":"A2","p":{"22-23":[{"c":"PPFe","ha":45.0,"seg":false}],"23-24":[{"c":"MzT","ha":45.0,"seg":false}],"24-25":[{"c":"G","ha":45.0,"seg":false}],"25-26":[{"c":"Tr","ha":45.0,"seg":false},{"c":"Sj2ª","ha":45.0,"seg":true}],"26-27":[{"c":"G","ha":45.0,"seg":false},{"c":"VI","ha":45.0,"seg":true}],"27-28":[{"c":"MzT","ha":45.0,"seg":false}]}},{"l":"EC DP2 CN","c":"EC","s":37.0,"a":"G2","p":{"22-23":[{"c":"CN","ha":37.0,"seg":false}],"23-24":[{"c":"CN","ha":37.0,"seg":false}],"24-25":[{"c":"CN","ha":37.0,"seg":false}],"25-26":[{"c":"CN","ha":30.0,"seg":false}],"26-27":[{"c":"CN","ha":30.0,"seg":false}],"27-28":[]}},{"l":"EC DP2 CN1","c":"EC","s":0,"a":"G1","p":{"25-26":[{"c":"CN","ha":7.0,"seg":false}],"26-27":[{"c":"CN","ha":7.0,"seg":false},{"c":"VI","ha":7.0,"seg":true}],"27-28":[{"c":"MzP","ha":7.0,"seg":false},{"c":"PI","ha":7.0,"seg":true}]}},{"l":"EC DP3 CN","c":"EC","s":66.0,"a":"G4","p":{"22-23":[{"c":"CND","ha":66.0,"seg":false}],"23-24":[{"c":"CND","ha":66.0,"seg":false}],"24-25":[{"c":"CND","ha":66.0,"seg":false}],"25-26":[{"c":"CND","ha":61.0,"seg":false}],"26-27":[{"c":"CND","ha":61.0,"seg":false}],"27-28":[]}},{"l":"EC DP3 CN1","c":"EC","s":0,"a":"G1","p":{"25-26":[{"c":"CN","ha":5.0,"seg":false}],"26-27":[{"c":"CN","ha":5.0,"seg":false},{"c":"VI","ha":5.0,"seg":true}],"27-28":[{"c":"MzP","ha":5.0,"seg":false},{"c":"PI","ha":5.0,"seg":true}]}},{"l":"EC DP2-3 laguna","c":"EC","s":26.0,"a":"G6","p":{"22-23":[{"c":"CND","ha":26.0,"seg":false}],"23-24":[{"c":"CND","ha":26.0,"seg":false}],"24-25":[{"c":"CND","ha":26.0,"seg":false}],"25-26":[{"c":"CND","ha":26.0,"seg":false}],"26-27":[{"c":"CND","ha":26.0,"seg":false}],"27-28":[]}},{"l":"EM 18","c":"EM","s":44.0,"a":"A1","p":{"22-23":[{"c":"Mz","ha":44.0,"seg":false}],"23-24":[{"c":"Sj1ª","ha":44.0,"seg":false}],"24-25":[{"c":"Mz","ha":44.0,"seg":false}],"25-26":[{"c":"Sj1ª","ha":44.0,"seg":false}],"26-27":[{"c":"Tr","ha":44.0,"seg":false},{"c":"Sj2ª","ha":44.0,"seg":true}],"27-28":[{"c":"Mz","ha":44.0,"seg":false}]}},{"l":"EM 19","c":"EM","s":46.0,"a":"A1","p":{"22-23":[{"c":"Mz","ha":45.0,"seg":false}],"23-24":[{"c":"Sj1ª","ha":45.0,"seg":false}],"24-25":[{"c":"Tr","ha":45.0,"seg":false},{"c":"Sj2ª","ha":45.0,"seg":true}],"25-26":[{"c":"Mz","ha":45.0,"seg":false}],"26-27":[{"c":"Sj1ª","ha":45.0,"seg":false}],"27-28":[{"c":"Tr","ha":45.0,"seg":false},{"c":"Sj2ª","ha":45.0,"seg":true}]}},{"l":"EM 20","c":"EM","s":38.0,"a":"A1","p":{"22-23":[{"c":"Tr","ha":38.0,"seg":false},{"c":"Sj2ª","ha":38.0,"seg":true}],"23-24":[{"c":"Mz","ha":38.0,"seg":false}],"24-25":[{"c":"Sj1ª","ha":38.0,"seg":false}],"25-26":[{"c":"Tr","ha":38.0,"seg":false},{"c":"Sj2ª","ha":38.0,"seg":true}],"26-27":[{"c":"Sj1ª","ha":38.0,"seg":false}],"27-28":[{"c":"Tr","ha":38.0,"seg":false},{"c":"Sj2ª","ha":38.0,"seg":true}]}},{"l":"EM 21","c":"EM","s":45.0,"a":"A1","p":{"22-23":[{"c":"Sj1ª","ha":45.0,"seg":false}],"23-24":[{"c":"Tr","ha":45.0,"seg":false},{"c":"Sj2ª","ha":45.0,"seg":true}],"24-25":[{"c":"VI","ha":45.0,"seg":true}],"25-26":[{"c":"Sj1ª","ha":45.0,"seg":false}],"26-27":[{"c":"Tr","ha":45.0,"seg":false},{"c":"Sj2ª","ha":45.0,"seg":true}],"27-28":[{"c":"Mz","ha":45.0,"seg":false}]}},{"l":"EM 50/51","c":"EM","s":90.0,"a":"A1","p":{"22-23":[{"c":"Sj1ª","ha":95.0,"seg":false}],"23-24":[{"c":"Mz","ha":95.0,"seg":false}],"24-25":[{"c":"Sj1ª","ha":95.0,"seg":false}],"25-26":[{"c":"Tr","ha":95.0,"seg":false},{"c":"Sj2ª","ha":95.0,"seg":true}],"26-27":[{"c":"Mz","ha":95.0,"seg":false}],"27-28":[{"c":"Sj1ª","ha":95.0,"seg":false}]}},{"l":"EM 50/51 CN","c":"EM","s":18.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":14.0,"seg":false}],"23-24":[{"c":"CN","ha":14.0,"seg":false}],"24-25":[{"c":"CN","ha":14.0,"seg":false}],"25-26":[{"c":"CN","ha":14.0,"seg":false}],"26-27":[{"c":"CN","ha":14.0,"seg":false}],"27-28":[]}},{"l":"EM 52 loma","c":"EM","s":22.0,"a":"G1","p":{"22-23":[{"c":"PPFe","ha":22.0,"seg":false}],"23-24":[{"c":"PPFe","ha":22.0,"seg":false}],"24-25":[{"c":"G","ha":22.0,"seg":false},{"c":"VI","ha":22.0,"seg":true}],"25-26":[{"c":"Sj1ª","ha":22.0,"seg":false}],"26-27":[{"c":"G","ha":22.0,"seg":false},{"c":"PI","ha":22.0,"seg":true}],"27-28":[{"c":"PPAlf","ha":22.0,"seg":false}]}},{"l":"EM 52 CN","c":"EM","s":4.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":4.0,"seg":false}],"23-24":[{"c":"CN","ha":4.0,"seg":false}],"24-25":[{"c":"CN","ha":4.0,"seg":false}],"25-26":[{"c":"CN","ha":4.0,"seg":false}],"26-27":[{"c":"CN","ha":4.0,"seg":false}],"27-28":[]}},{"l":"EM 53","c":"EM","s":28.0,"a":"G1","p":{"22-23":[{"c":"PPFe","ha":28.0,"seg":false}],"23-24":[{"c":"PPFe","ha":28.0,"seg":false}],"24-25":[{"c":"G","ha":28.0,"seg":false},{"c":"VI","ha":28.0,"seg":true}],"25-26":[{"c":"Sj1ª","ha":28.0,"seg":false}],"26-27":[{"c":"G","ha":28.0,"seg":false},{"c":"PI","ha":28.0,"seg":true}],"27-28":[{"c":"PPAlf","ha":28.0,"seg":false}]}},{"l":"EM 53 CN","c":"EM","s":10.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":10.0,"seg":false}],"23-24":[{"c":"CN","ha":10.0,"seg":false}],"24-25":[{"c":"CN","ha":10.0,"seg":false}],"25-26":[{"c":"CN","ha":10.0,"seg":false}],"26-27":[{"c":"CN","ha":10.0,"seg":false}],"27-28":[]}},{"l":"EM 54","c":"EM","s":167.0,"a":"G6","p":{"22-23":[{"c":"CND","ha":126.0,"seg":false}],"23-24":[{"c":"CND","ha":126.0,"seg":false}],"24-25":[{"c":"CND","ha":126.0,"seg":false}],"25-26":[{"c":"CND","ha":126.0,"seg":false}],"26-27":[{"c":"CND","ha":126.0,"seg":false}],"27-28":[]}},{"l":"EM 56","c":"EM","s":67.0,"a":"G6","p":{"22-23":[{"c":"CND","ha":67.0,"seg":false}],"23-24":[{"c":"CND","ha":67.0,"seg":false}],"24-25":[{"c":"CND","ha":67.0,"seg":false}],"25-26":[{"c":"CND","ha":67.0,"seg":false}],"26-27":[{"c":"CND","ha":67.0,"seg":false}],"27-28":[]}},{"l":"EM 57","c":"EM","s":23.0,"a":"G1","p":{"22-23":[{"c":"MzP","ha":18.0,"seg":false}],"23-24":[{"c":"MzP","ha":16.0,"seg":false},{"c":"PI","ha":16.0,"seg":true}],"24-25":[{"c":"PPFe","ha":16.0,"seg":false}],"25-26":[{"c":"PPFe","ha":16.0,"seg":false}],"26-27":[{"c":"PPFe","ha":16.0,"seg":false}],"27-28":[]}},{"l":"EM 57 bajo","c":"EM","s":24.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":24.0,"seg":false}],"23-24":[{"c":"CN","ha":24.0,"seg":false}],"24-25":[{"c":"CN","ha":24.0,"seg":false}],"25-26":[{"c":"CN","ha":24.0,"seg":false}],"26-27":[{"c":"CN","ha":24.0,"seg":false}],"27-28":[]}},{"l":"EM 58 CN","c":"EM","s":53.0,"a":"G6","p":{"22-23":[{"c":"CND","ha":53.0,"seg":false}],"23-24":[{"c":"CND","ha":53.0,"seg":false}],"24-25":[{"c":"CND","ha":53.0,"seg":false}],"25-26":[{"c":"CND","ha":53.0,"seg":false}],"26-27":[{"c":"CND","ha":53.0,"seg":false}],"27-28":[]}},{"l":"EM 58","c":"EM","s":10.0,"a":"G1","p":{"22-23":[{"c":"MzP","ha":7.0,"seg":false}],"23-24":[{"c":"MzP","ha":7.0,"seg":false},{"c":"PI","ha":7.0,"seg":true}],"24-25":[{"c":"PPFe","ha":7.0,"seg":false}],"25-26":[{"c":"PPFe","ha":7.0,"seg":false}],"26-27":[{"c":"PPFe","ha":7.0,"seg":false}],"27-28":[]}},{"l":"EM 59","c":"EM","s":26.0,"a":"A2","p":{"22-23":[{"c":"MzP","ha":25.0,"seg":false}],"23-24":[{"c":"G","ha":26.0,"seg":false},{"c":"PI","ha":26.0,"seg":true}],"24-25":[{"c":"PPFe","ha":26.0,"seg":false}],"25-26":[{"c":"PPFe","ha":26.0,"seg":false}],"26-27":[{"c":"PPFe","ha":26.0,"seg":false}],"27-28":[]}},{"l":"EM 59 CN","c":"EM","s":6.0,"a":"G6","p":{"22-23":[{"c":"CN","ha":6.0,"seg":false}],"23-24":[{"c":"CN","ha":6.0,"seg":false}],"24-25":[{"c":"CN","ha":6.0,"seg":false}],"25-26":[{"c":"CN","ha":6.0,"seg":false}],"26-27":[{"c":"CN","ha":6.0,"seg":false}],"27-28":[]}},{"l":"EM 60","c":"EM","s":25.0,"a":"G1","p":{"22-23":[{"c":"PPFe","ha":25.0,"seg":false}],"23-24":[{"c":"PPFe","ha":25.0,"seg":false}],"24-25":[{"c":"G","ha":25.0,"seg":false},{"c":"PI","ha":25.0,"seg":true}],"25-26":[{"c":"PPAlf","ha":25.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":25.0,"seg":false}],"27-28":[]}},{"l":"EM 60 CN","c":"EM","s":11.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":11.0,"seg":false}],"23-24":[{"c":"CN","ha":11.0,"seg":false}],"24-25":[{"c":"CN","ha":11.0,"seg":false}],"25-26":[{"c":"CN","ha":11.0,"seg":false}],"26-27":[{"c":"CN","ha":11.0,"seg":false}],"27-28":[]}},{"l":"EM 61","c":"EM","s":32.0,"a":"A2","p":{"22-23":[{"c":"MzT","ha":28.0,"seg":false}],"23-24":[{"c":"Sj1ª","ha":28.0,"seg":false}],"24-25":[{"c":"Tr","ha":28.0,"seg":false},{"c":"Sj2ª","ha":28.0,"seg":true}],"25-26":[{"c":"MzT","ha":28.0,"seg":false}],"26-27":[{"c":"Sj1ª","ha":28.0,"seg":false}],"27-28":[{"c":"Tr","ha":28.0,"seg":false},{"c":"Sj2ª","ha":28.0,"seg":true}]}},{"l":"EM 62","c":"EM","s":39.0,"a":"G1","p":{"22-23":[{"c":"PPFe","ha":39.0,"seg":false}],"23-24":[{"c":"PPFe","ha":39.0,"seg":false}],"24-25":[{"c":"PPFe","ha":39.0,"seg":false}],"25-26":[{"c":"PPFe","ha":39.0,"seg":false}],"26-27":[{"c":"G","ha":39.0,"seg":false},{"c":"VI","ha":39.0,"seg":true}],"27-28":[{"c":"MzT","ha":39.0,"seg":false}]}},{"l":"EM 62 CN","c":"EM","s":8.0,"a":"G2","p":{"22-23":[{"c":"CN","ha":8.0,"seg":false}],"23-24":[{"c":"CN","ha":8.0,"seg":false}],"24-25":[{"c":"CN","ha":8.0,"seg":false}],"25-26":[{"c":"CN","ha":8.0,"seg":false}],"26-27":[{"c":"CN","ha":8.0,"seg":false}],"27-28":[]}},{"l":"EM 63","c":"EM","s":45.0,"a":"A2","p":{"22-23":[{"c":"Tr","ha":45.0,"seg":false},{"c":"Sj2ª","ha":45.0,"seg":true}],"23-24":[{"c":"G","ha":43.0,"seg":false},{"c":"PI","ha":43.0,"seg":true}],"24-25":[{"c":"PPAlf","ha":43.0,"seg":false}],"25-26":[{"c":"PPAlf","ha":43.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":43.0,"seg":false}],"27-28":[]}},{"l":"EM 64","c":"EM","s":43.0,"a":"A2","p":{"22-23":[{"c":"MzT","ha":42.0,"seg":false}],"23-24":[{"c":"Sj1ª","ha":43.0,"seg":false}],"24-25":[{"c":"Tr","ha":43.0,"seg":false},{"c":"Sj2ª","ha":43.0,"seg":true}],"25-26":[{"c":"MzT","ha":43.0,"seg":false}],"26-27":[{"c":"Sj1ª","ha":43.0,"seg":false}],"27-28":[{"c":"Tr","ha":43.0,"seg":false},{"c":"Sj2ª","ha":43.0,"seg":true}]}},{"l":"EM 64 CN","c":"EM","s":8.0,"a":"G3","p":{"22-23":[{"c":"CND","ha":8.0,"seg":false}],"23-24":[{"c":"CND","ha":8.0,"seg":false}],"24-25":[{"c":"CND","ha":8.0,"seg":false}],"25-26":[{"c":"CND","ha":8.0,"seg":false}],"26-27":[{"c":"CND","ha":8.0,"seg":false}],"27-28":[]}},{"l":"EM 65","c":"EM","s":12.0,"a":"G1","p":{"22-23":[{"c":"PPFe","ha":12.0,"seg":false}],"23-24":[{"c":"PPFe","ha":12.0,"seg":false}],"24-25":[{"c":"PPFe","ha":12.0,"seg":false},{"c":"VI","ha":12.0,"seg":true}],"25-26":[{"c":"G","ha":12.0,"seg":false},{"c":"PI","ha":12.0,"seg":true}],"26-27":[{"c":"PPAlf","ha":12.0,"seg":false}],"27-28":[]}},{"l":"EM 65 CN","c":"EM","s":43.0,"a":"G2","p":{"22-23":[{"c":"CN","ha":43.0,"seg":false}],"23-24":[{"c":"CN","ha":43.0,"seg":false}],"24-25":[{"c":"CN","ha":43.0,"seg":false}],"25-26":[{"c":"CN","ha":33.0,"seg":false}],"26-27":[{"c":"CN","ha":33.0,"seg":false}],"27-28":[]}},{"l":"EM 65 CN1","c":"EM","s":0,"a":"G1","p":{"25-26":[{"c":"CN","ha":10.0,"seg":false},{"c":"VI","ha":10.0,"seg":true}],"26-27":[{"c":"G","ha":10.0,"seg":false},{"c":"VI","ha":10.0,"seg":true}],"27-28":[{"c":"MzP","ha":10.0,"seg":false},{"c":"PI","ha":10.0,"seg":true}]}},{"l":"EM 66","c":"EM","s":50.0,"a":"A1","p":{"22-23":[{"c":"Mz","ha":50.0,"seg":false}],"23-24":[{"c":"Sj1ª","ha":50.0,"seg":false}],"24-25":[{"c":"Mz","ha":36.0,"seg":false}],"25-26":[{"c":"Sj1ª","ha":36.0,"seg":false}],"26-27":[{"c":"Tr","ha":36.0,"seg":false},{"c":"Sj2ª","ha":36.0,"seg":true}],"27-28":[{"c":"Mz","ha":36.0,"seg":false}]}},{"l":"EM 66","c":"EM","s":0,"a":"A1","p":{"24-25":[{"c":"MzSPE","ha":14.0,"seg":false},{"c":"VI","ha":14.0,"seg":true}],"25-26":[{"c":"Sj1ª","ha":14.0,"seg":false}],"26-27":[{"c":"Tr","ha":14.0,"seg":false},{"c":"Sj2ª","ha":14.0,"seg":true}],"27-28":[{"c":"Mz","ha":14.0,"seg":false}]}},{"l":"EM 66 CN","c":"EM","s":3.0,"a":"G3","p":{"22-23":[{"c":"CND","ha":3.0,"seg":false}],"23-24":[{"c":"CND","ha":3.0,"seg":false}],"24-25":[{"c":"CND","ha":3.0,"seg":false}],"25-26":[{"c":"CND","ha":3.0,"seg":false}],"26-27":[{"c":"CND","ha":3.0,"seg":false}],"27-28":[]}},{"l":"EM 67","c":"EM","s":12.0,"a":"G1","p":{"22-23":[{"c":"PPFe","ha":12.0,"seg":false}],"23-24":[{"c":"PPFe","ha":12.0,"seg":false}],"24-25":[{"c":"PPFe","ha":12.0,"seg":false},{"c":"VI","ha":12.0,"seg":true}],"25-26":[{"c":"G","ha":12.0,"seg":false},{"c":"PI","ha":12.0,"seg":true}],"26-27":[{"c":"PPAlf","ha":12.0,"seg":false}],"27-28":[]}},{"l":"EM 67 CN","c":"EM","s":7.0,"a":"G3","p":{"22-23":[{"c":"CND","ha":7.0,"seg":false}],"23-24":[{"c":"CND","ha":7.0,"seg":false}],"24-25":[{"c":"CND","ha":7.0,"seg":false}],"25-26":[{"c":"CND","ha":7.0,"seg":false}],"26-27":[{"c":"CND","ha":7.0,"seg":false}],"27-28":[]}},{"l":"EM 68","c":"EM","s":25.0,"a":"G2","p":{"22-23":[{"c":"CN","ha":25.0,"seg":false}],"23-24":[{"c":"CN","ha":25.0,"seg":false},{"c":"VI","ha":25.0,"seg":true}],"24-25":[{"c":"MzD","ha":25.0,"seg":false}],"25-26":[{"c":"CN","ha":25.0,"seg":false},{"c":"VI","ha":25.0,"seg":true}],"26-27":[{"c":"G","ha":25.0,"seg":false},{"c":"PI","ha":25.0,"seg":true}],"27-28":[{"c":"PPFe","ha":25.0,"seg":false}]}},{"l":"EM 69 CN","c":"EM","s":9.0,"a":"G2","p":{"22-23":[{"c":"CND","ha":9.0,"seg":false}],"23-24":[{"c":"CND","ha":9.0,"seg":false}],"24-25":[{"c":"CND","ha":9.0,"seg":false}],"25-26":[{"c":"CND","ha":9.0,"seg":false}],"26-27":[{"c":"CND","ha":9.0,"seg":false}],"27-28":[]}},{"l":"EM 69","c":"EM","s":16.0,"a":"G4","p":{"22-23":[{"c":"CN","ha":16.0,"seg":false}],"23-24":[{"c":"CN","ha":16.0,"seg":false}],"24-25":[{"c":"CN","ha":16.0,"seg":false}],"25-26":[{"c":"CN","ha":16.0,"seg":false}],"26-27":[{"c":"CN","ha":16.0,"seg":false}],"27-28":[]}},{"l":"EM 69 laguna","c":"EM","s":18.0,"a":"G6","p":{"22-23":[{"c":"CN","ha":18.0,"seg":false}],"23-24":[{"c":"CN","ha":18.0,"seg":false}],"24-25":[{"c":"CN","ha":18.0,"seg":false}],"25-26":[{"c":"CN","ha":18.0,"seg":false}],"26-27":[{"c":"CN","ha":18.0,"seg":false}],"27-28":[]}},{"l":"EM 70","c":"EM","s":59.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":59.0,"seg":false}],"23-24":[{"c":"CN","ha":59.0,"seg":false}],"24-25":[{"c":"CN","ha":59.0,"seg":false}],"25-26":[{"c":"CN","ha":59.0,"seg":false}],"26-27":[{"c":"CN","ha":59.0,"seg":false}],"27-28":[]}},{"l":"EM 70/73","c":"EM","s":56.0,"a":"A1","p":{"22-23":[{"c":"Sj1ª","ha":56.0,"seg":false}],"23-24":[{"c":"Mz","ha":56.0,"seg":false}],"24-25":[{"c":"Sj1ª","ha":56.0,"seg":false}],"25-26":[{"c":"Tr","ha":56.0,"seg":false},{"c":"Sj2ª","ha":56.0,"seg":true}],"26-27":[{"c":"Mz","ha":56.0,"seg":false}],"27-28":[{"c":"Sj1ª","ha":56.0,"seg":false}]}},{"l":"EM 72","c":"EM","s":57.0,"a":"G4","p":{"22-23":[{"c":"CN","ha":57.0,"seg":false}],"23-24":[{"c":"CN","ha":57.0,"seg":false}],"24-25":[{"c":"CN","ha":57.0,"seg":false}],"25-26":[{"c":"CN","ha":50.0,"seg":false}],"26-27":[{"c":"CN","ha":50.0,"seg":false}],"27-28":[]}},{"l":"EM 72 CN1","c":"EM","s":0,"a":"G1","p":{"25-26":[{"c":"CN","ha":7.0,"seg":false}],"26-27":[{"c":"CN","ha":7.0,"seg":false}],"27-28":[]}},{"l":"EM 72 laguna","c":"EM","s":36.0,"a":"G6","p":{"22-23":[{"c":"CN","ha":36.0,"seg":false}],"23-24":[{"c":"CN","ha":36.0,"seg":false}],"24-25":[{"c":"CN","ha":36.0,"seg":false}],"25-26":[{"c":"CN","ha":36.0,"seg":false}],"26-27":[{"c":"CN","ha":36.0,"seg":false}],"27-28":[]}},{"l":"EM 73A","c":"EM","s":20.0,"a":"G1","p":{"22-23":[{"c":"PPFe","ha":20.0,"seg":false}],"23-24":[{"c":"PPFe","ha":20.0,"seg":false}],"24-25":[{"c":"G","ha":20.0,"seg":false},{"c":"PI","ha":20.0,"seg":true}],"25-26":[{"c":"PPAlf","ha":20.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":20.0,"seg":false}],"27-28":[]}},{"l":"EM 73 CN","c":"EM","s":5.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":5.0,"seg":false}],"23-24":[{"c":"CN","ha":5.0,"seg":false}],"24-25":[{"c":"CN","ha":5.0,"seg":false}],"25-26":[{"c":"PPAlf","ha":5.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":5.0,"seg":false}],"27-28":[]}},{"l":"EM 73 laguna","c":"EM","s":25.0,"a":"G6","p":{"22-23":[{"c":"CN","ha":25.0,"seg":false}],"23-24":[{"c":"CN","ha":25.0,"seg":false}],"24-25":[{"c":"CN","ha":25.0,"seg":false}],"25-26":[{"c":"CN","ha":25.0,"seg":false}],"26-27":[{"c":"CN","ha":25.0,"seg":false}],"27-28":[]}},{"l":"LR 1","c":"LR","s":117.0,"a":"G5","p":{"22-23":[{"c":"CND","ha":87.0,"seg":false}],"23-24":[{"c":"CND","ha":87.0,"seg":false}],"24-25":[{"c":"CND","ha":87.0,"seg":false}],"25-26":[{"c":"CND","ha":87.0,"seg":false}],"26-27":[{"c":"CND","ha":87.0,"seg":false}],"27-28":[]}},{"l":"LR 2","c":"LR","s":76.0,"a":"G5","p":{"22-23":[{"c":"CND","ha":46.0,"seg":false}],"23-24":[{"c":"CND","ha":46.0,"seg":false}],"24-25":[{"c":"CND","ha":46.0,"seg":false}],"25-26":[{"c":"CND","ha":46.0,"seg":false}],"26-27":[{"c":"CND","ha":46.0,"seg":false}],"27-28":[]}},{"l":"LR 3 loma","c":"LR","s":40.0,"a":"A2","p":{"22-23":[{"c":"PPAlf","ha":40.0,"seg":false}],"23-24":[{"c":"PPAlf","ha":40.0,"seg":false}],"24-25":[{"c":"G","ha":40.0,"seg":false},{"c":"PI","ha":40.0,"seg":true}],"25-26":[{"c":"PPFe","ha":40.0,"seg":false}],"26-27":[{"c":"PPFe","ha":40.0,"seg":false}],"27-28":[]}},{"l":"LR 3 bajo","c":"LR","s":22.0,"a":"G2","p":{"22-23":[{"c":"CN","ha":22.0,"seg":false}],"23-24":[{"c":"CN","ha":22.0,"seg":false}],"24-25":[{"c":"G","ha":22.0,"seg":false},{"c":"CN","ha":22.0,"seg":true}],"25-26":[{"c":"CN","ha":22.0,"seg":false}],"26-27":[{"c":"CN","ha":22.0,"seg":false}],"27-28":[]}},{"l":"LR 4","c":"LR","s":12.0,"a":"G1","p":{"22-23":[{"c":"PPFe","ha":10.0,"seg":false}],"23-24":[{"c":"PPFe","ha":10.0,"seg":false}],"24-25":[{"c":"G","ha":10.0,"seg":false},{"c":"PI","ha":10.0,"seg":true}],"25-26":[{"c":"PPFe","ha":10.0,"seg":false}],"26-27":[{"c":"PPFe","ha":10.0,"seg":false}],"27-28":[]}},{"l":"LR 4 CN","c":"LR","s":38.0,"a":"G4","p":{"22-23":[{"c":"CND","ha":38.0,"seg":false}],"23-24":[{"c":"CND","ha":38.0,"seg":false}],"24-25":[{"c":"CND","ha":38.0,"seg":false}],"25-26":[{"c":"CND","ha":38.0,"seg":false}],"26-27":[{"c":"CND","ha":38.0,"seg":false}],"27-28":[]}},{"l":"LR 5","c":"LR","s":28.0,"a":"G2","p":{"22-23":[{"c":"CN","ha":28.0,"seg":false}],"23-24":[{"c":"CN","ha":28.0,"seg":false}],"24-25":[{"c":"CN","ha":28.0,"seg":false}],"25-26":[{"c":"CN","ha":28.0,"seg":false}],"26-27":[{"c":"CN","ha":28.0,"seg":false}],"27-28":[]}},{"l":"LR 5","c":"LR","s":10.0,"a":"G2","p":{"22-23":[{"c":"CN","ha":10.0,"seg":false}],"23-24":[{"c":"CN","ha":10.0,"seg":false}],"24-25":[{"c":"CN","ha":10.0,"seg":false}],"25-26":[{"c":"CN","ha":10.0,"seg":false}],"26-27":[{"c":"CN","ha":10.0,"seg":false}],"27-28":[]}},{"l":"LR 6/7","c":"LR","s":45.0,"a":"G1","p":{"22-23":[{"c":"Tr","ha":42.0,"seg":false},{"c":"Sj2ª","ha":42.0,"seg":true}],"23-24":[{"c":"G","ha":39.0,"seg":false},{"c":"PI","ha":39.0,"seg":true}],"24-25":[{"c":"PPAlf","ha":39.0,"seg":false}],"25-26":[{"c":"PPAlf","ha":39.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":39.0,"seg":false}],"27-28":[]}},{"l":"LR 6/7 CN","c":"LR","s":75.0,"a":"G4","p":{"22-23":[{"c":"CN","ha":75.0,"seg":false}],"23-24":[{"c":"CN","ha":75.0,"seg":false}],"24-25":[{"c":"CN","ha":75.0,"seg":false}],"25-26":[{"c":"CN","ha":75.0,"seg":false}],"26-27":[{"c":"CN","ha":75.0,"seg":false}],"27-28":[]}},{"l":"LR 8","c":"LR","s":7.0,"a":"A1","p":{"22-23":[{"c":"Sj1ª","ha":7.0,"seg":false}],"23-24":[{"c":"MzSPE","ha":6.0,"seg":false}],"24-25":[{"c":"Av","ha":6.0,"seg":false},{"c":"Mz2ª","ha":6.0,"seg":true}],"25-26":[{"c":"Sj1ª","ha":6.0,"seg":false}],"26-27":[{"c":"Av","ha":6.0,"seg":false},{"c":"Sj2ª","ha":6.0,"seg":true}],"27-28":[{"c":"Mz","ha":6.0,"seg":false}]}},{"l":"LR 9","c":"LR","s":41.0,"a":"A1","p":{"22-23":[{"c":"Tr","ha":41.0,"seg":false},{"c":"Sj2ª","ha":41.0,"seg":true}],"23-24":[{"c":"MzT","ha":41.0,"seg":false}],"24-25":[{"c":"Sj1ª","ha":41.0,"seg":false}],"25-26":[{"c":"Mz","ha":41.0,"seg":false}],"26-27":[{"c":"Sj1ª","ha":41.0,"seg":false}],"27-28":[{"c":"Tr","ha":41.0,"seg":false},{"c":"Sj2ª","ha":41.0,"seg":true}]}},{"l":"LR 10A","c":"LR","s":7.0,"a":"A2","p":{"22-23":[{"c":"Sj1ª","ha":7.0,"seg":false}],"23-24":[{"c":"MzSPE","ha":7.0,"seg":false},{"c":"PI","ha":7.0,"seg":true}],"24-25":[{"c":"PPFe","ha":7.0,"seg":false}],"25-26":[{"c":"PPFe","ha":7.0,"seg":false}],"26-27":[{"c":"PPFe","ha":7.0,"seg":false}],"27-28":[]}},{"l":"LR 10B","c":"LR","s":15.0,"a":"A2","p":{"22-23":[{"c":"Sj1ª","ha":15.0,"seg":false}],"23-24":[{"c":"MzSPE","ha":16.0,"seg":false},{"c":"PI","ha":16.0,"seg":true}],"24-25":[{"c":"PPFe","ha":16.0,"seg":false}],"25-26":[{"c":"PPFe","ha":16.0,"seg":false}],"26-27":[{"c":"PPFe","ha":16.0,"seg":false}],"27-28":[]}},{"l":"LR 10C","c":"LR","s":13.0,"a":"A2","p":{"22-23":[{"c":"Sj1ª","ha":13.0,"seg":false}],"23-24":[{"c":"MzSPE","ha":13.0,"seg":false},{"c":"PI","ha":13.0,"seg":true}],"24-25":[{"c":"PPFe","ha":13.0,"seg":false}],"25-26":[{"c":"PPFe","ha":13.0,"seg":false}],"26-27":[{"c":"PPFe","ha":13.0,"seg":false}],"27-28":[]}},{"l":"LR 11","c":"LR","s":24.0,"a":"A2","p":{"22-23":[{"c":"Tr","ha":24.0,"seg":false},{"c":"Sj2ª","ha":24.0,"seg":true}],"23-24":[{"c":"MzT","ha":24.0,"seg":false}],"24-25":[{"c":"G","ha":24.0,"seg":false},{"c":"PI","ha":24.0,"seg":true}],"25-26":[{"c":"PPAlf","ha":24.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":24.0,"seg":false}],"27-28":[]}},{"l":"LR 12","c":"LR","s":26.0,"a":"A2","p":{"22-23":[{"c":"MzSPE","ha":26.0,"seg":false}],"23-24":[{"c":"PI","ha":26.0,"seg":false}],"24-25":[{"c":"PPAlf","ha":26.0,"seg":false}],"25-26":[{"c":"PPAlf","ha":26.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":26.0,"seg":false}],"27-28":[]}},{"l":"LR 12 CN","c":"LR","s":19.0,"a":"G3","p":{"22-23":[{"c":"CND","ha":19.0,"seg":false}],"23-24":[{"c":"CND","ha":19.0,"seg":false}],"24-25":[{"c":"CND","ha":19.0,"seg":false}],"25-26":[{"c":"CND","ha":19.0,"seg":false}],"26-27":[{"c":"CND","ha":19.0,"seg":false}],"27-28":[]}},{"l":"LR 13","c":"LR","s":33.0,"a":"A1","p":{"22-23":[{"c":"Tr","ha":33.0,"seg":false},{"c":"Sj2ª","ha":33.0,"seg":true}],"23-24":[{"c":"MzT","ha":32.0,"seg":false}],"24-25":[{"c":"Sj1ª","ha":32.0,"seg":false}],"25-26":[{"c":"Tr","ha":32.0,"seg":false},{"c":"Sj2ª","ha":32.0,"seg":true}],"26-27":[{"c":"Mz","ha":32.0,"seg":false}],"27-28":[{"c":"Sj1ª","ha":32.0,"seg":false}]}},{"l":"LR 13 CN","c":"LR","s":5.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":5.0,"seg":false}],"23-24":[{"c":"CN","ha":5.0,"seg":false}],"24-25":[{"c":"CN","ha":5.0,"seg":false}],"25-26":[{"c":"CN","ha":5.0,"seg":false}],"26-27":[{"c":"CN","ha":5.0,"seg":false}],"27-28":[]}},{"l":"LR 14","c":"LR","s":34.0,"a":"G1","p":{"22-23":[{"c":"Sj1ª","ha":34.0,"seg":false}],"23-24":[{"c":"G","ha":34.0,"seg":false},{"c":"PI","ha":34.0,"seg":true}],"24-25":[{"c":"PPFe","ha":34.0,"seg":false}],"25-26":[{"c":"PPFe","ha":34.0,"seg":false}],"26-27":[{"c":"PPFe","ha":34.0,"seg":false}],"27-28":[]}},{"l":"LR 15","c":"LR","s":30.0,"a":"A2","p":{"22-23":[{"c":"PPAlf","ha":30.0,"seg":false}],"23-24":[{"c":"PPAlf","ha":30.0,"seg":false}],"24-25":[{"c":"PPAlf","ha":30.0,"seg":false}],"25-26":[{"c":"PPAlf","ha":30.0,"seg":false},{"c":"VI","ha":30.0,"seg":true}],"26-27":[{"c":"Sj1ª","ha":30.0,"seg":false}],"27-28":[{"c":"Mz","ha":30.0,"seg":false}]}},{"l":"LR 16","c":"LR","s":24.0,"a":"A2","p":{"22-23":[{"c":"PPAlf","ha":24.0,"seg":false}],"23-24":[{"c":"MzT","ha":24.0,"seg":false}],"24-25":[{"c":"G","ha":24.0,"seg":false},{"c":"PI","ha":24.0,"seg":true}],"25-26":[{"c":"PPAlf","ha":24.0,"seg":false}],"26-27":[{"c":"PPAlf","ha":24.0,"seg":false}],"27-28":[]}},{"l":"LR 16 bajo","c":"LR","s":10.0,"a":"G2","p":{"22-23":[{"c":"PPAlf","ha":10.0,"seg":false}],"23-24":[{"c":"MzT","ha":10.0,"seg":false}],"24-25":[{"c":"G","ha":10.0,"seg":false},{"c":"PI","ha":10.0,"seg":true}],"25-26":[{"c":"PPAg","ha":10.0,"seg":false}],"26-27":[{"c":"PPAg","ha":10.0,"seg":false}],"27-28":[]}},{"l":"LR 16 CN","c":"LR","s":6.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":6.0,"seg":false}],"23-24":[{"c":"CN","ha":6.0,"seg":false}],"24-25":[{"c":"CN","ha":6.0,"seg":false}],"25-26":[{"c":"CN","ha":6.0,"seg":false}],"26-27":[{"c":"CN","ha":6.0,"seg":false}],"27-28":[]}},{"l":"LR 17 loma","c":"LR","s":16.0,"a":"G1","p":{"22-23":[{"c":"PPFe","ha":16.0,"seg":false}],"23-24":[{"c":"PPFe","ha":16.0,"seg":false}],"24-25":[{"c":"PPFe","ha":16.0,"seg":false}],"25-26":[{"c":"MzT","ha":16.0,"seg":false}],"26-27":[{"c":"Sj1ª","ha":16.0,"seg":false}],"27-28":[{"c":"G","ha":16.0,"seg":false}]}},{"l":"LR 17","c":"LR","s":17.0,"a":"G1","p":{"22-23":[{"c":"MzP","ha":17.0,"seg":false}],"23-24":[{"c":"MzP","ha":17.0,"seg":false},{"c":"PI","ha":17.0,"seg":true}],"24-25":[{"c":"PPFe","ha":17.0,"seg":false}],"25-26":[{"c":"PPFe","ha":17.0,"seg":false}],"26-27":[{"c":"PPFe","ha":17.0,"seg":false}],"27-28":[]}},{"l":"LR 18","c":"LR","s":40.0,"a":"A2","p":{"22-23":[{"c":"PPAlf","ha":40.0,"seg":false}],"23-24":[{"c":"PPAlf","ha":40.0,"seg":false}],"24-25":[{"c":"Mz","ha":40.0,"seg":false}],"25-26":[{"c":"Sj1ª","ha":40.0,"seg":false}],"26-27":[{"c":"G","ha":40.0,"seg":false},{"c":"PI","ha":40.0,"seg":true}],"27-28":[{"c":"PPAlf","ha":40.0,"seg":false}]}},{"l":"LR 18 CN","c":"LR","s":10.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":10.0,"seg":false}],"23-24":[{"c":"CN","ha":10.0,"seg":false}],"24-25":[{"c":"CN","ha":10.0,"seg":false}],"25-26":[{"c":"CN","ha":10.0,"seg":false}],"26-27":[{"c":"CN","ha":10.0,"seg":false}],"27-28":[]}},{"l":"LR 19","c":"LR","s":39.0,"a":"A2","p":{"22-23":[{"c":"PPFe","ha":34.0,"seg":false}],"23-24":[{"c":"PPFe","ha":34.0,"seg":false}],"24-25":[{"c":"Mz","ha":39.0,"seg":false}],"25-26":[{"c":"Sj1ª","ha":39.0,"seg":false}],"26-27":[{"c":"Mz","ha":39.0,"seg":false}],"27-28":[{"c":"Sj1ª","ha":39.0,"seg":false}]}},{"l":"LR 19 CN","c":"LR","s":11.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":11.0,"seg":false}],"23-24":[{"c":"CN","ha":11.0,"seg":false}],"24-25":[{"c":"CN","ha":11.0,"seg":false}],"25-26":[{"c":"CN","ha":11.0,"seg":false}],"26-27":[{"c":"CN","ha":11.0,"seg":false}],"27-28":[]}},{"l":"LR 20","c":"LR","s":35.0,"a":"G2","p":{"22-23":[{"c":"MzP","ha":35.0,"seg":false}],"23-24":[{"c":"CN","ha":40.0,"seg":false},{"c":"VI","ha":40.0,"seg":true}],"24-25":[{"c":"MzD","ha":40.0,"seg":false}],"25-26":[{"c":"CN","ha":36.0,"seg":false},{"c":"PI","ha":36.0,"seg":true}],"26-27":[{"c":"CN","ha":36.0,"seg":false}],"27-28":[]}},{"l":"LR 20 CN","c":"LR","s":43.0,"a":"G5","p":{"22-23":[{"c":"CND","ha":43.0,"seg":false}],"23-24":[{"c":"CND","ha":43.0,"seg":false}],"24-25":[{"c":"CND","ha":43.0,"seg":false}],"25-26":[{"c":"CND","ha":43.0,"seg":false}],"26-27":[{"c":"CND","ha":43.0,"seg":false}],"27-28":[]}},{"l":"LR 22","c":"LR","s":35.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":35.0,"seg":false}],"23-24":[{"c":"CN","ha":35.0,"seg":false}],"24-25":[{"c":"CN","ha":35.0,"seg":false}],"25-26":[{"c":"CN","ha":35.0,"seg":false}],"26-27":[{"c":"CN","ha":35.0,"seg":false}],"27-28":[]}},{"l":"LR 23","c":"LR","s":37.0,"a":"G5","p":{"22-23":[{"c":"CND","ha":29.0,"seg":false}],"23-24":[{"c":"CND","ha":29.0,"seg":false}],"24-25":[{"c":"CND","ha":29.0,"seg":false}],"25-26":[{"c":"CND","ha":29.0,"seg":false}],"26-27":[{"c":"CND","ha":29.0,"seg":false}],"27-28":[]}},{"l":"LR 25 loma","c":"LR","s":10.0,"a":"A2","p":{"22-23":[{"c":"Tr","ha":10.0,"seg":false},{"c":"Sj2ª","ha":10.0,"seg":true}],"23-24":[{"c":"G","ha":10.0,"seg":false}],"24-25":[{"c":"Av","ha":10.0,"seg":false},{"c":"Mz2ª","ha":10.0,"seg":true}],"25-26":[{"c":"Sj1ª","ha":10.0,"seg":false}],"26-27":[{"c":"Av","ha":10.0,"seg":false},{"c":"Sj2ª","ha":10.0,"seg":true}],"27-28":[{"c":"Mz","ha":10.0,"seg":false}]}},{"l":"LR 25 CN","c":"LR","s":106.0,"a":"G5","p":{"22-23":[{"c":"CND","ha":93.0,"seg":false}],"23-24":[{"c":"CND","ha":93.0,"seg":false}],"24-25":[{"c":"CND","ha":93.0,"seg":false}],"25-26":[{"c":"CND","ha":93.0,"seg":false}],"26-27":[{"c":"CND","ha":93.0,"seg":false}],"27-28":[]}},{"l":"LR Monte casco","c":"LR","s":5.0,"a":"A2","p":{"22-23":[{"c":"CN","ha":5.0,"seg":false}],"23-24":[{"c":"CN","ha":5.0,"seg":false}],"24-25":[{"c":"CN","ha":5.0,"seg":false}],"25-26":[{"c":"MzP","ha":5.0,"seg":false},{"c":"VI","ha":5.0,"seg":true}],"26-27":[{"c":"MzP","ha":5.0,"seg":false}],"27-28":[]}},{"l":"LM 1","c":"LM","s":64.0,"a":"A1","p":{"22-23":[{"c":"G","ha":62.0,"seg":false}],"23-24":[{"c":"Sj1ª","ha":62.0,"seg":false}],"24-25":[{"c":"Tr","ha":62.0,"seg":false},{"c":"Sj2ª","ha":62.0,"seg":true}],"25-26":[{"c":"MzT","ha":62.0,"seg":false}],"26-27":[{"c":"Sj1ª","ha":62.0,"seg":false}],"27-28":[{"c":"Tr","ha":62.0,"seg":false},{"c":"Sj2ª","ha":62.0,"seg":true}]}},{"l":"LM 2","c":"LM","s":36.3,"a":"A1","p":{"22-23":[{"c":"Sj1ª","ha":32.0,"seg":false}],"23-24":[{"c":"Sj1ª","ha":35.0,"seg":false}],"24-25":[{"c":"Tr","ha":35.0,"seg":false},{"c":"Sj2ª","ha":35.0,"seg":true}],"25-26":[{"c":"MzT","ha":35.0,"seg":false}],"26-27":[{"c":"Sj1ª","ha":35.0,"seg":false}],"27-28":[{"c":"Tr","ha":35.0,"seg":false},{"c":"Sj2ª","ha":35.0,"seg":true}]}},{"l":"LM 3","c":"LM","s":12.6,"a":"G1","p":{"22-23":[{"c":"MzP","ha":12.0,"seg":false}],"23-24":[{"c":"MzP","ha":12.0,"seg":false},{"c":"VI","ha":12.0,"seg":true}],"24-25":[{"c":"MzP","ha":12.0,"seg":false},{"c":"VI","ha":12.0,"seg":true}],"25-26":[{"c":"G","ha":12.0,"seg":false},{"c":"PI","ha":12.0,"seg":true}],"26-27":[{"c":"PPAlf","ha":12.0,"seg":false}],"27-28":[]}},{"l":"LM 6 medio","c":"LM","s":49.7,"a":"A2","p":{"22-23":[{"c":"PPFe","ha":40.0,"seg":false}],"23-24":[{"c":"PPFe","ha":40.0,"seg":false}],"24-25":[{"c":"PPFe","ha":40.0,"seg":false},{"c":"VI","ha":40.0,"seg":true}],"25-26":[{"c":"Sj1ª","ha":40.0,"seg":false}],"26-27":[{"c":"MzT","ha":40.0,"seg":false}],"27-28":[{"c":"G","ha":40.0,"seg":false},{"c":"PI","ha":40.0,"seg":true}]}},{"l":"LM 7-9","c":"LM","s":39.6,"a":"A1","p":{"22-23":[{"c":"Mz","ha":39.0,"seg":false}],"23-24":[{"c":"G","ha":37.0,"seg":false}],"24-25":[{"c":"Tr","ha":37.0,"seg":false},{"c":"Sj2ª","ha":37.0,"seg":true}],"25-26":[{"c":"Mz","ha":37.0,"seg":false}],"26-27":[{"c":"Sj1ª","ha":37.0,"seg":false}],"27-28":[{"c":"Tr","ha":37.0,"seg":false},{"c":"Sj2ª","ha":37.0,"seg":true}]}},{"l":"LM 8 N","c":"LM","s":6.6,"a":"A1","p":{"22-23":[{"c":"Mz","ha":6.0,"seg":false}],"23-24":[{"c":"G","ha":6.0,"seg":false}],"24-25":[{"c":"Tr","ha":6.0,"seg":false},{"c":"Sj2ª","ha":6.0,"seg":true}],"25-26":[{"c":"MzT","ha":6.0,"seg":false}],"26-27":[{"c":"Sj1ª","ha":6.0,"seg":false}],"27-28":[{"c":"Tr","ha":6.0,"seg":false},{"c":"Sj2ª","ha":6.0,"seg":true}]}},{"l":"LM 8 S","c":"LM","s":12.3,"a":"A2","p":{"22-23":[{"c":"Mz","ha":11.0,"seg":false}],"23-24":[{"c":"G","ha":11.0,"seg":false}],"24-25":[{"c":"Tr","ha":11.0,"seg":false},{"c":"Sj2ª","ha":11.0,"seg":true}],"25-26":[{"c":"Mz","ha":11.0,"seg":false}],"26-27":[{"c":"Sj1ª","ha":11.0,"seg":false}],"27-28":[{"c":"Tr","ha":11.0,"seg":false},{"c":"Sj2ª","ha":11.0,"seg":true}]}},{"l":"LM 10","c":"LM","s":12.1,"a":"A1","p":{"22-23":[{"c":"Mz","ha":10.0,"seg":false}],"23-24":[{"c":"G","ha":10.0,"seg":false}],"24-25":[{"c":"Av","ha":10.0,"seg":false},{"c":"Mz2ª","ha":10.0,"seg":true}],"25-26":[{"c":"G","ha":10.0,"seg":false},{"c":"PI","ha":10.0,"seg":true}],"26-27":[{"c":"PPAlf","ha":10.0,"seg":false}],"27-28":[]}},{"l":"LM 1 CNI S","c":"LM","s":5.76,"a":"G6","p":{"22-23":[{"c":"CND","ha":5.76,"seg":false}],"23-24":[{"c":"CND","ha":5.76,"seg":false}],"24-25":[{"c":"CND","ha":5.76,"seg":false}],"25-26":[{"c":"CND","ha":5.76,"seg":false}],"26-27":[{"c":"CND","ha":5.76,"seg":false}],"27-28":[]}},{"l":"LM 1 CN N","c":"LM","s":15.3,"a":"G3","p":{"22-23":[{"c":"CN","ha":15.3,"seg":false}],"23-24":[{"c":"CN","ha":15.3,"seg":false}],"24-25":[{"c":"CN","ha":15.3,"seg":false}],"25-26":[{"c":"CN","ha":15.3,"seg":false}],"26-27":[{"c":"CN","ha":15.3,"seg":false}],"27-28":[]}},{"l":"LM 2 CN","c":"LM","s":31.3,"a":"G1","p":{"22-23":[{"c":"CN","ha":31.3,"seg":false}],"23-24":[{"c":"CN","ha":31.3,"seg":false}],"24-25":[{"c":"CN","ha":31.3,"seg":false}],"25-26":[{"c":"CN","ha":31.3,"seg":false}],"26-27":[{"c":"CN","ha":31.3,"seg":false},{"c":"VI","ha":31.3,"seg":true}],"27-28":[]}},{"l":"LM 2 CNI","c":"LM","s":14.8,"a":"G6","p":{"22-23":[{"c":"CND","ha":14.8,"seg":false}],"23-24":[{"c":"CND","ha":14.8,"seg":false}],"24-25":[{"c":"CND","ha":14.8,"seg":false}],"25-26":[{"c":"CND","ha":14.8,"seg":false}],"26-27":[{"c":"CND","ha":14.8,"seg":false}],"27-28":[]}},{"l":"LM 3-4 CNI","c":"LM","s":107.0,"a":"G6","p":{"22-23":[{"c":"CND","ha":107.0,"seg":false}],"23-24":[{"c":"CND","ha":107.0,"seg":false}],"24-25":[{"c":"CND","ha":107.0,"seg":false}],"25-26":[{"c":"CND","ha":107.0,"seg":false}],"26-27":[{"c":"CND","ha":107.0,"seg":false}],"27-28":[]}},{"l":"LM 3-4 agropiro","c":"LM","s":14.8,"a":"G4","p":{"22-23":[{"c":"PPAg","ha":14.8,"seg":false}],"23-24":[{"c":"PPAg","ha":14.8,"seg":false}],"24-25":[{"c":"PPAg","ha":14.8,"seg":false}],"25-26":[{"c":"PPAg","ha":14.8,"seg":false}],"26-27":[{"c":"PPAg","ha":14.8,"seg":false}],"27-28":[]}},{"l":"LM 5 CNI","c":"LM","s":30.8,"a":"G6","p":{"22-23":[{"c":"CND","ha":30.8,"seg":false}],"23-24":[{"c":"CND","ha":30.8,"seg":false}],"24-25":[{"c":"CND","ha":30.8,"seg":false}],"25-26":[{"c":"CND","ha":30.8,"seg":false}],"26-27":[{"c":"CND","ha":30.8,"seg":false}],"27-28":[]}},{"l":"LM 5 CN","c":"LM","s":28.2,"a":"G3","p":{"22-23":[{"c":"CN","ha":28.2,"seg":false}],"23-24":[{"c":"CN","ha":28.2,"seg":false}],"24-25":[{"c":"CN","ha":28.2,"seg":false}],"25-26":[{"c":"CN","ha":28.2,"seg":false}],"26-27":[{"c":"CN","ha":28.2,"seg":false}],"27-28":[]}},{"l":"LM 7-8 CN","c":"LM","s":28.0,"a":"G3","p":{"22-23":[{"c":"CN","ha":28.0,"seg":false}],"23-24":[{"c":"CN","ha":28.0,"seg":false}],"24-25":[{"c":"CN","ha":28.0,"seg":false}],"25-26":[{"c":"CN","ha":28.0,"seg":false}],"26-27":[{"c":"CN","ha":28.0,"seg":false}],"27-28":[]}},{"l":"LM 7-8 CNI","c":"LM","s":14.6,"a":"G6","p":{"22-23":[{"c":"CND","ha":14.6,"seg":false}],"23-24":[{"c":"CND","ha":14.6,"seg":false}],"24-25":[{"c":"CND","ha":14.6,"seg":false}],"25-26":[{"c":"CND","ha":14.6,"seg":false}],"26-27":[{"c":"CND","ha":14.6,"seg":false}],"27-28":[]}},{"l":"LM 6 CN N","c":"LM","s":30.2,"a":"G3","p":{"22-23":[{"c":"CN","ha":30.2,"seg":false}],"23-24":[{"c":"CN","ha":30.2,"seg":false}],"24-25":[{"c":"CN","ha":30.2,"seg":false}],"25-26":[{"c":"CN","ha":30.2,"seg":false}],"26-27":[{"c":"CN","ha":30.2,"seg":false}],"27-28":[]}},{"l":"LM 6 CN S","c":"LM","s":34.2,"a":"A2","p":{"22-23":[{"c":"CN","ha":34.2,"seg":false}],"23-24":[{"c":"CN","ha":34.2,"seg":false}],"24-25":[{"c":"CN","ha":34.2,"seg":false}],"25-26":[{"c":"CN","ha":34.2,"seg":false}],"26-27":[{"c":"CN","ha":34.2,"seg":false},{"c":"VI","ha":34.2,"seg":true}],"27-28":[]}},{"l":"LM 6 CNI","c":"LM","s":73.9,"a":"G6","p":{"22-23":[{"c":"CND","ha":73.9,"seg":false}],"23-24":[{"c":"CND","ha":73.9,"seg":false}],"24-25":[{"c":"CND","ha":73.9,"seg":false}],"25-26":[{"c":"CND","ha":73.9,"seg":false}],"26-27":[{"c":"CND","ha":73.9,"seg":false}],"27-28":[]}}];
 
 // ────────────────────────────────────────────────────────────
+// MAPA DE LOTES (KML/KMZ → polígonos guardados en el lote de pa-core)
+// ────────────────────────────────────────────────────────────
+/* ================================================================
+   PAMAP — mapas de lotes (compartido por Plan de Uso y Labores e Insumos)
+   ES5. Carga Leaflet y JSZip bajo demanda desde cdnjs.
+   Geometría del lote en pa-core:  lote.geo = [ {id, nombre, ha, ring:[[lat,lng],…]} , … ]
+     · un lote puede tener varios polígonos y un polígono puede ser de varios lotes
+       (mismo id en los lotes que lo comparten: p.ej. "EC 1A" del KML = EC 1A + EC 1A CN).
+================================================================ */
+var PAMAP = (function(){
+  'use strict';
+  var X = {};
+  var CDN = 'https://cdnjs.cloudflare.com/ajax/libs/';
+  var URL_LEAFLET_JS = CDN+'leaflet/1.9.4/leaflet.min.js', URL_LEAFLET_CSS = CDN+'leaflet/1.9.4/leaflet.min.css';
+  var URL_JSZIP = CDN+'jszip/3.10.1/jszip.min.js';
+  // Imagen satelital de Esri (sin clave). Admite CORS, así el mapa se puede capturar para imprimir.
+  X.TILE_SAT = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+  X.TILE_REF = 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}';
+
+  function cargarScript(url, ok, cb){
+    if(ok()){ cb(true); return; }
+    var s = document.createElement('script'); s.src = url;
+    s.onload = function(){ cb(ok()); }; s.onerror = function(){ cb(false); };
+    document.head.appendChild(s);
+  }
+  X.cargarLeaflet = function(cb){
+    if(!document.getElementById('pamap-leaflet-css')){
+      var l = document.createElement('link'); l.id='pamap-leaflet-css'; l.rel='stylesheet'; l.href=URL_LEAFLET_CSS; document.head.appendChild(l);
+    }
+    cargarScript(URL_LEAFLET_JS, function(){ return !!window.L; }, cb);
+  };
+  X.cargarJSZip = function(cb){ cargarScript(URL_JSZIP, function(){ return !!window.JSZip; }, cb); };
+
+  /* ---------------- geometría ---------------- */
+  // Área en ha (aprox. equirectangular local; error despreciable a escala de lote).
+  X.areaHa = function(ring){
+    if(!ring || ring.length<3) return 0;
+    var lat0 = 0, i; for(i=0;i<ring.length;i++) lat0 += ring[i][0]; lat0 /= ring.length;
+    var R = 6371000, k = Math.cos(lat0*Math.PI/180), a = 0;
+    for(i=0;i<ring.length;i++){
+      var p = ring[i], q = ring[(i+1)%ring.length];
+      var x1 = p[1]*Math.PI/180*R*k, y1 = p[0]*Math.PI/180*R, x2 = q[1]*Math.PI/180*R*k, y2 = q[0]*Math.PI/180*R;
+      a += x1*y2 - x2*y1;
+    }
+    return Math.abs(a)/2/10000;
+  };
+  // Centroide del polígono (si cae fuera, en lotes muy cóncavos, se usa el promedio de vértices).
+  X.centroide = function(ring){
+    var a=0, cx=0, cy=0, i;
+    for(i=0;i<ring.length;i++){
+      var p=ring[i], q=ring[(i+1)%ring.length], f=p[1]*q[0]-q[1]*p[0];
+      a+=f; cx+=(p[1]+q[1])*f; cy+=(p[0]+q[0])*f;
+    }
+    if(Math.abs(a)<1e-14){ var la=0, lo=0; for(i=0;i<ring.length;i++){ la+=ring[i][0]; lo+=ring[i][1]; } return [la/ring.length, lo/ring.length]; }
+    var c = [cy/(3*a), cx/(3*a)];
+    if(!X.dentro(c, ring)){ var la2=0, lo2=0; for(i=0;i<ring.length;i++){ la2+=ring[i][0]; lo2+=ring[i][1]; } c=[la2/ring.length, lo2/ring.length]; }
+    return c;
+  };
+  X.dentro = function(pt, ring){
+    var y=pt[0], x=pt[1], ins=false;
+    for(var i=0, j=ring.length-1; i<ring.length; j=i++){
+      var yi=ring[i][0], xi=ring[i][1], yj=ring[j][0], xj=ring[j][1];
+      if(((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi)) ins=!ins;
+    }
+    return ins;
+  };
+  X.bbox = function(rings){
+    var b = { s:90, n:-90, w:180, e:-180 };
+    for(var r=0;r<rings.length;r++) for(var i=0;i<rings[r].length;i++){
+      var p = rings[r][i]; if(p[0]<b.s) b.s=p[0]; if(p[0]>b.n) b.n=p[0]; if(p[1]<b.w) b.w=p[1]; if(p[1]>b.e) b.e=p[1];
+    }
+    return b;
+  };
+  // Link para el contratista: Google Maps arma el recorrido hasta el lote.
+  X.linkComoLlegar = function(latlng){ return 'https://www.google.com/maps/dir/?api=1&destination='+latlng[0].toFixed(6)+','+latlng[1].toFixed(6); };
+  X.linkVer = function(latlng){ return 'https://www.google.com/maps/search/?api=1&query='+latlng[0].toFixed(6)+','+latlng[1].toFixed(6); };
+
+  /* ---------------- KML / KMZ ---------------- */
+  function hijos(el, tag){ var out=[], n=el.getElementsByTagName(tag); for(var i=0;i<n.length;i++) out.push(n[i]); return out; }
+  function texto(el){ return el ? String(el.textContent||'').replace(/\s+/g,' ').replace(/^\s+|\s+$/g,'') : ''; }
+  // Lee los polígonos de un KML. Ignora puntos y líneas. Devuelve [{nombre, ring, ha, carpeta}]
+  X.leerKML = function(txt){
+    var xml = new DOMParser().parseFromString(txt, 'text/xml');
+    if(xml.getElementsByTagName('parsererror').length) throw new Error('El archivo no es un KML válido.');
+    var pms = hijos(xml, 'Placemark'), out = [];
+    for(var i=0;i<pms.length;i++){
+      var pm = pms[i], polys = hijos(pm, 'Polygon');
+      if(!polys.length) continue;
+      var nm = '', nn = pm.getElementsByTagName('name');
+      for(var k=0;k<nn.length;k++){ if(nn[k].parentNode===pm){ nm = texto(nn[k]); break; } }
+      if(!nm){ var sd = hijos(pm,'SimpleData'); for(var s=0;s<sd.length;s++){ var at=(sd[s].getAttribute('name')||'').toLowerCase(); if(at==='lote'||at==='name'||at==='nombre'){ nm=texto(sd[s]); break; } } }
+      var carpeta = ''; var pa = pm.parentNode;
+      while(pa && pa.nodeType===1){ if(pa.tagName==='Folder'||pa.tagName==='Document'){ var fn=null; for(var c=0;c<pa.childNodes.length;c++){ if(pa.childNodes[c].tagName==='name'){ fn=pa.childNodes[c]; break; } } if(fn){ carpeta=texto(fn); break; } } pa = pa.parentNode; }
+      for(var p=0;p<polys.length;p++){
+        var ob = polys[p].getElementsByTagName('outerBoundaryIs')[0] || polys[p];
+        var co = ob.getElementsByTagName('coordinates')[0]; if(!co) continue;
+        var pts = String(co.textContent).replace(/^\s+|\s+$/g,'').split(/\s+/), ring = [];
+        for(var q=0;q<pts.length;q++){
+          var xy = pts[q].split(','); var lo = parseFloat(xy[0]), la = parseFloat(xy[1]);
+          if(!isNaN(la) && !isNaN(lo)) ring.push([Math.round(la*1e6)/1e6, Math.round(lo*1e6)/1e6]);
+        }
+        if(ring.length>3 && ring[0][0]===ring[ring.length-1][0] && ring[0][1]===ring[ring.length-1][1]) ring.pop();
+        if(ring.length<3) continue;
+        out.push({ nombre:nm || ('Polígono '+(out.length+1)), ring:ring, ha:Math.round(X.areaHa(ring)*10)/10, carpeta:carpeta });
+      }
+    }
+    return out;
+  };
+  // Lee un File (.kml o .kmz). cb(err, poligonos)
+  X.leerArchivo = function(file, cb){
+    var nom = (file.name||'').toLowerCase();
+    var rd = new FileReader();
+    if(/\.kmz$/.test(nom)){
+      X.cargarJSZip(function(ok){
+        if(!ok){ cb('No se pudo cargar el lector de KMZ (revisá la conexión a internet).'); return; }
+        rd.onload = function(e){
+          window.JSZip.loadAsync(e.target.result).then(function(zip){
+            var kmls = []; zip.forEach(function(path, f){ if(/\.kml$/i.test(path) && !f.dir) kmls.push(f); });
+            if(!kmls.length){ cb('El KMZ no tiene ningún KML adentro.'); return; }
+            var res = [], pend = kmls.length, fallo = null;
+            kmls.forEach(function(f){
+              f.async('text').then(function(t){ try{ res = res.concat(X.leerKML(t)); }catch(err){ fallo = err.message; } if(--pend===0) cb(fallo && !res.length ? fallo : null, res); },
+                                    function(){ if(--pend===0) cb(res.length?null:'No se pudo leer el KMZ.', res); });
+            });
+          }, function(){ cb('El archivo no es un KMZ válido.'); });
+        };
+        rd.readAsArrayBuffer(file);
+      });
+      return;
+    }
+    rd.onload = function(e){ try{ cb(null, X.leerKML(e.target.result)); }catch(err){ cb(err.message||String(err)); } };
+    rd.readAsText(file);
+  };
+
+  /* ---------------- polígonos únicos a partir de los lotes ---------------- */
+  // lotes: [{id, nombre, geo:[...], ...}] → [{id, nombre, ha, ring, lotes:[lote,…]}]
+  X.poligonosDeLotes = function(lotes){
+    var por = {}, orden = [];
+    for(var i=0;i<lotes.length;i++){
+      var g = lotes[i].geo || [];
+      for(var j=0;j<g.length;j++){
+        var sh = g[j]; if(!sh || !sh.ring) continue;
+        if(!por[sh.id]){ por[sh.id] = { id:sh.id, nombre:sh.nombre, ha:sh.ha, ring:sh.ring, lotes:[] }; orden.push(sh.id); }
+        por[sh.id].lotes.push(lotes[i]);
+      }
+    }
+    var out = []; for(var k=0;k<orden.length;k++) out.push(por[orden[k]]);
+    return out;
+  };
+
+  /* ---------------- mapa estático (para imprimir / descargar) ----------------
+     opts = { ancho, alto, poligonos:[{ring, fill, stroke, alpha, ancho, etiqueta, num}], marco:[rings para encuadrar] }
+     cb(dataURL, conFondo)  — si la imagen satelital no carga, igual dibuja los lotes sobre fondo liso. */
+  function lon2x(lon, z){ return (lon+180)/360*Math.pow(2,z)*256; }
+  function lat2y(lat, z){ var r=lat*Math.PI/180; return (1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*Math.pow(2,z)*256; }
+  X.mapaEstatico = function(opts, cb){
+    var W = opts.ancho||1600, H = opts.alto||1000, pad = 60;
+    var b = X.bbox(opts.marco && opts.marco.length ? opts.marco : opts.poligonos.map(function(p){ return p.ring; }));
+    var z = 18;
+    while(z>3){
+      var w = lon2x(b.e,z)-lon2x(b.w,z), h = lat2y(b.s,z)-lat2y(b.n,z);
+      if(w <= W-2*pad && h <= H-2*pad) break;
+      z--;
+    }
+    var cx = (lon2x(b.w,z)+lon2x(b.e,z))/2, cy = (lat2y(b.n,z)+lat2y(b.s,z))/2;
+    var x0 = cx - W/2, y0 = cy - H/2;
+    var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    var g = cv.getContext('2d');
+    g.fillStyle = '#DDE3D6'; g.fillRect(0,0,W,H);
+    var t0x = Math.floor(x0/256), t1x = Math.floor((x0+W)/256), t0y = Math.floor(y0/256), t1y = Math.floor((y0+H)/256);
+    var tiles = [], ok = 0, mal = 0, listo = false;
+    for(var tx=t0x; tx<=t1x; tx++) for(var ty=t0y; ty<=t1y; ty++) tiles.push([tx,ty]);
+    var overlay = opts.overlay || null, ovImgs = [];
+    function terminar(){
+      if(listo) return; listo = true;
+      if(overlay){ g.globalAlpha = overlay.alpha==null ? .85 : overlay.alpha; for(var oi=0;oi<ovImgs.length;oi++){ try{ g.drawImage(ovImgs[oi][0], ovImgs[oi][1], ovImgs[oi][2]); }catch(e){} } g.globalAlpha = 1; }
+      dibujarLotes(g, opts.poligonos, function(lat,lon){ return [lon2x(lon,z)-x0, lat2y(lat,z)-y0]; }, opts.escala);
+      g.textAlign = 'left';
+      // escala
+      var mpp = 156543.03392*Math.cos((b.n+b.s)/2*Math.PI/180)/Math.pow(2,z), m = [50,100,200,250,500,1000,2000,5000], L = 500;
+      for(var i=0;i<m.length;i++){ if(m[i]/mpp>=90){ L=m[i]; break; } }
+      var px = L/mpp; g.fillStyle='rgba(255,255,255,.85)'; g.fillRect(16,H-46,px+24,30);
+      g.fillStyle='#0F1923'; g.fillRect(28,H-26,px,4); g.font='600 15px DM Sans, Arial, sans-serif'; g.textBaseline='bottom';
+      g.fillText(L>=1000?(L/1000)+' km':L+' m', 28, H-30);
+      g.save(); g.translate(W-40, 46); g.fillStyle='rgba(255,255,255,.85)'; g.beginPath(); g.arc(0,0,22,0,7); g.fill();
+      g.fillStyle='#0F1923'; g.beginPath(); g.moveTo(0,-16); g.lineTo(7,6); g.lineTo(0,2); g.lineTo(-7,6); g.closePath(); g.fill();
+      g.font='700 12px DM Sans, Arial, sans-serif'; g.textAlign='center'; g.textBaseline='top'; g.fillText('N',0,8); g.restore();
+      if(opts.titulo) titulo(g, opts.titulo);
+      var url = null;
+      try{ url = cv.toDataURL('image/jpeg', 0.88); }catch(e){ url = null; }
+      if(!url){ // el canvas quedó "contaminado": se rehace sin fondo
+        var cv2 = document.createElement('canvas'); cv2.width=W; cv2.height=H; var g2=cv2.getContext('2d');
+        g2.fillStyle='#DDE3D6'; g2.fillRect(0,0,W,H);
+        dibujarLotes(g2, opts.poligonos, function(lat,lon){ return [lon2x(lon,z)-x0, lat2y(lat,z)-y0]; }, opts.escala);
+        if(opts.titulo) titulo(g2, opts.titulo);
+        cb(cv2.toDataURL('image/jpeg',0.9), false); return;
+      }
+      cb(url, ok>0 && mal===0);
+    }
+    if(opts.sinFondo || !tiles.length){ terminar(); return; }
+    var pend = tiles.length * (overlay ? 2 : 1);
+    setTimeout(terminar, opts.espera || (overlay ? 15000 : 9000));
+    if(overlay) tiles.forEach(function(t){
+      var im = new Image(); im.crossOrigin = 'anonymous';
+      im.onload = function(){ ovImgs.push([im, t[0]*256-x0, t[1]*256-y0]); if(--pend===0) terminar(); };
+      im.onerror = function(){ if(--pend===0) terminar(); };
+      var n2 = Math.pow(2,z), xx2 = ((t[0]%n2)+n2)%n2;
+      im.src = overlay.url.replace('{z}',z).replace('{y}',t[1]).replace('{x}',xx2);
+    });
+    tiles.forEach(function(t){
+      var im = new Image(); im.crossOrigin = 'anonymous';
+      im.onload = function(){ if(!listo){ try{ g.drawImage(im, t[0]*256-x0, t[1]*256-y0); ok++; }catch(e){ mal++; } } if(--pend===0) terminar(); };
+      im.onerror = function(){ mal++; if(--pend===0) terminar(); };
+      var n = Math.pow(2,z), xx = ((t[0]%n)+n)%n;
+      im.src = X.TILE_SAT.replace('{z}',z).replace('{y}',t[1]).replace('{x}',xx);
+    });
+  };
+  // Recuadro de título arriba a la izquierda: [línea principal, línea secundaria…]
+  function titulo(g, lineas){
+    g.save(); g.textAlign='left'; g.textBaseline='top';
+    var w = 0, i;
+    for(i=0;i<lineas.length;i++){ g.font = (i?'500 17px':'700 24px')+' DM Sans, Arial, sans-serif'; w = Math.max(w, g.measureText(lineas[i]).width); }
+    var h = 22 + 30 + (lineas.length-1)*23;
+    g.fillStyle='rgba(255,255,255,.92)'; g.fillRect(16,16,w+32,h);
+    g.fillStyle='#C8642D'; g.fillRect(16,16,6,h);
+    for(i=0;i<lineas.length;i++){ g.font=(i?'500 17px':'700 24px')+' DM Sans, Arial, sans-serif'; g.fillStyle=i?'#3A4654':'#0F1923'; g.fillText(lineas[i], 34, 27+(i?30+(i-1)*23:0)); }
+    g.restore();
+  }
+  function dibujarLotes(g, polys, proj, k){
+    var i, j; k = k || 1;
+    for(i=0;i<polys.length;i++){
+      var p = polys[i]; if(!p.ring) continue;
+      g.beginPath();
+      for(j=0;j<p.ring.length;j++){ var xy = proj(p.ring[j][0], p.ring[j][1]); if(j) g.lineTo(xy[0],xy[1]); else g.moveTo(xy[0],xy[1]); }
+      g.closePath();
+      if(p.fill){ g.globalAlpha = p.alpha==null ? .45 : p.alpha; g.fillStyle = p.fill; g.fill(); g.globalAlpha = 1; }
+      g.lineWidth = p.ancho || 2; g.strokeStyle = p.stroke || '#FFFFFF'; g.stroke();
+    }
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    for(i=0;i<polys.length;i++){
+      var q = polys[i]; if(!q.etiqueta && q.num==null) continue;
+      var c = X.centroide(q.ring), pt = proj(c[0], c[1]);
+      var dy = q.etiqueta ? 15*k : 0;
+      if(q.num!=null){
+        g.font = '700 '+Math.round(15*k)+'px DM Sans, Arial, sans-serif';
+        var tn = String(q.num), rw = Math.max(15*k, g.measureText(tn).width/2+8*k), rh = 15*k;
+        g.fillStyle = '#C8642D'; g.beginPath();
+        if(g.roundRect) g.roundRect(pt[0]-rw, pt[1]-dy-rh, rw*2, rh*2, rh); else g.arc(pt[0], pt[1]-dy, rh, 0, 7);
+        g.fill(); g.lineWidth = 2*k; g.strokeStyle = '#fff'; g.stroke();
+        g.fillStyle = '#fff'; g.fillText(tn, pt[0], pt[1]-dy+1);
+      }
+      if(q.etiqueta){
+        g.font = (q.num!=null?'700 ':'600 ')+Math.round((q.num!=null?15:12)*k)+'px DM Sans, Arial, sans-serif';
+        var ls = String(q.etiqueta).split('\n'), lh = 17*k, y = pt[1]+(q.num!=null?13*k:0)-(ls.length-1)*lh/2;
+        for(var m=0;m<ls.length;m++){
+          g.lineWidth = 4*k; g.strokeStyle = 'rgba(0,0,0,.75)'; g.strokeText(ls[m], pt[0], y+m*lh);
+          g.fillStyle = '#fff'; g.fillText(ls[m], pt[0], y+m*lh);
+        }
+      }
+    }
+  }
+
+  /* ---------------- Sentinel-2 (NDVI) sin cuenta ----------------
+     Catálogo público Earth Search (AWS Open Data) + TiTiler para dibujar el índice.
+     Servicios de uso libre: pueden andar lentos o no responder. */
+  X.STAC = 'https://earth-search.aws.element84.com/v1';
+  X.TITILER = 'https://titiler.xyz';
+  X.INDICES = {
+    ndvi:{ nombre:'NDVI', titulo:'NDVI · vigor', desde:'bajo', hasta:'alto', colores:['#a50026','#f46d43','#fee08b','#a6d96a','#1a9850'],
+           params:[['assets','nir'],['assets','red'],['expression','(b1-b2)/(b1+b2)'],['rescale','0,0.9'],['colormap_name','rdylgn']] },
+    ndmi:{ nombre:'NDMI', titulo:'NDMI · humedad', desde:'seco', hasta:'húmedo', colores:['#a50026','#f46d43','#ffffbf','#74add1','#313695'],
+           params:[['assets','nir'],['assets','swir16'],['expression','(b1-b2)/(b1+b2)'],['rescale','-0.4,0.6'],['colormap_name','rdylbu']] },
+    color:{ nombre:'Color real', params:[['assets','visual']] }
+  };
+  function xhr(met, url, body, cb){
+    var q = new XMLHttpRequest(); q.open(met, url, true); q.timeout = 25000;
+    if(body) q.setRequestHeader('Content-Type','application/json');
+    q.onload = function(){ if(q.status>=200 && q.status<300){ try{ cb(null, JSON.parse(q.responseText)); }catch(e){ cb('respuesta inválida'); } } else cb('HTTP '+q.status); };
+    q.onerror = function(){ cb('sin conexión'); }; q.ontimeout = function(){ cb('el servicio no respondió'); };
+    q.send(body ? JSON.stringify(body) : null);
+  }
+  // Fechas con imagen sobre el área (una por día, la de menos nubes). cb(err, [{id, fecha, nubes, href}])
+  X.buscarEscenas = function(bb, meses, nubes, cb){
+    var hasta = new Date(), desde = new Date(); desde.setMonth(desde.getMonth()-(meses||4));
+    function iso(d){ return d.toISOString().slice(0,10); }
+    xhr('POST', X.STAC+'/search', { collections:['sentinel-2-l2a'], bbox:[bb.w,bb.s,bb.e,bb.n],
+      datetime:iso(desde)+'T00:00:00Z/'+iso(hasta)+'T23:59:59Z', query:{'eo:cloud_cover':{lt:(nubes||30)}}, limit:100 }, function(err, data){
+      if(err){ cb(err); return; }
+      var por = {}, fs = (data && data.features) || [];
+      for(var i=0;i<fs.length;i++){
+        var p = fs[i].properties||{}, d = String(p.datetime||'').slice(0,10), cc = p['eo:cloud_cover'];
+        if(!d) continue;
+        if(!por[d] || (typeof cc==='number' && cc < por[d].nubes)) por[d] = { id:fs[i].id, fecha:d, nubes:(typeof cc==='number'?cc:null), href:X.STAC+'/collections/sentinel-2-l2a/items/'+fs[i].id };
+      }
+      var out = []; for(var k in por) if(por.hasOwnProperty(k)) out.push(por[k]);
+      out.sort(function(a,b){ return a.fecha<b.fecha?1:-1; });
+      cb(null, out);
+    });
+  };
+  // URL de teselas del índice para una escena. cb(err, plantillaUrl)
+  X.urlIndice = function(esc, indice, cb){
+    var cfg = X.INDICES[indice] || X.INDICES.ndvi, qs = 'url='+encodeURIComponent(esc.href);
+    for(var i=0;i<cfg.params.length;i++) qs += '&'+cfg.params[i][0]+'='+encodeURIComponent(cfg.params[i][1]);
+    xhr('GET', X.TITILER+'/stac/WebMercatorQuad/tilejson.json?'+qs+'&minzoom=8&maxzoom=16', null, function(err, tj){
+      if(err){ cb(err); return; }
+      if(!tj || !tj.tiles || !tj.tiles.length){ cb('sin imagen'); return; }
+      cb(null, tj.tiles[0]);
+    });
+  };
+  // Barra de imagen (Satelital / NDVI / NDMI / Color real + fecha + transparencia) sobre un mapa Leaflet.
+  // Devuelve un objeto con .estado() → {indice, escena, url, opacidad} (url null = satelital común).
+  X.barraImagen = function(cont, mapa, bbFn, alCambiar){
+    var est = { indice:'', escenas:null, escena:null, url:null, opacidad:.85, capa:null };
+    cont.className = 'pamap-barra';
+    function dibujar(){
+      var h = '<span class="pamap-b-lbl">Imagen</span><div class="pamap-seg">';
+      var ops = [['','Satelital'],['ndvi','NDVI'],['ndmi','Humedad'],['color','Color real (Sentinel)']];
+      for(var i=0;i<ops.length;i++) h += '<button type="button" data-i="'+ops[i][0]+'" class="'+(est.indice===ops[i][0]?'on':'')+'">'+ops[i][1]+'</button>';
+      h += '</div>';
+      if(est.indice){
+        h += '<select class="pamap-fecha">';
+        if(!est.escenas) h += '<option>Buscando fechas…</option>';
+        else if(!est.escenas.length) h += '<option>Sin imágenes con pocas nubes</option>';
+        else for(var j=0;j<est.escenas.length;j++){ var e = est.escenas[j], d = e.fecha.split('-'); h += '<option value="'+j+'"'+(est.escena===e?' selected':'')+'>'+d[2]+'/'+d[1]+'/'+d[0]+(e.nubes!=null?' · '+Math.round(e.nubes)+'% nubes':'')+'</option>'; }
+        h += '</select><label class="pamap-op">Transparencia <input type="range" min="0" max="80" step="5" value="'+Math.round((1-est.opacidad)*100)+'"><b>'+Math.round((1-est.opacidad)*100)+'%</b></label>';
+        var cfg = X.INDICES[est.indice];
+        if(cfg.colores) h += '<span class="pamap-ley"><span>'+cfg.desde+'</span><i style="background:linear-gradient(90deg,'+cfg.colores.join(',')+')"></i><span>'+cfg.hasta+'</span></span>';
+      }
+      h += '<span class="pamap-est"></span>';
+      cont.innerHTML = h;
+      var bs = cont.querySelectorAll('.pamap-seg button');
+      for(var k=0;k<bs.length;k++) bs[k].onclick = function(){ elegirIndice(this.getAttribute('data-i')); };
+      var sf = cont.querySelector('.pamap-fecha'); if(sf) sf.onchange = function(){ var e2 = est.escenas && est.escenas[Number(this.value)]; if(e2){ est.escena = e2; cargarCapa(); } };
+      var rg = cont.querySelector('.pamap-op input'); if(rg) rg.oninput = function(){ est.opacidad = 1 - Number(this.value)/100; if(est.capa) est.capa.setOpacity(est.opacidad); var bv = cont.querySelector('.pamap-op b'); if(bv) bv.textContent = this.value+'%'; };
+    }
+    function estado(t){ var e = cont.querySelector('.pamap-est'); if(e) e.textContent = t||''; }
+    function quitarCapa(){ if(est.capa){ try{ mapa.removeLayer(est.capa); }catch(e){} est.capa = null; } est.url = null; }
+    function elegirIndice(ind){
+      est.indice = ind; quitarCapa();
+      if(alCambiar) alCambiar(est.indice);
+      if(!ind){ dibujar(); return; }
+      if(est.escenas && est.escenas.length){ dibujar(); cargarCapa(); return; }
+      est.escenas = null; dibujar(); estado('Buscando imágenes Sentinel-2 de los últimos 4 meses…');
+      X.buscarEscenas(bbFn(), 4, 30, function(err, lista){
+        if(err){ est.escenas = []; dibujar(); estado('No se pudo consultar el catálogo de imágenes ('+err+'). Probá de nuevo en un rato.'); return; }
+        est.escenas = lista; est.escena = lista[0] || null; dibujar();
+        if(est.escena) cargarCapa(); else estado('No hay imágenes con menos de 30% de nubes en los últimos 4 meses.');
+      });
+    }
+    function cargarCapa(){
+      quitarCapa(); if(!est.escena) return;
+      estado('Preparando la imagen…');
+      var pedido = est.escena.id+'|'+est.indice;
+      X.urlIndice(est.escena, est.indice, function(err, url){
+        if(pedido !== (est.escena && est.escena.id+'|'+est.indice)) return;
+        if(err){ estado('El servicio de imágenes no respondió ('+err+'). Probá otra fecha o reintentá.'); return; }
+        est.url = url;
+        est.capa = window.L.tileLayer(url, { opacity:est.opacidad, crossOrigin:'anonymous', maxZoom:19, maxNativeZoom:16, minZoom:8, pane:'pamapIndice' }).addTo(mapa);
+        var fallas = 0;
+        est.capa.on('tileerror', function(){ if(++fallas===4) estado('Algunas partes de la imagen no cargaron. Probá otra fecha.'); });
+        est.capa.on('load', function(){ if(fallas<4) estado(''); });
+        if(alCambiar) alCambiar(est.indice);
+      });
+    }
+    if(!mapa.getPane('pamapIndice')){ var pn = mapa.createPane('pamapIndice'); pn.style.zIndex = 350; }
+    dibujar();
+    return {
+      estado: function(){ return { indice:est.indice, escena:est.escena, url:est.url, opacidad:est.opacidad }; },
+      restaurar: function(prev){ if(prev && prev.indice){ est.indice = prev.indice; if(alCambiar) alCambiar(est.indice); est.escenas = prev.escenas||null; est.escena = prev.escena||null; est.opacidad = prev.opacidad||.85; dibujar(); if(est.escena) cargarCapa(); else elegirIndice(prev.indice); } },
+      _est: est
+    };
+  };
+
+  /* ---------------- dibujo / edición de un polígono ----------------
+     X.editor(mapa, ringInicial|null, alTerminar(ring|null))
+     · con ring: se arrastran los vértices; clic en el punto medio de un lado agrega un vértice; clic derecho en un vértice lo quita.
+     · sin ring: cada clic en el mapa agrega un vértice.
+     Devuelve {terminar(), cancelar(), ring()} */
+  X.editor = function(mapa, ringIni, alTerminar){
+    var L = window.L, ring = ringIni ? ringIni.map(function(p){ return [p[0],p[1]]; }) : [];
+    var capa = L.layerGroup().addTo(mapa), activo = true;
+    function icono(cls){ return L.divIcon({ className:'pamap-v '+cls, iconSize:[14,14], iconAnchor:[7,7] }); }
+    function pintar(){
+      capa.clearLayers();
+      if(ring.length>=2) L.polygon(ring, { color:'#FF7A2F', weight:3, dashArray: ring.length<3?'4 4':null, fillColor:'#FF7A2F', fillOpacity:.22, interactive:false }).addTo(capa);
+      for(var i=0;i<ring.length;i++){
+        (function(ix){
+          var m = L.marker(ring[ix], { draggable:true, icon:icono('pamap-vtx'), zIndexOffset:1000 }).addTo(capa);
+          m.on('drag', function(e){ ring[ix] = [e.latlng.lat, e.latlng.lng]; var pol = null; capa.eachLayer(function(l){ if(l instanceof L.Polygon) pol = l; }); if(pol) pol.setLatLngs(ring); });
+          m.on('dragend', pintar);
+          m.on('contextmenu', function(){ if(ring.length>3){ ring.splice(ix,1); pintar(); avisar(); } });
+        })(i);
+        if(ring.length>=3 || i<ring.length-1){
+          var j = (i+1)%ring.length; if(j===0 && ring.length<3) continue;
+          (function(ia, ja){
+            var mid = [(ring[ia][0]+ring[ja][0])/2, (ring[ia][1]+ring[ja][1])/2];
+            var mm = L.marker(mid, { icon:icono('pamap-mid'), zIndexOffset:900 }).addTo(capa);
+            mm.on('click', function(ev){ L.DomEvent.stopPropagation(ev); ring.splice(ia+1, 0, mid); pintar(); avisar(); });
+          })(i, j);
+        }
+      }
+    }
+    var onCambio = null; function avisar(){ if(onCambio) onCambio(ring); }
+    function clicMapa(e){ if(!activo) return; ring.push([e.latlng.lat, e.latlng.lng]); pintar(); avisar(); }
+    mapa.on('click', clicMapa);
+    mapa.doubleClickZoom.disable();
+    pintar();
+    function limpiar(){ activo = false; mapa.off('click', clicMapa); mapa.doubleClickZoom.enable(); try{ mapa.removeLayer(capa); }catch(e){} }
+    return {
+      ring: function(){ return ring; },
+      alCambiar: function(fn){ onCambio = fn; },
+      terminar: function(){ var r = ring.length>=3 ? ring.map(function(p){ return [Math.round(p[0]*1e6)/1e6, Math.round(p[1]*1e6)/1e6]; }) : null; limpiar(); if(alTerminar) alTerminar(r); },
+      cancelar: function(){ limpiar(); if(alTerminar) alTerminar(undefined); }
+    };
+  };
+
+  /* ---------------- mapa interactivo (Leaflet) ---------------- */
+  // Crea (o recrea) un mapa Leaflet satelital en el contenedor. Devuelve el mapa.
+  X.crearMapa = function(cont){
+    var L = window.L;
+    var m = L.map(cont, { zoomControl:true, attributionControl:true, preferCanvas:false, zoomSnap:0.25, zoomDelta:0.5 });
+    L.tileLayer(X.TILE_SAT, { maxZoom:19, maxNativeZoom:18, attribution:'Imágenes © Esri' }).addTo(m);
+    L.tileLayer(X.TILE_REF, { maxZoom:19, maxNativeZoom:18, opacity:.8 }).addTo(m);
+    return m;
+  };
+  X.etiquetaIcono = function(texto, num, clase){
+    return window.L.divIcon({ className:'pamap-lbl'+(clase?' '+clase:''), iconSize:null,
+      html:'<div class="pamap-in">'+(num!=null?'<span class="pamap-num">'+num+'</span>':'')+(texto?'<span class="pamap-txt">'+texto+'</span>':'')+'</div>' });
+  };
+  X.CSS = '.pamap-lbl{background:none;border:none;pointer-events:none}'+
+    '.pamap-in{position:absolute;left:0;top:0;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap}'+
+    '.pamap-txt{font:600 11px "DM Sans",sans-serif;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000,0 1px 2px #000;text-align:center;line-height:1.15}'+
+    '.pamap-num{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 5px;border-radius:11px;background:#C8642D;color:#fff;font:700 12px "DM Sans",sans-serif;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)}'+
+    '.pamap-lbl.tenue .pamap-txt{opacity:.75;font-weight:500}'+
+    '.pamap-barra{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 8px;font:12px "DM Sans",sans-serif}'+
+    '.pamap-b-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#7A8899}'+
+    '.pamap-seg{display:inline-flex;border:1px solid #D4DAE4;border-radius:8px;overflow:hidden}'+
+    '.pamap-seg button{font:500 12px "DM Sans",sans-serif;border:none;background:#fff;color:#475569;padding:6px 11px;cursor:pointer;border-right:1px solid #D4DAE4}'+
+    '.pamap-seg button:last-child{border-right:none}.pamap-seg button.on{background:#4A6533;color:#fff}'+
+    '.pamap-fecha{font:12px "DM Sans",sans-serif;border:1px solid #D4DAE4;border-radius:8px;padding:5px 8px;background:#fff}'+
+    '.pamap-op{display:inline-flex;align-items:center;gap:6px;color:#7A8899;font-size:11px}.pamap-op input{width:90px;accent-color:#4A6533}.pamap-op b{font-weight:600;color:#475569;min-width:30px;font-variant-numeric:tabular-nums}'+
+    '.pamap-ley{display:inline-flex;align-items:center;gap:6px;color:#7A8899;font-size:11px}.pamap-ley i{display:inline-block;width:110px;height:10px;border-radius:5px}'+
+    '.pamap-est{color:#A84D1F;font-size:11.5px}'+
+    '.pamap-v{border-radius:50%;background:#FF7A2F;border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);cursor:grab}'+
+    '.pamap-v.pamap-mid{background:rgba(255,255,255,.9);border:1.5px solid #FF7A2F;transform:scale(.65);cursor:copy}';
+  X.inyectarCSS = function(){ if(document.getElementById('pamap-css')) return; var s=document.createElement('style'); s.id='pamap-css'; s.textContent=X.CSS; document.head.appendChild(s); };
+
+  return X;
+})();
+
+var MAPA_IMG_ON = false;
+var MAPA = null, MAPA_CAPA = null, MAPA_ENCUADRE = '', MAPA_SEL = null;
+// Clave de comparación de nombres: sin el código de campo, sin "lote" y sin espacios.
+function _slugId(s){
+  var t = String(s==null?'':s).toLowerCase().replace(/ª/g,'a').replace(/º/g,'o');
+  if(t.normalize) t = t.normalize('NFD').replace(/[̀-ͯ]/g,'');
+  return t.replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') || 'x';
+}
+function _kmlClave(nombre, campo){
+  var t = String(nombre||'').toLowerCase();
+  if(t.normalize) t = t.normalize('NFD').replace(/[̀-ͯ]/g,'');
+  t = t.replace(/\blote\b/g,' ').replace(/\d+[.,]?\d*\s*has?\b\.?/g,' ');
+  var c = String(campo||'').toLowerCase();
+  if(c) t = t.replace(new RegExp('^\\s*'+c.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b'), ' ');
+  return t.replace(/\s+/g,'');
+}
+var _KML_CALIF = /(loma|bajo|medio|norte|sur|este|oeste|cco|g|n|s)+$/;
+// Sugiere los lotes del campo para cada polígono del KML.
+function _kmlSugerir(polys, lotes, campo){
+  var claves = [], i, j;
+  for(i=0;i<lotes.length;i++) claves.push(_kmlClave(lotes[i].l, campo));
+  var exactos = {};
+  for(i=0;i<polys.length;i++){ var k = _kmlClave(polys[i].nombre, campo); for(j=0;j<lotes.length;j++) if(claves[j]===k) exactos[j]=true; }
+  for(i=0;i<polys.length;i++){
+    var kp = _kmlClave(polys[i].nombre, campo), sel = [];
+    for(j=0;j<lotes.length;j++){
+      var kl = claves[j];
+      if(kl===kp) sel.push(j);
+      else if(kp && kl.indexOf(kp)===0 && !/^\d/.test(kl.substr(kp.length)) && !exactos[j]) sel.push(j);
+    }
+    if(!sel.length){
+      var base = kp.replace(_KML_CALIF,'');
+      if(base && base!==kp) for(j=0;j<lotes.length;j++){
+        var kl2 = claves[j];
+        if(exactos[j]) continue;
+        if(kl2===base || (kl2.indexOf(base)===0 && /^cn/.test(kl2.substr(base.length)))) sel.push(j);
+      }
+    }
+    polys[i].lotes = sel.map(function(x){ return lotes[x]; });
+    polys[i].sugerido = sel.length>0;
+  }
+}
+var KML = null; // {campo, polys:[{nombre, ring, ha, lotes:[LOTE]}]}
+function _lotesDeCampo(c){ return LOTES.filter(function(l){ return l.c===c; }); }
+function abrirCargaKML(){
+  var cs = [], vistos = {}, i;
+  if(typeof PA!=='undefined' && PA.demo && CTX){ var pc = PA.demo.camposDeEmpresa(CTX.empresaActivaId)||[]; for(i=0;i<pc.length;i++){ cs.push(pc[i].nombre); vistos[pc[i].nombre]=true; } }
+  for(i=0;i<LOTES.length;i++) if(!vistos[LOTES[i].c]){ vistos[LOTES[i].c]=true; cs.push(LOTES[i].c); }
+  var sel = camposSeleccionados(), h = '';
+  for(i=0;i<cs.length;i++){
+    var n = _lotesDeCampo(cs[i]).filter(function(l){ return l._geo; }).length;
+    h += '<option value="'+cs[i]+'"'+(sel.length===1 && sel[0]===cs[i]?' selected':'')+'>'+cs[i]+(n?' (ya tiene mapa)':'')+'</option>';
+  }
+  document.getElementById('kmlCampo').innerHTML = h;
+  document.getElementById('kmlFile').value = '';
+  document.getElementById('kmlEstado').textContent = 'Elegí el campo y el archivo.';
+  document.getElementById('kmlTabla').innerHTML = '';
+  document.getElementById('kmlGuardar').disabled = true;
+  KML = null;
+  document.getElementById('modalKML').classList.add('on');
+}
+function cerrarCargaKML(){ document.getElementById('modalKML').classList.remove('on'); KML = null; }
+function kmlCambioCampo(){
+  if(!KML) return;
+  KML.campo = document.getElementById('kmlCampo').value;
+  _kmlSugerir(KML.polys, _lotesDeCampo(KML.campo), KML.campo);
+  pintarKML();
+}
+function kmlLeerArchivos(files){
+  if(!files || !files.length) return;
+  var est = document.getElementById('kmlEstado'), lista = [], pend = files.length, errores = [];
+  est.textContent = 'Leyendo…';
+  for(var i=0;i<files.length;i++){
+    (function(fl){
+      PAMAP.leerArchivo(fl, function(err, polys){
+        if(err) errores.push(fl.name+': '+err); else lista = lista.concat(polys||[]);
+        if(--pend===0){
+          if(!lista.length){ est.innerHTML = '<span class="kml-dif">No encontré polígonos en el archivo.</span> '+(errores.join(' · ')); return; }
+          var campo = document.getElementById('kmlCampo').value;
+          // Si el KML trae el código de otro campo en los nombres, se sugiere ese campo.
+          var opts = document.getElementById('kmlCampo').options, votos = {};
+          for(var q=0;q<lista.length;q++){ var pre = String(lista[q].nombre).split(/\s+/)[0]; for(var o=0;o<opts.length;o++) if(opts[o].value===pre) votos[pre]=(votos[pre]||0)+1; }
+          var mejor = campo, mv = 0; for(var v in votos) if(votos.hasOwnProperty(v) && votos[v]>mv){ mv=votos[v]; mejor=v; }
+          if(mejor!==campo){ document.getElementById('kmlCampo').value = mejor; campo = mejor; }
+          KML = { campo:campo, polys:lista };
+          _kmlSugerir(KML.polys, _lotesDeCampo(campo), campo);
+          pintarKML();
+          if(errores.length) est.innerHTML += ' <span class="kml-dif">'+errores.join(' · ')+'</span>';
+        }
+      });
+    })(files[i]);
+  }
+}
+function pintarKML(){
+  var est = document.getElementById('kmlEstado'), lotes = _lotesDeCampo(KML.campo), usados = {}, i, j;
+  for(i=0;i<KML.polys.length;i++) for(j=0;j<KML.polys[i].lotes.length;j++) usados[LOTES.indexOf(KML.polys[i].lotes[j])] = true;
+  var opts = '<option value="">+ lote</option>';
+  var ord = lotes.slice().sort(function(a,b){ return a.l.localeCompare(b.l,'es',{numeric:true}); });
+  for(i=0;i<ord.length;i++) opts += '<option value="'+LOTES.indexOf(ord[i])+'">'+ord[i].l+'</option>';
+  var h = '<div class="kml-tw"><table><thead><tr><th>Polígono del KML</th><th style="text-align:right">Ha del mapa</th><th>Lotes del padrón</th><th style="text-align:right">Ha padrón</th></tr></thead><tbody>';
+  var nSin = 0;
+  for(i=0;i<KML.polys.length;i++){
+    var p = KML.polys[i], chips = '', sup = 0;
+    for(j=0;j<p.lotes.length;j++){ sup += Number(p.lotes[j].s)||0; chips += '<span class="kml-chip">'+p.lotes[j].l+'<button title="Quitar" onclick="kmlQuitar('+i+','+j+')">×</button></span>'; }
+    if(!p.lotes.length) nSin++;
+    var dif = p.lotes.length && Math.abs(sup - p.ha) > Math.max(2, p.ha*0.12);
+    h += '<tr><td><b>'+escHtmlMapa(p.nombre)+'</b>'+(p.carpeta?'<div class="mapa-sin">'+escHtmlMapa(p.carpeta)+'</div>':'')+'</td>'+
+         '<td style="text-align:right">'+f(p.ha,1)+'</td>'+
+         '<td>'+chips+'<select class="kml-add" onchange="kmlAgregar('+i+',this.value)">'+opts+'</select>'+(p.sugerido && p.lotes.length?'<span class="kml-sug">sugerido</span>':'')+'</td>'+
+         '<td style="text-align:right"'+(dif?' class="kml-dif" title="La superficie del padrón difiere bastante de la del polígono"':'')+'>'+(p.lotes.length?f(sup,1):'—')+'</td></tr>';
+  }
+  h += '</tbody></table></div>';
+  var sinMapa = lotes.filter(function(l){ return !usados[LOTES.indexOf(l)]; }).map(function(l){ return l.l; });
+  h += '<div class="kml-pie">'+(nSin?'<span class="kml-dif">'+nSin+' polígono(s) sin lote asignado: no se guardan.</span> ':'')+
+       (sinMapa.length ? '<b>Lotes de '+KML.campo+' que quedan sin mapa ('+sinMapa.length+'):</b> '+sinMapa.join(', ') : 'Todos los lotes de '+KML.campo+' quedan con mapa.')+
+       '<br>Un polígono puede ser de varios lotes (por ejemplo, el lote agrícola y su parte de campo natural) y un lote puede tener varios polígonos.</div>';
+  document.getElementById('kmlTabla').innerHTML = h;
+  est.textContent = KML.polys.length+' polígonos leídos para el campo '+KML.campo+'. Revisá a qué lote va cada uno.';
+  document.getElementById('kmlGuardar').disabled = KML.polys.length===nSin;
+}
+function escHtmlMapa(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function kmlQuitar(i, j){ KML.polys[i].lotes.splice(j,1); KML.polys[i].sugerido=false; pintarKML(); }
+function kmlAgregar(i, idx){ if(idx==='') return; var l = LOTES[Number(idx)]; if(l && KML.polys[i].lotes.indexOf(l)<0) KML.polys[i].lotes.push(l); KML.polys[i].sugerido=false; pintarKML(); }
+function guardarKML(){
+  if(!KML) return;
+  if(!puedeEscribir()){ alert('Tu usuario es de solo lectura en este tablero: no puede cargar mapas.'); return; }
+  var lotes = _lotesDeCampo(KML.campo), i, j, n = 0;
+  var tenian = lotes.filter(function(l){ return l._geo; }).length;
+  if(tenian && !confirm('El campo '+KML.campo+' ya tenía mapa en '+tenian+' lote(s). ¿Reemplazarlo por este?')) return;
+  // Se arma el mapa nuevo aparte: los lotes en memoria cambian recién cuando el servidor confirma.
+  var nuevo = [], porLote = [];
+  for(i=0;i<lotes.length;i++){ nuevo.push(null); porLote.push(lotes[i]); }
+  var sello = Date.now().toString(36);
+  for(i=0;i<KML.polys.length;i++){
+    var p = KML.polys[i]; if(!p.lotes.length) continue;
+    var sh = { id:'geo_'+_slugId(KML.campo)+'_'+sello+'_'+i, nombre:p.nombre, ha:p.ha, ring:p.ring };
+    for(j=0;j<p.lotes.length;j++){ var ix = porLote.indexOf(p.lotes[j]); if(ix<0) continue; if(!nuevo[ix]) nuevo[ix] = []; nuevo[ix].push(sh); }
+    n++;
+  }
+  function aplicar(){
+    for(var k=0;k<porLote.length;k++) porLote[k]._geo = nuevo[k];
+    cerrarCargaKML();
+    MAPA_ENCUADRE = '';
+    renderAll();
+    var bt = document.querySelector('.nav-btn[data-view="mapa"]'); if(state.view!=='mapa' && bt) setView('mapa', bt);
+  }
+  if(!_esModoApi() || !CTX){ aplicar(); return; }
+  var campoId = '';
+  var cams = PA.demo.camposDeEmpresa(CTX.empresaActivaId) || [];
+  for(i=0;i<cams.length;i++){ if(cams[i].nombre === KML.campo){ campoId = cams[i].id; break; } }
+  if(!campoId){ for(i=0;i<lotes.length;i++){ if(lotes[i]._campoId){ campoId = lotes[i]._campoId; break; } } }
+  var payload = { empresaId: CTX.empresaActivaId, campoId: campoId, lotes: [] };
+  for(i=0;i<porLote.length;i++){ if(porLote[i]._id) payload.lotes.push({ id: porLote[i]._id, geo: nuevo[i] }); }
+  var btn = document.getElementById('kmlGuardar'), est = document.getElementById('kmlEstado');
+  btn.disabled = true; est.textContent = 'Guardando el mapa…';
+  apiPut('/api/lotes-geo', payload, function(err){
+    if(err){
+      btn.disabled = false;
+      est.innerHTML = '<span class="kml-dif">'+escHtmlMapa((err && err.error) ? err.error : 'No se pudo guardar el mapa. Probá de nuevo.')+'</span>';
+      return;
+    }
+    aplicar();
+  });
+}
+// Cultivo "principal" de un lote en la campaña (el de 1ª; si no hay, el primero).
+function _cultivoMapa(l, camp){
+  var as = actsDe(l, camp);
+  for(var i=0;i<as.length;i++) if(!as[i].seg) return as[i].c;
+  return as.length ? as[0].c : '';
+}
+function renderMapa(){
+  var camp = state.campania, cont = document.getElementById('mapaCanvas'), vacio = document.getElementById('mapaVacio');
+  document.getElementById('mapaTit').textContent = 'Mapa de lotes · campaña '+camp;
+  var enCampo = LOTES.filter(function(l){ return campoMatch(l); });
+  var conGeo = enCampo.filter(function(l){ return l._geo && l._geo.length; });
+  var sinGeo = enCampo.filter(function(l){ return !(l._geo && l._geo.length); });
+  document.getElementById('mapaSub').textContent = conGeo.length+' de '+enCampo.length+' lotes con mapa';
+  if(!conGeo.length){
+    vacio.style.display = '';
+    vacio.innerHTML = '<b>Todavía no hay mapa para '+(camposSeleccionados().length ? camposSeleccionados().join(', ') : 'estos campos')+'.</b>'+
+      'Cargá el KML o KMZ de cada campo (exportado de Google Earth, un polígono por lote).'+
+      '<button class="modal-ok" onclick="abrirCargaKML()">⬆ Cargar KML / KMZ</button>';
+    pintarLadoMapa([], sinGeo, camp);
+    return;
+  }
+  vacio.style.display = 'none';
+  if(!window.L){
+    vacio.style.display = ''; vacio.innerHTML = 'Cargando el mapa…';
+    PAMAP.cargarLeaflet(function(ok){ if(!ok){ vacio.innerHTML = '<b>No se pudo cargar el mapa.</b>Revisá la conexión a internet.'; return; } renderMapa(); });
+    return;
+  }
+  PAMAP.inyectarCSS();
+  if(!MAPA){
+    MAPA = PAMAP.crearMapa(cont); MAPA_CAPA = window.L.layerGroup().addTo(MAPA);
+    MAPA_IMG_ON = false;
+    PAMAP.barraImagen(document.getElementById('mapaBarra'), MAPA, function(){
+      var rs = []; for(var q=0;q<LOTES.length;q++) if(LOTES[q]._geo && campoMatch(LOTES[q])) for(var w=0;w<LOTES[q]._geo.length;w++) rs.push(LOTES[q]._geo[w].ring);
+      return PAMAP.bbox(rs);
+    }, function(indice){ MAPA_IMG_ON = !!indice; MAPA_CAPA.eachLayer(function(l){ if(l.setStyle && l._fillBase!=null) l.setStyle({ fillOpacity: MAPA_IMG_ON ? 0 : l._fillBase }); }); });
+    var zoomCls = function(){ var z = MAPA.getZoom(); cont.classList.toggle('lejos', z<13.75); cont.classList.toggle('medio', z>=13.75 && z<15); };
+    MAPA.on('zoomend', zoomCls); MAPA.whenReady(zoomCls);
+  }
+  setTimeout(function(){ if(MAPA) MAPA.invalidateSize(); }, 30);
+  MAPA_CAPA.clearLayers();
+  var visibles = {}, filtrados = lotesFiltrados();
+  for(var v=0; v<filtrados.length; v++) visibles[LOTES.indexOf(filtrados[v])] = true;
+  var polys = PAMAP.poligonosDeLotes(conGeo.map(function(l){ return { geo:l._geo, ref:l }; }));
+  var leyenda = {}, todos = [];
+  for(var i=0;i<polys.length;i++){
+    var p = polys[i], refs = p.lotes.map(function(x){ return x.ref; });
+    var vis = refs.some(function(r){ return visibles[LOTES.indexOf(r)]; });
+    var mayor = refs.slice().sort(function(a,b){ return (Number(b.s)||0)-(Number(a.s)||0); })[0];
+    var sig = _cultivoMapa(mayor, camp), col = sig ? cultColor(sig) : '#9AA5B1';
+    var pol = window.L.polygon(p.ring, { color: vis ? '#FFFFFF' : 'rgba(255,255,255,.45)', weight: vis ? 1.6 : 1,
+      fillColor: col, fillOpacity: MAPA_IMG_ON ? 0 : (vis ? 0.55 : 0.08) });
+    pol._fillBase = vis ? 0.55 : 0.08;
+    (function(pp, rr){ pol.on('click', function(){ MAPA_SEL = pp.id; pintarLadoMapa(polys, sinGeo, camp); }); })(p, refs);
+    pol.bindTooltip(refs.map(function(r){ return r.l; }).join(' · '), { sticky:true });
+    MAPA_CAPA.addLayer(pol);
+    if(vis){
+      var sgs = {}, sgl = []; for(var s0=0;s0<refs.length;s0++){ var sx=_cultivoMapa(refs[s0], camp); if(sx && !sgs[sx]){ sgs[sx]=true; sgl.push(sx); } }
+      var et = escHtmlMapa(refs.length===1 ? refs[0].l : p.nombre) + (sgl.length ? '<br>'+escHtmlMapa(sgl.join(' / ')) : '');
+      MAPA_CAPA.addLayer(window.L.marker(PAMAP.centroide(p.ring), { icon:PAMAP.etiquetaIcono(et), interactive:false, keyboard:false }));
+      for(var r2=0;r2<refs.length;r2++){
+        var sg = _cultivoMapa(refs[r2], camp) || '—';
+        if(!leyenda[sg]) leyenda[sg] = { ha:0, c: sg==='—' ? '#9AA5B1' : cultColor(sg) };
+        var as = actsDe(refs[r2], camp), ha1 = 0; for(var a=0;a<as.length;a++) if(!as[a].seg) ha1 += Number(as[a].ha)||0;
+        leyenda[sg].ha += ha1;
+      }
+    }
+    todos.push(p.ring);
+  }
+  var clave = camposSeleccionados().join('|')+'#'+conGeo.length;
+  if(clave!==MAPA_ENCUADRE){
+    MAPA_ENCUADRE = clave; var bb = PAMAP.bbox(todos);
+    var encuadrar = function(){ MAPA.invalidateSize(); MAPA.fitBounds([[bb.s,bb.w],[bb.n,bb.e]], { padding:[16,16] }); };
+    encuadrar(); setTimeout(encuadrar, 60);
+  }
+  pintarLadoMapa(polys, sinGeo, camp, leyenda);
+}
+function pintarLadoMapa(polys, sinGeo, camp, leyenda){
+  var h = '';
+  var sel = null; for(var i=0;i<polys.length;i++) if(polys[i].id===MAPA_SEL) sel = polys[i];
+  if(sel){
+    h += '<div class="mapa-blk"><div class="mapa-blk-t">Seleccionado · '+escHtmlMapa(sel.nombre)+' · '+f(sel.ha,1)+' ha en el mapa</div>';
+    for(var k=0;k<sel.lotes.length;k++){
+      var l = sel.lotes[k].ref, as = actsDe(l, camp), ant = antecesoresDeLote ? antecesoresDeLote(l) : [];
+      h += '<div class="mapa-sel-n">'+escHtmlMapa(l.l)+'</div>'+
+        '<div class="mapa-sel-r"><span>Sup. total</span><span>'+f(l.s,1)+' ha</span></div>'+
+        '<div class="mapa-sel-r"><span>Ambiente</span><span>'+escHtmlMapa(l.a||'—')+'</span></div>';
+      if(!as.length) h += '<div class="mapa-sel-r"><span>'+camp+'</span><span>sin actividad</span></div>';
+      for(var a=0;a<as.length;a++) h += '<div class="mapa-sel-r"><span>'+camp+' '+(as[a].seg?'2ª':'1ª')+'</span><span>'+escHtmlMapa(cultName(as[a].c))+' · '+f(as[a].ha,1)+' ha</span></div>';
+      if(ant && ant.length) h += '<div class="mapa-sel-r"><span>Antecesor</span><span>'+escHtmlMapa(ant.map(cultName).join(' / '))+'</span></div>';
+      var c = PAMAP.centroide(sel.ring);
+      h += '<div class="mapa-sel-r"><span>Ubicación</span><span><a href="'+PAMAP.linkVer(c)+'" target="_blank" rel="noopener">Google Maps ↗</a></span></div>';
+    }
+    h += '</div>';
+  }
+  if(leyenda){
+    var ks = Object.keys(leyenda).sort(function(a,b){ return leyenda[b].ha-leyenda[a].ha; });
+    h += '<div class="mapa-blk"><div class="mapa-blk-t">Cultivo de 1ª · '+camp+'</div>';
+    for(var j=0;j<ks.length;j++) h += '<div class="mapa-ley"><i style="background:'+leyenda[ks[j]].c+'"></i><span>'+escHtmlMapa(ks[j]==='—'?'Sin actividad':cultName(ks[j]))+'</span><em>'+f(leyenda[ks[j]].ha,0)+' ha</em></div>';
+    h += '</div>';
+  }
+  var porC = {}, ordC = [];
+  for(var q=0;q<sinGeo.length;q++){ var cq = sinGeo[q].c; if(!porC[cq]){ porC[cq]=[]; ordC.push(cq); } porC[cq].push(sinGeo[q].l); }
+  var conMapa = {}; for(var q2=0;q2<polys.length;q2++) for(var q3=0;q3<polys[q2].lotes.length;q3++) conMapa[polys[q2].lotes[q3].ref.c]=true;
+  var txtSin = '';
+  for(var q4=0;q4<ordC.length;q4++){
+    var cc = ordC[q4];
+    txtSin += '<div><b>'+escHtmlMapa(cc)+'</b> · '+(conMapa[cc] ? escHtmlMapa(porC[cc].join(', ')) : 'el campo no tiene mapa ('+porC[cc].length+' lotes)')+'</div>';
+  }
+  h += '<div class="mapa-blk"><div class="mapa-blk-t">Lotes sin mapa ('+sinGeo.length+')</div>'+
+       '<div class="mapa-sin">'+(sinGeo.length ? txtSin : 'Todos los lotes tienen mapa.')+'</div></div>';
+  if(!sel && polys.length) h = '<div class="mapa-blk mapa-sin">Tocá un lote en el mapa para ver su plan.</div>' + h;
+  document.getElementById('mapaSide').innerHTML = h;
+}
+
+// ────────────────────────────────────────────────────────────
 // ESTADO
 // ────────────────────────────────────────────────────────────
 var state = {
@@ -1333,7 +2138,9 @@ function cargarDesdeApi(callback) {
       expl: (lot.explotable != null && lot.explotable !== '') ? Number(lot.explotable) : null,
       // activo: default true si no está guardado (lotes viejos sin este campo).
       activo: lot.activo !== false,
-      p: actsPorLote[lot.id] || {}
+      p: actsPorLote[lot.id] || {},
+      // Polígonos del mapa (KML/KMZ). Lista de {id, nombre, ha, ring:[[lat,lng],…]}; null = sin mapa.
+      _geo: (lot.geo && lot.geo.length ? lot.geo : null)
     });
     if (lot.tipoOverride) TIPO_OVERRIDE[lot.nombre] = lot.tipoOverride;
   }
@@ -1350,7 +2157,10 @@ function guardarAtributosLote(lote, callback) {
     empresaId: CTX.empresaActivaId, campoId: lote._campoId || '',
     nombre: lote.l, ha: lote.s || 0, ambiente: lote.a || '',
     explotable: (lote.expl != null ? lote.expl : null), activo: lote.activo !== false,
-    tipoOverride: TIPO_OVERRIDE[lote.l] || ''
+    tipoOverride: TIPO_OVERRIDE[lote.l] || '',
+    // El servidor no lo toca acá (el mapa se guarda con PUT /api/lotes-geo); va para
+    // que el caché local de pa-core no lo pierda al reemplazar el lote.
+    geo: lote._geo || null
   };
   if (lote._id) payload.id = lote._id;
   var guardado = PA.demo.guardarLote(payload, callback);
@@ -4898,6 +5708,8 @@ function renderAll(){
     renderHistorico();
   } else if(state.view === 'maestros'){
     renderMaestros();
+  } else if(state.view === 'mapa'){
+    renderMapa();
   }
   
   var pill = document.getElementById('ctxPill');
