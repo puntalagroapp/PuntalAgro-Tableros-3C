@@ -2544,6 +2544,7 @@ app.get('/api/ordenes-trabajo', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'ver')) return res.status(403).json({ error: 'Tu usuario no tiene acceso a Registro de Labores e Insumos' });
 
     const params = [empresaId];
     let sql = `SELECT id, num, campania_id AS "campaniaId", fecha, obs, estado, ultimo_registro AS "ultimoRegistro", impresa, rapida
@@ -2688,6 +2689,7 @@ app.get('/api/comprobantes', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'ver')) return res.status(403).json({ error: 'Tu usuario no tiene acceso a Registro de Labores e Insumos' });
 
     const params = [empresaId];
     let sql = `SELECT id, fecha, tipo, comp_tipo AS "compTipo", comp_nro AS "compNro",
@@ -3037,6 +3039,7 @@ app.get('/api/cierres-stock', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'ver')) return res.status(403).json({ error: 'Tu usuario no tiene acceso a Registro de Labores e Insumos' });
     const r = await pool.query(
       `SELECT id, to_char(fecha,'YYYY-MM-DD') AS fecha, precios, comp_ids AS "compIds",
               to_char(creado_el,'YYYY-MM-DD') AS el, creado_por AS por
@@ -3148,6 +3151,7 @@ app.get('/api/tarifas-referencia-labor', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'ver')) return res.status(403).json({ error: 'Tu usuario no tiene acceso a Registro de Labores e Insumos' });
 
     const r = await pool.query(
       'SELECT labor_id AS "laborId", campania_id AS "campaniaId", valor, moneda FROM tarifas_referencia_labor WHERE empresa_id = $1',
@@ -3202,6 +3206,7 @@ app.get('/api/config-operativa', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'ver')) return res.status(403).json({ error: 'Tu usuario no tiene acceso a Registro de Labores e Insumos' });
 
     const [rConfig, rMensual] = await Promise.all([
       pool.query(
