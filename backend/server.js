@@ -321,6 +321,34 @@ function depositoAccesibleParaEscritura(permiso, campoId) {
   return campoIds.indexOf(campoId) !== -1;
 }
 
+// OT y campos habilitados (mismo criterio que destinoVisible() del tablero):
+// un lote sin campo cuenta como visible. Una OT se ve si no tiene lotes o si
+// al menos uno es de un campo habilitado; las mixtas viajan enteras porque al
+// guardarlas el tablero reenvía todos sus lotes (los ajenos quedan de solo lectura).
+function campoHabilitado(permiso, campoId) {
+  const campoIds = permiso.campoIds || [];
+  return !campoId || campoIds.length === 0 || campoIds.indexOf(campoId) !== -1;
+}
+function destinosDeTrabajos(trabajos) {
+  const out = [];
+  for (const t of trabajos || []) for (const d of (t && t.destinos) || []) if (d) out.push(d);
+  return out;
+}
+function otVisibleParaPermiso(permiso, trabajos) {
+  if (!(permiso.campoIds || []).length) return true;
+  const ds = destinosDeTrabajos(trabajos);
+  return !ds.length || ds.some(d => campoHabilitado(permiso, d.campoId));
+}
+// ids de los lotes de la OT que son de campos NO habilitados (para comparar antes/después)
+async function trabajosGuardadosDeOt(db, otId, empresaId) {
+  const r = await db.query('SELECT destinos FROM ot_trabajos WHERE ot_id=$1 AND empresa_id=$2', [otId, empresaId]);
+  return r.rows;
+}
+function destinosAjenos(permiso, trabajos) {
+  return destinosDeTrabajos(trabajos).filter(d => !campoHabilitado(permiso, d.campoId))
+    .map(d => String(d.id || '') + '|' + d.campoId).sort();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // LOCKING PESIMISTA DE REGISTROS
 // Evita que dos usuarios de la MISMA empresa pisen el mismo registro editando
@@ -2544,6 +2572,7 @@ app.get('/api/ordenes-trabajo', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'ver')) return res.status(403).json({ error: 'Tu usuario no tiene acceso a Registro de Labores e Insumos' });
 
     const params = [empresaId];
     let sql = `SELECT id, num, campania_id AS "campaniaId", fecha, obs, estado, ultimo_registro AS "ultimoRegistro", impresa, rapida
@@ -2557,7 +2586,9 @@ app.get('/api/ordenes-trabajo', async (req, res) => {
     );
     const porOt = {};
     for (const row of trRes.rows) { (porOt[row.ot_id] = porOt[row.ot_id] || []).push(_trabajoRow(row)); }
-    res.json(r.rows.map(ot => ({ ...ot, trabajos: porOt[ot.id] || [] })));
+    // Usuario con campos restringidos: no recibe las OT que son solo de otros campos.
+    res.json(r.rows.map(ot => ({ ...ot, trabajos: porOt[ot.id] || [] }))
+      .filter(ot => otVisibleParaPermiso(permiso, ot.trabajos)));
   } catch (err) {
     console.error('/api/ordenes-trabajo GET error:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -2575,6 +2606,7 @@ app.post('/api/ordenes-trabajo', async (req, res) => {
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
     if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
+    if (destinosAjenos(permiso, o.trabajos).length) { client.release(); return res.status(403).json({ error: 'La OT tiene lotes de campos que tu usuario no tiene habilitados' }); }
 
     await client.query('BEGIN');
     await client.query(
@@ -2625,6 +2657,14 @@ app.put('/api/ordenes-trabajo/:id', async (req, res) => {
     if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
     const bloqueo = await verificarLockPropio('ordenes_trabajo', req.params.id, sesion);
     if (bloqueo) { client.release(); return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre }); }
+    if ((permiso.campoIds || []).length) {
+      // Los lotes de campos ajenos de una OT mixta tienen que llegar los mismos que estaban.
+      const previos = await trabajosGuardadosDeOt(client, req.params.id, empresaId);
+      if (!otVisibleParaPermiso(permiso, previos) ||
+          destinosAjenos(permiso, previos).join(',') !== destinosAjenos(permiso, o.trabajos).join(',')) {
+        client.release(); return res.status(403).json({ error: 'La OT tiene lotes de campos que tu usuario no tiene habilitados' });
+      }
+    }
 
     await client.query('BEGIN');
     await client.query(
@@ -2659,6 +2699,10 @@ app.delete('/api/ordenes-trabajo/:id', async (req, res) => {
     if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
     const bloqueo = await verificarLockPropio('ordenes_trabajo', req.params.id, sesion);
     if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
+    if ((permiso.campoIds || []).length &&
+        destinosAjenos(permiso, await trabajosGuardadosDeOt(pool, req.params.id, empresaId)).length) {
+      return res.status(403).json({ error: 'La OT tiene lotes de campos que tu usuario no tiene habilitados' });
+    }
 
     // ot_trabajos se borra solo (ON DELETE CASCADE). Si alguno de sus trabajos
     // ya generó un comprobante (consumo real de stock), el borrado se
@@ -2688,6 +2732,7 @@ app.get('/api/comprobantes', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'ver')) return res.status(403).json({ error: 'Tu usuario no tiene acceso a Registro de Labores e Insumos' });
 
     const params = [empresaId];
     let sql = `SELECT id, fecha, tipo, comp_tipo AS "compTipo", comp_nro AS "compNro",
@@ -3037,6 +3082,7 @@ app.get('/api/cierres-stock', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'ver')) return res.status(403).json({ error: 'Tu usuario no tiene acceso a Registro de Labores e Insumos' });
     const r = await pool.query(
       `SELECT id, to_char(fecha,'YYYY-MM-DD') AS fecha, precios, comp_ids AS "compIds",
               to_char(creado_el,'YYYY-MM-DD') AS el, creado_por AS por
@@ -3148,6 +3194,7 @@ app.get('/api/tarifas-referencia-labor', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'ver')) return res.status(403).json({ error: 'Tu usuario no tiene acceso a Registro de Labores e Insumos' });
 
     const r = await pool.query(
       'SELECT labor_id AS "laborId", campania_id AS "campaniaId", valor, moneda FROM tarifas_referencia_labor WHERE empresa_id = $1',
@@ -3202,6 +3249,7 @@ app.get('/api/config-operativa', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'ver')) return res.status(403).json({ error: 'Tu usuario no tiene acceso a Registro de Labores e Insumos' });
 
     const [rConfig, rMensual] = await Promise.all([
       pool.query(
