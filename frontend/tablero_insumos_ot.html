@@ -1118,15 +1118,11 @@ body.nivel-ver .need-cargar, body.nivel-ver .need-admin, body.nivel-cargar .need
 <div class="page" id="page-maestros">
   <div class="fbar">
     <span class="fl">Tabla:</span>
-    <button class="pill on" data-mtab="insumos" onclick="setMTab('insumos',this)">Insumos</button>
-    <button class="pill" data-mtab="campos" onclick="setMTab('campos',this)">Campos</button>
-    <button class="pill" data-mtab="lotes" onclick="setMTab('lotes',this)">Lotes</button>
-    <button class="pill" data-mtab="depositos" onclick="setMTab('depositos',this)">Depósitos / Acopios</button>
+    <button class="pill on" data-mtab="depositos" onclick="setMTab('depositos',this)">Depósitos</button>
+    <button class="pill" data-mtab="insumos" onclick="setMTab('insumos',this)">Insumos</button>
     <button class="pill" data-mtab="actividades" onclick="setMTab('actividades',this)">Actividades</button>
     <button class="pill" data-mtab="laboresLP" onclick="setMTab('laboresLP',this)">Labores propias</button>
-    <button class="pill" data-mtab="laboresLC" onclick="setMTab('laboresLC',this)">Labores contratadas</button>
     <button class="pill" data-mtab="contratistas" onclick="setMTab('contratistas',this)">Contratistas</button>
-    <button class="pill" data-mtab="categorias" onclick="setMTab('categorias',this)">Categorías de insumo</button>
     <button class="pill" data-mtab="tc" onclick="setMTab('tc',this)">Tipo de cambio</button>
   </div>
   <div class="card" id="maestrosCard"></div>
@@ -1376,13 +1372,13 @@ function cargarTarifasRefApi(callback){
    state.tarifasLP = { 'laborId||campaniaId': {v:Number, m:'ARS'|'USD'} }
 ================================================================ */
 function tarifaKey(laborId, campaniaId){ return laborId+'||'+campaniaId; }
-// Nunca devuelve null: si no hay tarifa cargada, cae al precioRef (tarifaDefault) del catálogo.
+// Nunca devuelve null: si no hay tarifa cargada, cae al precioRef del catálogo.
 function getTarifaRef(laborId, campaniaId){
   if(!state.tarifasLP) state.tarifasLP={};
   var t=state.tarifasLP[tarifaKey(laborId, campaniaId)];
   if(t) return {v:Number(t.v)||0, m:t.m||'ARS'};
   for(var i=0;i<state.laboresLP.length;i++){
-    if(state.laboresLP[i].id===laborId) return {v:Number(state.laboresLP[i].tarifaDefault)||0, m:'ARS'};
+    if(state.laboresLP[i].id===laborId) return {v:Number(state.laboresLP[i].precioRef)||0, m:'ARS'};
   }
   return {v:0, m:'ARS'};
 }
@@ -1887,13 +1883,46 @@ function guardarInsumoOperativoApi(idx, cb){
 var _CAMP_PREF_KEY='pa_ot_campania_defecto';
 var _campaniaElegida='';
 try{ _campaniaElegida=localStorage.getItem(_CAMP_PREF_KEY)||''; }catch(e){}
+function campoPermitido(campoId){
+  if(!campoId) return true;
+  if(!CTX || typeof PA==='undefined' || !PA.can) return true;
+  return PA.can('ver',{herramienta:HERRAMIENTA, campoId:campoId});
+}
+function depositoReferenciado(st, depId){
+  var i,j,k,l;
+  for(i=0;i<(st.movtos||[]).length;i++){ if(st.movtos[i].origenId===depId || st.movtos[i].destinoId===depId) return true; }
+  for(i=0;i<(st.ots||[]).length;i++){
+    var trs=st.ots[i].trabajos||[{destinos:st.ots[i].destinos||[], plantilla:st.ots[i].plantilla||[]}];
+    for(j=0;j<trs.length;j++){
+      var pl=trs[j].plantilla||[]; for(l=0;l<pl.length;l++){ if(pl[l].depositoId===depId) return true; }
+      var ds=trs[j].destinos||[];
+      for(k=0;k<ds.length;k++){ var ls=ds[k].lineas||[]; for(l=0;l<ls.length;l++){ if(ls[l].depositoId===depId) return true; } }
+    }
+  }
+  return false;
+}
+function insumoReferenciado(st, insId){
+  var i,j,k,l;
+  for(i=0;i<(st.movtos||[]).length;i++){ if(st.movtos[i].insumoId===insId) return true; }
+  for(i=0;i<(st.ots||[]).length;i++){
+    var trs=st.ots[i].trabajos||[{destinos:st.ots[i].destinos||[], plantilla:st.ots[i].plantilla||[]}];
+    for(j=0;j<trs.length;j++){
+      var pl=trs[j].plantilla||[]; for(l=0;l<pl.length;l++){ if(pl[l].insumoId===insId) return true; }
+      var ds=trs[j].destinos||[];
+      for(k=0;k<ds.length;k++){ var ls=ds[k].lineas||[]; for(l=0;l<ls.length;l++){ if(ls[l].insumoId===insId) return true; } }
+    }
+  }
+  return false;
+}
 function inyectarCatalogosDesdePA(empresaId){
   if(typeof PA==='undefined' || !PA.demo || !empresaId){ state.catalogosReadOnly=false; return; }
   state.catalogosReadOnly=true;
 
   // CAMPOS: {id, empresaId, nombre, localidad,...} -> {id, nombre, localidad}
-  var campos = PA.demo.camposDeEmpresa(empresaId) || [];
+  // Solo los campos que el usuario puede ver (permiso por campo de pa-core).
+  var campos = (PA.demo.camposDeEmpresa(empresaId) || []).filter(function(c){ return campoPermitido(c.id); });
   state.campos = campos.map(function(c){ return { id:c.id, nombre:c.nombre, localidad:c.localidad||'' }; });
+  var campoOk={}; for(var cOk=0;cOk<state.campos.length;cOk++) campoOk[state.campos[cOk].id]=true;
 
   // TIPOS DE ACTIVIDAD (cultivos/usos) -> lista de NOMBRES (formato del tablero)
   var tipos = PA.demo.listarTiposActividad(empresaId) || [];
@@ -1903,7 +1932,10 @@ function inyectarCatalogosDesdePA(empresaId){
   state.tiposActividad=[];
   for(var t=0;t<tipos.length;t++){
     if(tipos[t].activo===false) continue;
-    state.tiposActividad.push({ id:tipos[t].id, nombre:tipos[t].nombre, esCultivo:tipos[t].esCultivo!==false });
+    // esCultivo puede venir como 1/0, true/false o faltar: si falta, se asume CULTIVO.
+    var esCul = (tipos[t].esCultivo===undefined || tipos[t].esCultivo===null) ? true : !!Number(tipos[t].esCultivo);
+    state.tiposActividad.push({ id:tipos[t].id, nombre:tipos[t].nombre, sigla:tipos[t].sigla||'',
+      esCultivo:esCul, graminea:!!tipos[t].graminea });
     nombresAct.push(tipos[t].nombre);
     byId[tipos[t].id]=tipos[t].nombre;
     if(tipos[t].sigla) bySigla[tipos[t].sigla]=tipos[t].nombre;
@@ -1913,7 +1945,8 @@ function inyectarCatalogosDesdePA(empresaId){
   // LOTES: {id, campoId, nombre, ha, ambiente} + actividades[] reconstruidas
   // desde las ACTIVIDADES (lote+cultivo+campaña). El tablero espera lote.actividades
   // como lista de nombres de cultivo; tomamos los distintos cultivos del lote.
-  var lotesPA = PA.demo.listarLotes(empresaId) || [];
+  var lotesPA = (PA.demo.listarLotes(empresaId) || []).filter(function(l){ return campoOk[l.campoId]; });
+  var loteOk={}; for(var lOk=0;lOk<lotesPA.length;lOk++) loteOk[lotesPA[lOk].id]=true;
   var actsPA  = PA.demo.listarActividades(empresaId) || [];
   var actsPorLote={};
   // state.planUso: la actividad real (campo+lote+campaña+cultivo) del Plan
@@ -1923,15 +1956,16 @@ function inyectarCatalogosDesdePA(empresaId){
   for(var a=0;a<actsPA.length;a++){
     var ac=actsPA[a];
     var nom = byId[ac.tipoActividadId] || bySigla[ac.sigla] || ac.sigla || null;
-    if(!nom) continue;
+    if(!nom || !loteOk[ac.loteId]) continue;
     if(!actsPorLote[ac.loteId]) actsPorLote[ac.loteId]={};
     actsPorLote[ac.loteId][nom]=true;
     state.planUso.push({ id:ac.id, loteId:ac.loteId, campaniaId:ac.campaniaId,
-      tipoActividadId:ac.tipoActividadId, cultivo:nom, haNeta:Number(ac.ha)||0, seg:!!ac.esSegunda });
+      tipoActividadId:ac.tipoActividadId, cultivo:nom, haNeta:Number(ac.ha)||0, seg:!!(ac.esSegunda||ac.seg), sigla:ac.sigla||'' });
   }
   state.lotes = lotesPA.map(function(l){
     var acts = actsPorLote[l.id] ? Object.keys(actsPorLote[l.id]) : [];
-    return { id:l.id, nombre:l.nombre, ha:l.ha, campoId:l.campoId, actividades:acts };
+    return { id:l.id, nombre:l.nombre, ha:l.ha, campoId:l.campoId, ambiente:l.ambiente||'', actividades:acts,
+             geo:(l.geo && l.geo.length ? l.geo : null) };
   });
 
   // CONTRATISTAS: terceros con rol 'contratista' -> {id, nombre}
@@ -1942,11 +1976,29 @@ function inyectarCatalogosDesdePA(empresaId){
   var provs = PA.demo.listarTerceros(empresaId, 'proveedor') || [];
   state.proveedores = provs.map(function(t){ return { id:t.id, nombre:t.nombre }; });
 
-  // DEPÓSITOS: de solo lectura acá (se administran en Maestros, nivel empresa).
-  // renderMDepositos() ya sabe ocultar los controles de alta/baja cuando
-  // state.catalogosReadOnly es true — no hace falta bloquear nada más.
-  var deps = PA.demo.listarDepositos(empresaId) || [];
-  state.depositos = deps.map(function(d){ return { id:d.id, nombre:d.nombre, campoId:d.campoId||'' }; });
+  // DEPÓSITOS: {id, campoId, nombre, clase:'insumos'|'granos', activo}. Este tablero solo
+  // opera con los de clase 'insumos' y activos, y son de solo lectura (se editan en Maestros).
+  var depositosPrevios = (state.depositos||[]).slice();
+  var depsPA = PA.demo.listarDepositos(empresaId) || [];
+  var depsIns = [], ocultos = {}, idPA = {}, nomPA = {};
+  for(var dpa=0; dpa<depsPA.length; dpa++){
+    var dPA = depsPA[dpa];
+    if((dPA.clase||'insumos') !== 'insumos') continue;
+    if(dPA.activo === false) continue;
+    idPA[dPA.id] = true; nomPA[dPA.nombre] = true;
+    // Depósito de un campo sin permiso: existe, pero este usuario no lo ve.
+    if(dPA.campoId && !campoOk[dPA.campoId]){ ocultos[dPA.id] = dPA.nombre; continue; }
+    depsIns.push({ id:dPA.id, nombre:dPA.nombre, campoId:dPA.campoId||'' });
+  }
+  // Un depósito que ya no está en Maestros pero tiene stock u OT asociados se conserva
+  // marcado "local": así no se pierde el saldo y se puede trasladar.
+  for(var pd=0; pd<depositosPrevios.length; pd++){
+    var pv = depositosPrevios[pd];
+    if(!pv || !pv.id || idPA[pv.id] || nomPA[pv.nombre]) continue;
+    if(depositoReferenciado(state, pv.id)) depsIns.push({ id:pv.id, nombre:pv.nombre, campoId:pv.campoId||'', local:true });
+  }
+  state.depositos = depsIns;
+  state.depOcultos = ocultos;
 
   // LABORES: lista global {id, nombre, precioRef}. El tablero separa LP (propias, con
   // tarifaDefault) y LC (contratadas). Mapeamos la misma lista a ambas, preservando
@@ -1955,8 +2007,12 @@ function inyectarCatalogosDesdePA(empresaId){
   // id real (no solo nombre): hace falta para la tarifa de referencia por
   // campaña (tarifas_referencia_labor.labor_id), que identifica la labor
   // por id, no por nombre.
-  state.laboresLP = labs.map(function(l){ return { id:l.id, nombre:l.nombre, tarifaDefault:Number(l.precioRef)||0 }; });
-  state.laboresLC = labs.map(function(l){ return { id:l.id, nombre:l.nombre }; });
+  // tipo: código estable de tipo de labor (SIEMBRA, PULVERIZACION...); si Maestros no lo
+  // trae se infiere del nombre (tipoLaborDeNombre). precioRef: tarifa sugerida por defecto.
+  state.laboresLP = labs.map(function(l){
+    return { id:l.id, nombre:l.nombre, precioRef:Number(l.precioRef)||0, tipo: l.tipo || tipoLaborDeNombre(l.nombre) };
+  });
+  state.laboresLC = labs.map(function(l){ return { id:l.id, nombre:l.nombre, tipo: l.tipo || tipoLaborDeNombre(l.nombre) }; });
 
   // INSUMOS (híbrido): la IDENTIDAD (nombre, categoría, unidad) viene de pa-core y es
   // de solo lectura; los datos OPERATIVOS de stock (stockInicialPorDep, deposito, precio…)
@@ -1970,8 +2026,10 @@ function inyectarCatalogosDesdePA(empresaId){
   // con los 'tipo' de los insumos, sin los defaults plurales del tablero (evita duplicados
   // singular/plural). El orden sigue el de aparición.
   var catSet={}; state.catInsumos=[];
+  var enPA={}; for(var ep=0;ep<insPA.length;ep++) enPA[insPA[ep].id]=true;
   state.insumos = insPA.map(function(ins){
-    if(ins.activo===false) return null;
+    // Un insumo inactivo deja de ofrecerse, pero si tiene movimientos u OT se conserva.
+    if(ins.activo===false && !insumoReferenciado(state, ins.id)) return null;
     var prev = opPrev[ins.id] || {};
     // La categoría del insumo (tipo) se asegura presente en catInsumos.
     if(ins.tipo && !catSet[ins.tipo]){ state.catInsumos.push(ins.tipo); catSet[ins.tipo]=true; }
@@ -1993,9 +2051,12 @@ function inyectarCatalogosDesdePA(empresaId){
       // no es operativo de este tablero, se lee tal cual viene de Maestros.
       formulacionId: ins.formulacionId || null,
       eiq: (ins.eiq===undefined ? null : ins.eiq),
-      bandaTox: ins.bandaTox || ''
+      bandaTox: ins.bandaTox || '',
+      inactivo: ins.activo===false
     };
   }).filter(function(x){ return x; });
+  // Insumos que ya no están en Maestros pero tienen historia: se conservan marcados.
+  for(var ip in opPrev){ if(opPrev.hasOwnProperty(ip) && !enPA[ip] && insumoReferenciado(state, ip)){ var vx=opPrev[ip]; vx.local=true; state.insumos.push(vx); } }
 
   // CAMPAÑAS (global): etiqueta de gestión para OT/movimientos y filtros de vistas.
   var camps = PA.demo.listarCampanias() || [];
@@ -2057,25 +2118,6 @@ function bloqueadoSiReadOnly(queCatalogo){
 // Deshabilita inputs/selects/botones de alta-baja dentro de #maestrosCard cuando los
 // catálogos son de solo lectura. Para los renders (campos/lotes/contratistas) que tienen
 // edición inline: muestra el dato pero impide mutarlo. Agrega un aviso de dónde se edita.
-function aplicarSoloLecturaMaestros(donde){
-  if(!state || !state.catalogosReadOnly) return;
-  var card=byId('maestrosCard'); if(!card) return;
-  var ctrls=card.querySelectorAll('input, select');
-  for(var i=0;i<ctrls.length;i++){ ctrls[i].setAttribute('disabled','disabled'); ctrls[i].style.opacity='.7'; ctrls[i].style.cursor='not-allowed'; }
-  var btns=card.querySelectorAll('button');
-  for(var b=0;b<btns.length;b++){
-    var oc=btns[b].getAttribute('onclick')||'';
-    // Solo neutralizamos botones de alta/baja (push/splice/add/del); dejamos los de orden.
-    if(/push|splice|add[A-Z]|del[A-Z]|remove[A-Z]/i.test(oc)){ btns[b].setAttribute('disabled','disabled'); btns[b].style.opacity='.5'; btns[b].style.cursor='not-allowed'; btns[b].onclick=null; }
-  }
-  var chd=card.querySelector('.chd');
-  if(chd && !card.querySelector('.ro-badge')){
-    var span=document.createElement('span');
-    span.className='bdg ro-badge'; span.style.background='#E8EDF2'; span.style.color='#475569';
-    span.textContent='Solo lectura';
-    chd.appendChild(span);
-  }
-}
 
 // Convierte OTs en formato viejo (1 lote: loteId/lineas/ha/aplicaciones) al modelo nuevo con destinos[]
 function migrarOTsADestinos(st){
@@ -7101,7 +7143,7 @@ function savePagoModal(otId, trId, importe){
 }
 function getOtById(id){ for(var i=0;i<state.ots.length;i++) if(state.ots[i].id===id) return state.ots[i]; return null; }
 
-var curMTab='insumos';
+var curMTab='depositos';
 function setMTab(t,btn){
   curMTab=t;
   var pills=document.querySelectorAll('.pill[data-mtab]');
@@ -7543,53 +7585,65 @@ function costoTxtDe(x, monVis){
   return (monVis==='USD'?'U$S ':'$ ')+Number(v).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0});
 }
 function renderMaestros(){
-  if(curMTab==='insumos') renderMInsumos();
-  else if(curMTab==='campos') renderMCampos();
-  else if(curMTab==='lotes') renderMLotes();
-  else if(curMTab==='depositos') renderMDepositos();
-  else if(curMTab==='actividades') renderMSimple('actividades','Actividades / Cultivos');
-  else if(curMTab==='laboresLP') renderMLabores('laboresLP', true);
-  else if(curMTab==='laboresLC') renderMLabores('laboresLC', false);
-  else if(curMTab==='categorias') renderMSimple('catInsumos','Categorías de insumo');
+  if(curMTab==='depositos') renderMDepositos();
+  else if(curMTab==='insumos') renderMInsumos();
+  else if(curMTab==='actividades') renderMActividades();
+  else if(curMTab==='laboresLP') renderMLabores('laboresLP');
   else if(curMTab==='tc') renderMTC();
   else if(curMTab==='contratistas') renderMContratistas();
-  // Catálogos compartidos editables inline (campos/lotes/contratistas): si están en
-  // solo lectura, deshabilitar controles. (actividades/labores ya renderizan en modo RO.)
-  if(curMTab==='campos' || curMTab==='lotes' || curMTab==='contratistas'){
-    aplicarSoloLecturaMaestros(curMTab);
+}
+function renderMActividades(){
+  var campId=state.campaniaActivaId||'';
+  var acts=(state.planUso||[]).slice();
+  if(campId) acts=acts.filter(function(a){ return a.campaniaId===campId; });
+  // Orden: campo, lote, cultivo
+  acts.sort(function(a,b){
+    var la=getLoteById(a.loteId), lb=getLoteById(b.loteId);
+    var ca=la?getCampoNombre(la.campoId):'', cb=lb?getCampoNombre(lb.campoId):'';
+    if(ca!==cb) return ca.localeCompare(cb);
+    var na=la?la.nombre:'', nb=lb?lb.nombre:'';
+    if(na!==nb) return na.localeCompare(nb);
+    return (a.cultivo||'').localeCompare(b.cultivo||'');
+  });
+  var rows='', totNeta=0;
+  for(var i=0;i<acts.length;i++){
+    var a=acts[i];
+    var lo=getLoteById(a.loteId);
+    if(!lo) continue;
+    totNeta+=a.haNeta;
+    rows+='<tr>'+
+      '<td>'+esc(getCampaniaNombre(a.campaniaId)||a.campaniaId)+'</td>'+
+      '<td class="tdname">'+esc(getCampoNombre(lo.campoId))+'</td>'+
+      '<td class="tdname"><strong>'+esc(lo.nombre)+'</strong></td>'+
+      '<td>'+(lo.ambiente?('<span class="bdg bn">'+esc(lo.ambiente)+'</span>'):'<span style="color:var(--muted)">—</span>')+'</td>'+
+      '<td class="tdname">'+esc(a.cultivo)+(a.seg?'<span class="bdg bn" style="margin-left:5px">2º</span>':'')+'</td>'+
+      '<td class="num"><strong>'+f(a.haNeta,1)+'</strong></td>'+
+      '<td class="num" style="color:var(--muted)">'+f(lo.ha,1)+'</td>'+
+      '</tr>';
   }
+  var campNom=getCampaniaNombre(campId);
+  byId('maestrosCard').innerHTML=
+    '<div class="chd"><span class="ct-lg">Actividades'+(campNom?(' · Campaña '+esc(campNom)):'')+'</span>'+
+      '<span class="bdg" style="background:#E8EDF2;color:#475569">Solo lectura</span>'+
+      '<span style="margin-left:auto;font-size:11px;color:var(--muted)">'+acts.length+' actividad(es) · '+f(totNeta,1)+' ha netas</span></div>'+
+    '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Una actividad es <strong>campo + lote + campaña + cultivo</strong>. Se cargan en <strong>Plan de Uso del Suelo</strong>. La <strong>ha neta</strong> es la superficie sembrable de ese cultivo en ese lote: es la que se usa al emitir la OT, no la del lote.</p>'+
+    '<div class="tw"><table><thead><tr><th>Campaña</th><th>Campo</th><th>Lote</th><th>Ambiente</th><th>Cultivo</th><th class="num">Ha neta</th><th class="num">Ha del lote</th></tr></thead><tbody>'+
+      (rows||'<tr><td colspan="7" class="empty">Sin actividades'+(campNom?(' en la campaña '+esc(campNom)):'')+'. Se cargan en Plan de Uso del Suelo.</td></tr>')+
+    '</tbody></table></div>';
 }
 // Contratistas son terceros con rol 'contratista' (ver donde se arma state.contratistas):
 // con contexto, se administran en Maestros. Antes esta pestaña los mostraba editables acá
 // mismo, pero el guardado nunca llegaba al backend (save() no persiste en modo API) —
 // el usuario tipeaba un cambio, parecía tomarlo, y se perdía al recargar.
 function renderMContratistas(){
-  var ro = !!state.catalogosReadOnly;
   var rows='';
   for(var i=0;i<state.contratistas.length;i++){
-    var x=state.contratistas[i];
-    rows += ro
-      ? '<tr><td style="padding:6px 8px">'+esc(x.nombre)+'</td></tr>'
-      : '<tr>'+
-          '<td><input value="'+esc(x.nombre)+'" onchange="state.contratistas['+i+'].nombre=this.value;save()" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px"></td>'+
-          '<td><button class="btn btn-sm btn-danger" onclick="delContratista(\''+x.id+'\')">✕</button></td>'+
-        '</tr>';
+    rows+='<tr><td style="padding:6px 8px">'+esc(state.contratistas[i].nombre)+'</td></tr>';
   }
-  var head = ro
-    ? '<div class="chd"><span class="ct-lg">Contratistas</span><span class="bdg" style="background:#E8EDF2;color:#475569">Solo lectura</span></div>'+
-      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Los contratistas se administran en Maestros (nivel empresa), como terceros con rol "contratista". La tarifa y la facturación se cargan en la sección Contratistas de este tablero.</p>'
-    : '<div class="chd"><span class="ct-lg">Contratistas</span><button class="btn btn-sm btn-primary" onclick="addContratista()">+ Nuevo contratista</button></div>'+
-      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Listado de contratistas elegibles en las OT.</p>';
   byId('maestrosCard').innerHTML=
-    head+
-    '<div class="tw"><table><thead><tr><th>Nombre</th>'+(ro?'':'<th></th>')+'</tr></thead><tbody>'+(rows||'<tr><td colspan="'+(ro?1:2)+'" class="empty">Sin contratistas.</td></tr>')+'</tbody></table></div>';
-}
-function addContratista(){ if(bloqueadoSiReadOnly('contratistas'))return; state.contratistas.push({id:uid(),nombre:'Nuevo contratista'}); save(); renderMContratistas(); }
-function delContratista(id){
-  if(bloqueadoSiReadOnly('contratistas'))return;
-  if(!confirm('¿Eliminar este contratista? Las OT que lo referencian quedarán sin contratista asignado.')) return;
-  state.contratistas=state.contratistas.filter(function(x){return x.id!==id;});
-  save(); renderMContratistas();
+    '<div class="chd"><span class="ct-lg">Contratistas</span><span class="bdg" style="background:#E8EDF2;color:#475569">Solo lectura</span></div>'+
+    '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Los contratistas se administran en <strong>Maestros</strong> (terceros con rol contratista). Acá se listan para elegirlos en las OT. La tarifa se define en cada OT.</p>'+
+    '<div class="tw"><table><thead><tr><th>Nombre</th></tr></thead><tbody>'+(rows||'<tr><td class="empty">Sin contratistas. Se cargan en Maestros.</td></tr>')+'</tbody></table></div>';
 }
 function getContratistaNombre(id){ if(!id) return ''; for(var i=0;i<state.contratistas.length;i++) if(state.contratistas[i].id===id) return state.contratistas[i].nombre; return ''; }
 
@@ -7744,290 +7798,66 @@ function renderMInsumos(){
 // Suma del stock inicial de un insumo (desde las líneas de comprobantes tipo 'Stock inicial').
 // Devuelve {total, nDeps, porDep:{depId:cant}}.
 // Devuelve el comprobante "Inventario inicial" (único global). Lo crea si no existe.
-function addInsumo(){
-  if(bloqueadoSiReadOnly('insumos'))return;
-  var depDef=(state.depositos[0]&&state.depositos[0].nombre)||'';
-  state.insumos.push({id:uid(),nombre:'Nuevo insumo',cat:state.catInsumos[0]||'Varios',un:'Un',deposito:depDef,stockMin:0,precioUnitario:0,moneda:'ARS'});
-  save(); renderMInsumos();
-}
-function delInsumo(id){
-  if(bloqueadoSiReadOnly('insumos'))return;
-  if(!confirm('¿Eliminar este insumo? Los movimientos y consumos asociados quedarán sin referencia.')) return;
-  state.insumos=state.insumos.filter(function(x){ return x.id!==id; });
-  save(); renderMInsumos(); renderStock();
-}
 // Con contexto, los campos se administran en Administración (ver bloqueadoSiReadOnly).
 // Antes esta pestaña los mostraba editables acá mismo sin persistir nunca (mismo
 // problema que Contratistas/Lotes) — se corrige con el mismo criterio de solo lectura
 // que ya usan Insumos/Depósitos/Actividades/Labores.
-function renderMCampos(){
-  var ro = !!state.catalogosReadOnly;
-  var rows='';
-  for(var i=0;i<state.campos.length;i++){
-    var x=state.campos[i];
-    var nLotes=0, nDeps=0;
-    for(var j=0;j<state.lotes.length;j++) if(state.lotes[j].campoId===x.id) nLotes++;
-    for(var k=0;k<state.depositos.length;k++) if(state.depositos[k].campoId===x.id) nDeps++;
-    rows += ro
-      ? '<tr><td style="padding:6px 8px">'+esc(x.nombre)+'</td><td style="padding:6px 8px">'+esc(x.localidad||'')+'</td>'+
-          '<td class="num">'+nLotes+'</td><td class="num">'+nDeps+'</td></tr>'
-      : '<tr>'+
-          '<td><input value="'+esc(x.nombre)+'" oninput="state.campos['+i+'].nombre=this.value;save()" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px"></td>'+
-          '<td><input value="'+esc(x.localidad||'')+'" oninput="state.campos['+i+'].localidad=this.value;save()" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px"></td>'+
-          '<td class="num">'+nLotes+'</td>'+
-          '<td class="num">'+nDeps+'</td>'+
-          '<td><button class="btn btn-sm btn-danger" onclick="delCampo(\''+x.id+'\')">✕</button></td>'+
-        '</tr>';
-  }
-  var head = ro
-    ? '<div class="chd"><span class="ct-lg">Campos</span><span class="bdg" style="background:#E8EDF2;color:#475569">Solo lectura</span></div>'+
-      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Los campos se administran en Administración (nivel cliente). Acá se muestran para asignarlos a lotes y depósitos.</p>'
-    : '<div class="chd"><span class="ct-lg">Campos</span><button class="btn btn-sm btn-primary" onclick="addCampo()">+ Nuevo campo</button></div>'+
-      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Los campos son las unidades operativas dentro del cliente. Cada lote pertenece a un campo. Los depósitos pueden ser de un campo o generales del cliente.</p>';
-  byId('maestrosCard').innerHTML=
-    head+
-    '<div class="tw"><table><thead><tr><th>Nombre</th><th>Localidad</th><th class="num">Lotes</th><th class="num">Depósitos</th>'+(ro?'':'<th></th>')+'</tr></thead><tbody>'+(rows||'<tr><td colspan="'+(ro?4:5)+'" class="empty">Sin campos.</td></tr>')+'</tbody></table></div>';
-}
-function addCampo(){
-  if(bloqueadoSiReadOnly('campos'))return;
-  state.campos.push({id:uid(),nombre:'Nuevo campo',localidad:''});
-  save(); renderMCampos();
-}
-function delCampo(id){
-  if(bloqueadoSiReadOnly('campos'))return;
-  // bloquear si tiene lotes o depósitos
-  var nLotes=0,nDeps=0;
-  for(var i=0;i<state.lotes.length;i++) if(state.lotes[i].campoId===id) nLotes++;
-  for(var j=0;j<state.depositos.length;j++) if(state.depositos[j].campoId===id) nDeps++;
-  if(nLotes>0 || nDeps>0){
-    alert('No se puede eliminar este campo porque tiene '+nLotes+' lote(s) y '+nDeps+' depósito(s) asociados. Reasignalos primero.');
-    return;
-  }
-  if(!confirm('¿Eliminar este campo?')) return;
-  state.campos=state.campos.filter(function(x){ return x.id!==id; });
-  save(); renderMCampos();
-}
-var loteSort={key:'campo', dir:1};
-function setLoteSort(key){
-  if(loteSort.key===key){ loteSort.dir=-loteSort.dir; }
-  else { loteSort.key=key; loteSort.dir=1; }
-  renderMLotes();
-}
-function loteSortArrow(key){
-  if(loteSort.key!==key) return '<span style="opacity:.25">↕</span>';
-  return loteSort.dir===1 ? '▲' : '▼';
-}
 // Con contexto, el padrón de lotes (nombre/ha/campo) se administra en Plan de Uso
 // del Suelo (ver bloqueadoSiReadOnly). Antes esta pestaña lo mostraba editable acá
 // mismo sin persistir nunca (mismo problema que Campos/Contratistas). La asociación
 // de actividades por lote (para filtrar el desplegable al crear una OT) no tiene hoy
 // una tabla propia en el backend, así que sigue siendo local-únicamente: se puede
 // ver pero no editar acá hasta que tenga un lugar real donde persistir.
-function renderMLotes(){
-  var ro = !!state.catalogosReadOnly;
-  var rows='';
-  var dir=loteSort.dir;
-  var sorted=state.lotes.slice().sort(function(a,b){
-    var r=0;
-    if(loteSort.key==='campo'){
-      r=getCampoNombre(a.campoId).localeCompare(getCampoNombre(b.campoId));
-      if(r===0) r=(a.nombre||'').localeCompare(b.nombre||''); // dentro del campo, por nombre
-    }
-    else if(loteSort.key==='nombre'){ r=(a.nombre||'').localeCompare(b.nombre||''); }
-    else if(loteSort.key==='ha'){ r=(Number(a.ha)||0)-(Number(b.ha)||0); }
-    return r*dir;
-  });
-  for(var i=0;i<sorted.length;i++){
-    var x=sorted[i];
-    var realIdx=state.lotes.indexOf(x);
-    if(!x.actividades) x.actividades=[];
-    var chips='';
-    for(var c=0;c<x.actividades.length;c++){
-      chips += ro
-        ? '<span class="ms-chip">'+esc(x.actividades[c])+'</span>'
-        : '<span class="ms-chip">'+esc(x.actividades[c])+' <span class="ms-chip-x" onclick="removeLoteAct('+realIdx+','+c+')">×</span></span>';
-    }
-    if(ro){
-      rows+='<tr>'+
-        '<td style="padding:6px 8px">'+esc(getCampoNombre(x.campoId))+'</td>'+
-        '<td style="padding:6px 8px">'+esc(x.nombre)+'</td>'+
-        '<td class="num">'+f(x.ha||0,2)+'</td>'+
-        '<td style="min-width:280px"><div class="ms">'+(chips||'<span style="color:var(--muted);font-size:11px">—</span>')+'</div></td>'+
-        '</tr>';
-      continue;
-    }
-    var optsCampo='<option value="">— Seleccionar —</option>';
-    for(var ca=0;ca<state.campos.length;ca++){
-      optsCampo+='<option value="'+state.campos[ca].id+'"'+(state.campos[ca].id===x.campoId?' selected':'')+'>'+esc(state.campos[ca].nombre)+'</option>';
-    }
-    var opts='<option value="">+ Asociar actividad</option>';
-    for(var a=0;a<state.actividades.length;a++){
-      if(x.actividades.indexOf(state.actividades[a])>=0) continue;
-      opts+='<option value="'+esc(state.actividades[a])+'">'+esc(state.actividades[a])+'</option>';
-    }
-    rows+='<tr>'+
-      '<td><select onchange="state.lotes['+realIdx+'].campoId=this.value;save();renderMLotes()" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;background:var(--card)">'+optsCampo+'</select></td>'+
-      '<td><input value="'+esc(x.nombre)+'" oninput="state.lotes['+realIdx+'].nombre=this.value;save()" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px"></td>'+
-      '<td class="num"><input type="number" step="0.01" min="0" value="'+(x.ha||0)+'" oninput="state.lotes['+realIdx+'].ha=Number(this.value);save()" style="width:90px;font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;text-align:right"></td>'+
-      '<td style="min-width:280px">'+
-        '<div class="ms">'+chips+
-          '<select onchange="addLoteAct('+realIdx+',this.value);this.value=\'\'" style="border:none;outline:none;font-family:var(--sans);font-size:11px;background:transparent;flex:1;min-width:160px">'+opts+'</select>'+
-        '</div>'+
-      '</td>'+
-      '<td><button class="btn btn-sm btn-danger" onclick="state.lotes.splice('+realIdx+',1);save();renderMLotes()">✕</button></td>'+
-      '</tr>';
-  }
-  var totHa=0; for(var k=0;k<state.lotes.length;k++) totHa+=Number(state.lotes[k].ha)||0;
-  var addBtnDisabled = state.campos.length===0 ? 'disabled title="Creá un campo primero"' : '';
-  var head = ro
-    ? '<div class="chd"><span class="ct-lg">Lotes</span><span class="bdg" style="background:#E8EDF2;color:#475569">Solo lectura</span></div>'+
-      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">El padrón de lotes (nombre, hectáreas, campo) se administra en Plan de Uso del Suelo. Acá se muestran para asociarles actividades y usarlos en las OT. Tocá un encabezado para ordenar.</p>'
-    : '<div class="chd"><span class="ct-lg">Lotes</span><button class="btn btn-sm btn-primary" '+addBtnDisabled+' onclick="addLote()">+ Nuevo lote</button></div>'+
-      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Cada lote pertenece a un campo. Asociá las actividades que se realizan en cada lote esta campaña; en la OT solo se mostrarán las actividades asociadas al lote elegido. Tocá un encabezado para ordenar.</p>';
-  byId('maestrosCard').innerHTML=
-    head+
-    '<div class="tw"><table><thead><tr>'+
-      '<th class="th-sort" onclick="setLoteSort(\'campo\')">Campo '+loteSortArrow('campo')+'</th>'+
-      '<th class="th-sort" onclick="setLoteSort(\'nombre\')">Nombre '+loteSortArrow('nombre')+'</th>'+
-      '<th class="num th-sort" onclick="setLoteSort(\'ha\')">Hectáreas '+loteSortArrow('ha')+'</th>'+
-      '<th>Actividades asociadas</th>'+(ro?'':'<th></th>')+
-    '</tr></thead><tbody>'+(rows||'<tr><td colspan="'+(ro?4:5)+'" class="empty">Sin lotes.</td></tr>')+
-    '<tr class="row-total"><td></td><td class="tdname"><strong>Total</strong></td><td class="num"><strong>'+f(totHa,2)+' ha</strong></td><td></td>'+(ro?'':'<td></td>')+'</tr>'+
-    '</tbody></table></div>';
-}
-function addLote(){
-  if(bloqueadoSiReadOnly('lotes'))return;
-  if(!state.campos.length){ alert('Creá un campo primero.'); return; }
-  state.lotes.push({id:uid(),nombre:'Nuevo lote',ha:0,campoId:state.campos[0].id,actividades:[]});
-  save(); renderMLotes();
-}
-function addLoteAct(idx, act){
-  if(bloqueadoSiReadOnly('lotes'))return;
-  if(!act) return;
-  if(!state.lotes[idx].actividades) state.lotes[idx].actividades=[];
-  if(state.lotes[idx].actividades.indexOf(act)<0){ state.lotes[idx].actividades.push(act); save(); renderMLotes(); }
-}
-function removeLoteAct(idx, ci){
-  if(bloqueadoSiReadOnly('lotes'))return;
-  state.lotes[idx].actividades.splice(ci,1); save(); renderMLotes();
-}
 function renderMDepositos(){
-  var ro = !!state.catalogosReadOnly; // depósitos vienen de pa-core (Maestros): solo lectura con contexto
   var rows='';
   for(var i=0;i<state.depositos.length;i++){
     var x=state.depositos[i];
     var campoNom = x.campoId ? getCampoNombre(x.campoId) : '— General del cliente —';
-    if(ro){
-      rows+='<tr>'+
-        '<td style="padding:6px 8px">'+esc(x.nombre)+'</td>'+
-        '<td style="padding:6px 8px">'+esc(campoNom)+'</td>'+
-        '</tr>';
-    } else {
-      var optsCampo='<option value="">— General del cliente —</option>';
-      for(var ca=0;ca<state.campos.length;ca++){
-        optsCampo+='<option value="'+state.campos[ca].id+'"'+(state.campos[ca].id===x.campoId?' selected':'')+'>'+esc(state.campos[ca].nombre)+'</option>';
-      }
-      rows+='<tr>'+
-        '<td><input value="'+esc(x.nombre)+'" oninput="onDepositoRename('+i+',this.value)" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px"></td>'+
-        '<td><select onchange="state.depositos['+i+'].campoId=this.value;save();renderStock()" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;background:var(--card)">'+optsCampo+'</select></td>'+
-        '<td><button class="btn btn-sm btn-danger" onclick="delDeposito('+i+')">✕</button></td>'+
-        '</tr>';
-    }
+    rows+='<tr><td style="padding:6px 8px">'+esc(x.nombre)+(x.local?' <span class="bdg by" title="Tiene stock u OT asociados pero ya no está en Maestros: trasladá el saldo a un depósito vigente">no está en Maestros</span>':'')+'</td>'+
+      '<td style="padding:6px 8px">'+esc(campoNom)+'</td></tr>';
   }
-  var head = ro
-    ? '<div class="chd"><span class="ct-lg">Depósitos / Acopios</span><span class="bdg" style="background:#E8EDF2;color:#475569">Solo lectura</span></div>'+
-      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Los depósitos se administran en Maestros (nivel empresa). Acá se muestran para usarlos en stock y movimientos.</p>'
-    : '<div class="chd"><span class="ct-lg">Depósitos / Acopios</span><button class="btn btn-sm btn-primary" onclick="state.depositos.push({id:uid(),nombre:\'Nuevo depósito\',campoId:\'\'});save();renderMDepositos()">+ Nuevo depósito</button></div>'+
-      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Un depósito puede pertenecer a un campo específico, o ser <strong>general del cliente</strong> (compartido entre campos).</p>';
   byId('maestrosCard').innerHTML=
-    head+
-    '<div class="tw"><table><thead><tr><th>Nombre</th><th>Campo</th>'+(ro?'':'<th></th>')+'</tr></thead><tbody>'+(rows||'<tr><td colspan="'+(ro?2:3)+'" class="empty">Sin depósitos.</td></tr>')+'</tbody></table></div>';
-}
-function onDepositoRename(idx, newName){
-  // Con el modelo por id, renombrar un depósito NO rompe nada: movimientos y stock
-  // referencian el depósito por id (no por nombre). Solo se actualiza la etiqueta.
-  state.depositos[idx].nombre=newName;
-  save();
-}
-function delDeposito(idx){
-  var dep=state.depositos[idx];
-  // chequear referencias
-  var nIns=0;
-  for(var i=0;i<state.insumos.length;i++) if(state.insumos[i].depositoId===dep.id) nIns++;
-  if(nIns>0){ if(!confirm('Hay '+nIns+' insumo(s) asignados a este depósito. ¿Eliminar igual? Los insumos quedarán sin depósito.')) return; }
-  if(!confirm('¿Eliminar el depósito "'+dep.nombre+'"?')) return;
-  state.depositos.splice(idx,1);
-  save(); renderMDepositos();
-}
-function renderMSimple(key,titulo){
-  // 'actividades' y 'catInsumos' son catálogos que provienen de Maestros (nivel empresa):
-  // solo lectura cuando hay contexto. Se gestionan junto con los insumos en Maestros.
-  var ro = state.catalogosReadOnly && (key==='actividades' || key==='catInsumos');
-  var rows='';
-  for(var i=0;i<state[key].length;i++){
-    if(ro){
-      rows+='<tr><td style="padding:6px 8px">'+esc(state[key][i])+'</td></tr>';
-    } else {
-      rows+='<tr>'+
-        '<td><input value="'+esc(state[key][i])+'" oninput="state.'+key+'['+i+']=this.value;save()" style="width:100%;font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px"></td>'+
-        '<td><button class="btn btn-sm btn-danger" onclick="state.'+key+'.splice('+i+',1);save();renderMaestros()">✕</button></td>'+
-        '</tr>';
-    }
-  }
-  var cols = ro ? 1 : 2;
-  var head = ro
-    ? '<div class="chd"><span class="ct-lg">'+esc(titulo)+'</span><span class="bdg" style="background:#E8EDF2;color:#475569">Solo lectura</span></div>'+
-      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">'+(key==='catInsumos'?'Las categorías se definen al cargar cada insumo en Maestros. Acá se muestran las que están en uso.':'Este catálogo se edita en Maestros (nivel empresa). Acá se muestra para usarlo en las OT.')+'</p>'
-    : '<div class="chd"><span class="ct-lg">'+esc(titulo)+'</span><button class="btn btn-sm btn-primary" onclick="state.'+key+'.push(\'Nuevo\');save();renderMaestros()">+ Nuevo</button></div>';
-  byId('maestrosCard').innerHTML=
-    head+
-    '<div class="tw"><table><thead><tr><th>Nombre</th>'+(ro?'':'<th></th>')+'</tr></thead><tbody>'+(rows||'<tr><td colspan="'+cols+'" class="empty">Vacío.</td></tr>')+'</tbody></table></div>';
+    '<div class="chd"><span class="ct-lg">Depósitos</span><span class="bdg" style="background:#E8EDF2;color:#475569">Solo lectura</span></div>'+
+    '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Los depósitos se administran en <strong>Maestros</strong> (nivel empresa). Solo se listan los de clase <strong>insumos</strong> activos'+(CTX?' de los campos que tu usuario puede ver':'')+'.</p>'+
+    '<div class="tw"><table><thead><tr><th>Nombre</th><th>Campo</th></tr></thead><tbody>'+(rows||'<tr><td colspan="2" class="empty">Sin depósitos de insumos. Se cargan en Maestros.</td></tr>')+'</tbody></table></div>';
 }
 // Labores contratadas: sin cambios, solo lectura (la tarifa se carga en cada OT).
 // Labores propias (conTarifa): el NOMBRE viene de Maestros (solo lectura), pero
 // la TARIFA DE REFERENCIA y su MONEDA son del tablero y se cargan POR CAMPAÑA
 // (la activa del header) — portado de client-src/2026-10-30. Es una referencia:
 // al emitir la OT se copia a trabajo.tarifa y ahí queda editable.
-function renderMLabores(key, conTarifa){
-  if(conTarifa){
-    var campId=state.campaniaActivaId||'';
-    if(!campId){
-      byId('maestrosCard').innerHTML=
-        '<div class="chd"><span class="ct-lg">Labores propias</span></div>'+
-        '<p style="font-size:12px;color:var(--muted)">Elegí una campaña en el selector de arriba para ver y cargar las tarifas de referencia. La tarifa es <strong>por campaña</strong>.</p>';
-      return;
-    }
-    var campNom=getCampaniaNombre(campId)||'';
-    var rowsT='';
-    for(var i=0;i<state[key].length;i++){
-      var x=state[key][i];
-      if(typeof x==='string'){ x={nombre:x}; state[key][i]=x; }
-      var t=getTarifaRef(x.id, campId);
-      var optsMon='<option value="ARS"'+(t.m==='ARS'?' selected':'')+'>$</option><option value="USD"'+(t.m==='USD'?' selected':'')+'>U$S</option>';
-      rowsT+='<tr>'+
-        '<td style="padding:6px 8px">'+esc(x.nombre)+'</td>'+
-        '<td class="num"><input type="number" step="0.01" min="0" value="'+t.v+'" onchange="onTarifaRefChange(\''+esc(x.id)+'\', this.value, null)" style="width:100px;font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;text-align:right"></td>'+
-        '<td><select onchange="onTarifaRefChange(\''+esc(x.id)+'\', null, this.value)" style="font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;background:var(--card)">'+optsMon+'</select></td>'+
-        '</tr>';
-    }
+function renderMLabores(key){
+  var campId = state.campaniaActivaId||'';
+  var campNom = getCampaniaNombre(campId)||'';
+  // Sin campaña elegida no se puede editar: la tarifa es por campaña.
+  if(!campId){
     byId('maestrosCard').innerHTML=
-      '<div class="chd"><span class="ct-lg">Labores propias · Campaña '+esc(campNom)+'</span>'+
-        '<span class="bdg" style="background:#E8EDF2;color:#475569">Nombres: solo lectura</span></div>'+
-      '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Las labores se administran en <strong>Maestros</strong>. Acá se carga la <strong>tarifa de referencia por campaña</strong>: se autocompleta al emitir una OT propia y queda editable en cada OT.</p>'+
-      '<div class="tw"><table><thead><tr><th>Nombre</th><th class="num">Tarifa de referencia $/ha</th><th style="width:70px">Moneda</th></tr></thead><tbody>'+
-        (rowsT||'<tr><td colspan="3" class="empty">Sin labores.</td></tr>')+'</tbody></table></div>';
+      '<div class="chd"><span class="ct-lg">Labores propias</span></div>'+
+      '<p style="font-size:12px;color:var(--muted)">Elegí una campaña en el selector de arriba para ver y cargar las tarifas de referencia. La tarifa es <strong>por campaña</strong>.</p>';
     return;
   }
   var rows='';
-  for(var j=0;j<state[key].length;j++){
-    var y=state[key][j];
-    if(typeof y==='string'){ y={nombre:y}; state[key][j]=y; }
-    rows+='<tr><td style="padding:6px 8px">'+esc(y.nombre)+'</td><td class="tdname" style="color:var(--muted);font-size:11px">se carga en cada OT</td></tr>';
+  for(var i=0;i<state[key].length;i++){
+    var x=state[key][i];
+    if(typeof x==='string'){ x={id:'lab_'+i, nombre:x}; state[key][i]=x; } // compat
+    var t=getTarifaRef(x.id, campId);
+    var optsMon='<option value="ARS"'+(t.m==='ARS'?' selected':'')+'>$</option>'+
+                '<option value="USD"'+(t.m==='USD'?' selected':'')+'>U$S</option>';
+    rows+='<tr>'+
+      '<td style="padding:6px 8px">'+esc(x.nombre)+'</td>'+
+      '<td class="num"><input type="number"'+(puede('administrar')?'':' disabled')+' step="0.01" min="0" value="'+t.v+'" '+
+        'onchange="onTarifaRefChange(\''+esc(x.id)+'\', this.value, null)" '+
+        'style="width:100px;font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;text-align:right"></td>'+
+      '<td><select'+(puede('administrar')?'':' disabled')+' onchange="onTarifaRefChange(\''+esc(x.id)+'\', null, this.value)" '+
+        'style="font-family:var(--sans);font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;background:var(--card)">'+optsMon+'</select></td>'+
+      '</tr>';
   }
   byId('maestrosCard').innerHTML=
-    '<div class="chd"><span class="ct-lg">Labores contratadas</span><span class="bdg" style="background:#E8EDF2;color:#475569">Solo lectura</span></div>'+
-    '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Las labores se editan en Maestros (nivel empresa). Las contratadas no tienen tarifa default: se define en cada OT.</p>'+
-    '<div class="tw"><table><thead><tr><th>Nombre</th><th class="num">Tarifa $/ha</th></tr></thead><tbody>'+(rows||'<tr><td colspan="2" class="empty">Vacío.</td></tr>')+'</tbody></table></div>';
+    '<div class="chd"><span class="ct-lg">Labores propias · Campaña '+esc(campNom)+'</span>'+
+      '<span class="bdg" style="background:#E8EDF2;color:#475569">Nombres: solo lectura</span></div>'+
+    '<p style="font-size:11px;color:var(--muted);margin-bottom:10px">Las labores se administran en <strong>Maestros</strong>. Acá se carga la <strong>tarifa de referencia por campaña</strong>: se autocompleta al emitir una OT propia y queda editable en cada OT. Cambiá la campaña en el selector de arriba para cargar otra.</p>'+
+    '<div class="tw"><table><thead><tr><th>Nombre</th><th class="num">Tarifa de referencia $/ha</th><th style="width:70px">Moneda</th></tr></thead><tbody>'+
+      (rows||'<tr><td colspan="3" class="empty">Sin labores.</td></tr>')+'</tbody></table></div>';
 }
 // Guarda tarifa y/o moneda de una labor en la campaña activa del header. Pasar null en el que no se toca.
 function onTarifaRefChange(laborId, valor, moneda){
