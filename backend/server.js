@@ -55,7 +55,11 @@ app.use(cors({
     callback(null, false); // rechazar silenciosamente
   }
 }));
-app.use(express.json({ limit: '2mb' }));
+// La carga desde Excel manda la campaña entera de una vez (OT, movimientos):
+// esas rutas aceptan más que el resto.
+const jsonChico = express.json({ limit: '2mb' });
+const jsonGrande = express.json({ limit: '40mb' });
+app.use((req, res, next) => (req.path.indexOf('/api/carga-excel/') === 0 ? jsonGrande : jsonChico)(req, res, next));
 
 // ── RATE LIMITING (en memoria, login) ───────────────────────────────────────
 const _loginRateMap = new Map();
@@ -2501,7 +2505,7 @@ app.post('/api/ordenes-trabajo', async (req, res) => {
     const numRes = await client.query(
       `UPDATE contadores_ot
           SET siguiente = GREATEST(siguiente,
-                (SELECT COALESCE(MAX(num), 0) + 1 FROM ordenes_trabajo WHERE empresa_id = $1)) + 1
+                (SELECT COALESCE(FLOOR(MAX(num)), 0) + 1 FROM ordenes_trabajo WHERE empresa_id = $1)) + 1
         WHERE empresa_id = $1
         RETURNING siguiente - 1 AS num`,
       [empresaId]
@@ -2754,6 +2758,188 @@ app.delete('/api/comprobantes/:id', async (req, res) => {
   } catch (err) {
     console.error('/api/comprobantes DELETE error:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DATOS OPERATIVOS DE LABORES E INSUMOS DE UNA EMPRESA
+// Lo que borra el Reset del tablero (client-src/2026-10-30: movimientos, OT,
+// cierres, TC mensual y tarifas de referencia; los catálogos no se tocan) y
+// lo que reemplaza la carga desde Excel antes de escribir lo nuevo.
+// ─────────────────────────────────────────────────────────────────────────────
+async function borrarOperativoInsumosOt(client, empresaId) {
+  const n = {};
+  // comprobantes antes que OT: ref_ot_trabajo es ON DELETE RESTRICT.
+  n.movimientos = (await client.query('SELECT COUNT(*)::int AS c FROM movimientos WHERE empresa_id=$1', [empresaId])).rows[0].c;
+  await client.query('DELETE FROM comprobantes WHERE empresa_id=$1', [empresaId]);
+  n.OT = (await client.query('DELETE FROM ordenes_trabajo WHERE empresa_id=$1', [empresaId])).rowCount;
+  await client.query('DELETE FROM cierres_stock WHERE empresa_id=$1', [empresaId]);
+  await client.query('DELETE FROM tipo_cambio_mensual WHERE empresa_id=$1', [empresaId]);
+  await client.query('DELETE FROM tarifas_referencia_labor WHERE empresa_id=$1', [empresaId]);
+  await client.query('DELETE FROM contadores_ot WHERE empresa_id=$1', [empresaId]);
+  return n;
+}
+
+app.delete('/api/insumos-ot/datos', async (req, res) => {
+  const empresaId = req.query.empresaId;
+  const client = await pool.connect();
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { client.release(); return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
+    await client.query('BEGIN');
+    const n = await borrarOperativoInsumosOt(client, empresaId);
+    await client.query('COMMIT');
+    res.json({ status: 'ok', borrados: n });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('/api/insumos-ot/datos DELETE error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/carga-excel/registro — carga desde Excel de Labores e Insumos.
+// Portado de IMP.aplicar() de client-src/2026-10-30/cargar_datos.html (parte
+// "reg"): agrega labores y unidades que falten (globales), REEMPLAZA los
+// insumos, depósitos y terceros de la empresa y todo su operativo (OT,
+// movimientos, cierres, TC, tarifas). La lectura del Excel sigue en el
+// navegador; acá se escribe todo en una transacción.
+// ─────────────────────────────────────────────────────────────────────────────
+app.post('/api/carga-excel/registro', async (req, res) => {
+  const b = req.body || {};
+  const empresaId = b.empresaId;
+  const client = await pool.connect();
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
+    if (sesion.rol !== 'admin_general' && sesion.rol !== 'admin_cliente') {
+      client.release();
+      return res.status(403).json({ error: 'La carga masiva desde Excel la hace un administrador' });
+    }
+    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+
+    const arr = x => (Array.isArray(x) ? x : []);
+    const labores = arr(b.labores), unidades = arr(b.unidades), insumos = arr(b.insumos);
+    const depositos = arr(b.depositos), terceros = arr(b.terceros), ots = arr(b.ots), comps = arr(b.comprobantes);
+    const opIns = {}; for (const o of arr(b.insumosOperativos)) if (o && o.id) opIns[o.id] = o;
+
+    await client.query('BEGIN');
+
+    // Campaña del Excel ('26-27') -> la del catálogo ('26/27', camp_2627).
+    const campRes = await client.query('SELECT id, nombre FROM campanias');
+    const campPorNombre = {};
+    for (const r of campRes.rows) {
+      campPorNombre[normalizarNombreCampania(r.id)] = campPorNombre[normalizarNombreCampania(r.id)] || r.id;
+      campPorNombre[normalizarNombreCampania(r.nombre)] = r.id;
+    }
+    async function campaniaReal(c) {
+      if (!c) return null;
+      const k = normalizarNombreCampania(c);
+      if (campPorNombre[k]) return campPorNombre[k];
+      const mx = await client.query('SELECT COALESCE(MAX(orden),0)+1 AS o FROM campanias');
+      await client.query('INSERT INTO campanias (id, nombre, orden, activa) VALUES ($1,$1,$2,false) ON CONFLICT (id) DO NOTHING', [c, mx.rows[0].o]);
+      campPorNombre[k] = c;
+      return c;
+    }
+    const campReg = await campaniaReal(b.campania);
+
+    // Labores y unidades (globales): solo se agregan; si ya hay una con ese nombre/sigla se usa esa.
+    const laborIdMap = {};
+    for (const l of labores) {
+      if (!l || !l.nombre) continue;
+      const ex = await client.query('SELECT id FROM labores WHERE trim(lower(nombre)) = trim(lower($1))', [l.nombre]);
+      if (ex.rows.length) { laborIdMap[l.id] = ex.rows[0].id; continue; }
+      await client.query('INSERT INTO labores (id, nombre, unidad_labor, precio_ref, activo) VALUES ($1,$2,$3,$4,true) ON CONFLICT (id) DO NOTHING',
+        [l.id, l.nombre, l.unidadLabor || null, Number(l.precioRef) || 0]);
+      laborIdMap[l.id] = l.id;
+    }
+    const unidadIdMap = {};
+    for (const u of unidades) {
+      if (!u || !u.sigla) continue;
+      const ex = await client.query('SELECT id FROM unidades WHERE trim(lower(sigla)) = trim(lower($1))', [u.sigla]);
+      if (ex.rows.length) { unidadIdMap[u.id] = ex.rows[0].id; continue; }
+      await client.query('INSERT INTO unidades (id, sigla, nombre, activo) VALUES ($1,$2,$3,true) ON CONFLICT (id) DO NOTHING',
+        [u.id, u.sigla, u.nombre || u.sigla]);
+      unidadIdMap[u.id] = u.id;
+    }
+
+    // Borrar lo de la empresa (operativo primero: movimientos/OT apuntan a los catálogos).
+    const borrados = await borrarOperativoInsumosOt(client, empresaId);
+    borrados['insumos'] = (await client.query('DELETE FROM insumos WHERE empresa_id=$1', [empresaId])).rowCount;
+    borrados['depósitos'] = (await client.query('DELETE FROM depositos WHERE empresa_id=$1', [empresaId])).rowCount;
+    await client.query('DELETE FROM choferes WHERE empresa_id=$1', [empresaId]);
+    borrados['terceros'] = (await client.query('DELETE FROM terceros WHERE empresa_id=$1', [empresaId])).rowCount;
+
+    // Como /api/maestros: datos lleva el objeto entero, con su id y empresaId.
+    const sinIdEmp = o => ({ ...o, id: o.id, empresaId });
+    for (const x of insumos) {
+      const d = sinIdEmp(x);
+      if (d.unidadId && unidadIdMap[d.unidadId]) d.unidadId = unidadIdMap[d.unidadId];
+      const op = opIns[x.id];
+      if (op) { if (op.depositoId) d.depositoId = op.depositoId; d.stockMin = Number(op.stockMin) || 0; d.moneda = op.moneda === 'USD' ? 'USD' : 'ARS'; }
+      await client.query('INSERT INTO insumos (id, empresa_id, datos) VALUES ($1,$2,$3)', [x.id, empresaId, d]);
+    }
+    for (const x of depositos) await client.query('INSERT INTO depositos (id, empresa_id, datos) VALUES ($1,$2,$3)', [x.id, empresaId, sinIdEmp(x)]);
+    for (const x of terceros) await client.query('INSERT INTO terceros (id, empresa_id, datos) VALUES ($1,$2,$3)', [x.id, empresaId, sinIdEmp(x)]);
+
+    // OT con su número del Excel
+    let maxNum = 0;
+    for (const o of ots) {
+      const num = Number(o.num) || 0; if (num > maxNum) maxNum = num;
+      await client.query(
+        `INSERT INTO ordenes_trabajo (id, empresa_id, num, campania_id, fecha, obs, estado, ultimo_registro, impresa, rapida)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,NULL,false,false)`,
+        [o.id, empresaId, num, await campaniaReal(o.campaniaId), o.fecha || null, o.obs || null, o.estado || 'Pendiente']
+      );
+      const trs = arr(o.trabajos).map(t => ({ ...t, laborId: (t.laborId && laborIdMap[t.laborId]) || t.laborId || null }));
+      await _guardarTrabajosOt(client, o.id, empresaId, trs);
+    }
+    await client.query(
+      `INSERT INTO contadores_ot (empresa_id, siguiente) VALUES ($1,$2)
+       ON CONFLICT (empresa_id) DO UPDATE SET siguiente = EXCLUDED.siguiente`,
+      [empresaId, Math.max(Number(b.nextOt) || 0, maxNum + 1)]
+    );
+
+    // Comprobantes y movimientos
+    let nLineas = 0;
+    for (const c of comps) {
+      await client.query(
+        `INSERT INTO comprobantes (id, empresa_id, fecha, tipo, comp_tipo, comp_nro, proveedor_id, campania_id, obs, ref_ot_trabajo, ref_ot_num, ref_tanda)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [c.id, empresaId, c.fecha || null, c.tipo || null, c.compTipo || null, c.compNro || null, c.proveedorId || null,
+         await campaniaReal(c.campaniaId), c.obs || null, c.refOtTrabajo || null, c.refOtNum || null, c.refTanda || null]
+      );
+      await _guardarLineasComprobante(client, c.id, empresaId, c.lineas);
+      nLineas += arr(c.lineas).length;
+    }
+
+    // La campaña del Excel pasa a ser la activa (como IMP.aplicar del cliente).
+    if (campReg) await client.query('UPDATE campanias SET activa = (id = $1)', [campReg]);
+
+    const informe = b.informe || {};
+    await client.query(
+      `INSERT INTO cargas_excel (id, empresa_id, usuario_id, partes, resumen, avisos)
+       VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb)`,
+      ['carga_' + Date.now(), empresaId, sesion.id, JSON.stringify({ plan: false, reg: true }),
+       JSON.stringify(informe.resumen || []), JSON.stringify(informe.avisos || [])]
+    );
+    await client.query('COMMIT');
+    res.json({ status: 'ok', borrados,
+      escritos: { insumos: insumos.length, 'depósitos': depositos.length, terceros: terceros.length, OT: ots.length, movimientos: nLineas } });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('/api/carga-excel/registro POST error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' + (err && err.code === '23505' ? ': hay nombres repetidos en el Excel' : '') });
+  } finally {
+    client.release();
   }
 });
 

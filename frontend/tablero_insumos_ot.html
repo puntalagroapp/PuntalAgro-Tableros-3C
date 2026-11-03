@@ -1298,7 +1298,7 @@ function cargarOTsApi(callback){
     // Una OT es una cabecera + N trabajos (labor, contratista, tarifa, facturación,
     // receta y destinos propios). La fuente es o.trabajos[]; ver espejoLegacy().
     state.ots=(data||[]).map(function(o){
-      var ot={ id:o.id, num:o.num, fecha:(o.fecha||'').slice(0,10), campaniaId:o.campaniaId||'',
+      var ot={ id:o.id, num:Number(o.num), fecha:(o.fecha||'').slice(0,10), campaniaId:o.campaniaId||'',
         obs:o.obs||'', estado:o.estado||'Pendiente', ultimoRegistro:o.ultimoRegistro||null, impresa:!!o.impresa, rapida:!!o.rapida, _synced:true };
       ot.trabajos=(o.trabajos||[]).map(function(t){
         return { id:t.id, laborId:t.laborId||'', laborTipo:t.laborTipo||'LP', contratistaId:t.contratistaId||'',
@@ -1321,7 +1321,7 @@ function cargarComprobantesApi(callback){
       comps.push({
         id:c.id, fecha:(c.fecha||'').slice(0,10), tipo:c.tipo||'', comp_tipo:c.compTipo||'', comp_nro:c.compNro||'',
         proveedorId:c.proveedorId||'', campaniaId:c.campaniaId||'', obs:c.obs||'',
-        refOt:c.refOtTrabajo||'', refOtNum:c.refOtNum||'', refTanda:c.refTanda||'', _synced:true
+        refOt:c.refOtTrabajo||'', refOtNum:(c.refOtNum!=null&&c.refOtNum!==''?Number(c.refOtNum):''), refTanda:c.refTanda||'', _synced:true
       });
       (c.lineas||[]).forEach(function(m){
         var mv={ id:m.id, comprobanteId:m.comprobanteId, insumoId:m.insumoId, cant:Number(m.cant)||0,
@@ -2583,8 +2583,11 @@ function switchWs(id){
     liberarLockOT(); resetOtForm(); otPant={id:null, modo:'nueva', v:1}; mostrarListadoOT();
   }
   if(CTX && typeof PA!=='undefined'){
-    PA.setEmpresaActiva(id, function(err, ctx){
-      if(!err && ctx){ CTX=ctx; }
+    // loadContext(id) trae el CTX de esa empresa (permiso incluido) y la deja activa
+    // en la sesión del servidor; setEmpresaActiva solo tocaba el navegador.
+    PA.loadContext(id, function(err, ctx){
+      if(err || !ctx || !ctx.empresasDisponibles){ alert('No se pudo cambiar de empresa.'); refreshWsSelect(); return; }
+      CTX=ctx;
       var emp=null;
       for(var i=0;i<CTX.empresasDisponibles.length;i++){ if(CTX.empresasDisponibles[i].id===id){ emp=CTX.empresasDisponibles[i]; break; } }
       syncRootConContexto(id, emp?(emp.razonSocial||emp.nombre):null, function(){
@@ -8132,14 +8135,12 @@ function openResetModal(){
     '<h3 style="color:#991B1B">⚠ Reset del espacio activo</h3>'+
     '<p style="font-size:12px;margin-bottom:10px">Esto va a <strong>borrar todos los datos</strong> del espacio <strong>"'+esc(nombre)+'"</strong>:</p>'+
     '<ul style="font-size:12px;color:var(--text);margin:0 0 12px 18px;line-height:1.6">'+
-      '<li>Movimientos: '+state.movtos.length+'</li>'+
+      '<li>Movimientos de stock: '+state.movtos.length+' líneas</li>'+
       '<li>Órdenes de trabajo: '+state.ots.length+'</li>'+
-      '<li>Insumos cargados: '+state.insumos.length+'</li>'+
-      '<li>Campos: '+state.campos.length+'</li>'+
-      '<li>Lotes: '+state.lotes.length+'</li>'+
-      '<li>El contexto (empresa, campaña)</li>'+
+      '<li>Cierres de stock: '+(state.cierres||[]).length+'</li>'+
+      '<li>Tipos de cambio mensuales y tarifas de referencia de labores</li>'+
     '</ul>'+
-    '<p style="font-size:12px;margin-bottom:10px">Los maestros base (actividades, labores LP/LC) se restauran a los valores por defecto. Otros espacios <strong>no se tocan</strong>.</p>'+
+    '<p style="font-size:12px;margin-bottom:10px">Los catálogos (campos, lotes, plan de uso, insumos, depósitos, labores, contratistas) vienen de <strong>Maestros</strong> y <strong>no se tocan</strong>. Las otras empresas tampoco.</p>'+
     '<p style="font-size:12px;margin-bottom:10px">Para confirmar, tipeá exactamente el nombre del espacio:</p>'+
     '<input id="resetConfirm" placeholder="'+esc(nombre)+'" style="width:100%;font-family:var(--mono);font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:6px">'+
     '<div class="fact">'+
@@ -8150,18 +8151,30 @@ function openResetModal(){
   setTimeout(function(){ byId('resetConfirm').focus(); },50);
 }
 function confirmReset(){
-  if(!guard('administrar')) return;
   var nombre=root.espacios[root.activoId].nombre;
   var typed=byId('resetConfirm').value;
   if(typed!==nombre){ alert('El nombre tipeado no coincide. Si querés borrar, escribí exactamente: '+nombre); return; }
-  root.espacios[root.activoId].state = baseStateEmpty();
-  state = root.espacios[root.activoId].state;
-  saveRoot();
-  closeModal();
-  byId('modalContent').className='modal';
-  refreshCtx();
-  setTab(currentTab, document.querySelector('.inst-btn[data-tab="'+currentTab+'"]'));
-  toast('Espacio reseteado');
+  if(!guard('administrar')) return;
+  var limpiar=function(){
+    root.espacios[root.activoId].state = baseStateEmpty();
+    state = root.espacios[root.activoId].state;
+    if(CTX) syncRootConContexto(root.activoId, nombre, terminar); else { saveRoot(); terminar(); }
+  };
+  var terminar=function(){
+    DATA_VER++;
+    liberarLockOT(); closeModal();
+    byId('modalContent').className='modal';
+    refreshCtx();
+    resetOtForm(); otPant={id:null, modo:'nueva', v:1}; mostrarListadoOT();
+    setTab(currentTab, document.querySelector('.inst-btn[data-tab="'+currentTab+'"]'));
+    toast('Espacio reseteado');
+  };
+  if(!_esModoApi() || !CTX){ limpiar(); return; }
+  // En el servidor: OT, movimientos, cierres, TC mensual y tarifas de esta empresa.
+  apiDelete('/api/insumos-ot/datos?empresaId='+encodeURIComponent(CTX.empresaActivaId), function(err){
+    if(err){ alert('No se pudo hacer el reset: '+((err&&err.error)||'error del servidor')); return; }
+    limpiar();
+  });
 }
 
 /* ================================================================

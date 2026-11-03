@@ -429,7 +429,7 @@ CREATE INDEX idx_actividades_empresa  ON actividades(empresa_id, campania_id);
 CREATE TABLE ordenes_trabajo (
     id           TEXT NOT NULL,
     empresa_id   TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-    num          INTEGER NOT NULL,
+    num          NUMERIC NOT NULL, -- puede tener decimales: sub-OT del Excel del cliente (38.1)
     campania_id  TEXT REFERENCES campanias(id),
     fecha        DATE,
     obs          TEXT,
@@ -504,7 +504,7 @@ CREATE TABLE comprobantes (
     campania_id     TEXT REFERENCES campanias(id),
     obs             TEXT,
     ref_ot_trabajo  TEXT,
-    ref_ot_num      INTEGER,
+    ref_ot_num      NUMERIC,
     ref_tanda       TEXT,   -- tanda de aplicación de la OT que generó el comprobante
     PRIMARY KEY (id, empresa_id),
     FOREIGN KEY (proveedor_id, empresa_id)   REFERENCES terceros(id, empresa_id)   ON DELETE RESTRICT,
