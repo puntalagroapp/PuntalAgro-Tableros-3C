@@ -2614,7 +2614,8 @@ app.get('/api/comprobantes', async (req, res) => {
 
     const movs = await pool.query(
       `SELECT id, comprobante_id AS "comprobanteId", insumo_id AS "insumoId", cantidad AS "cant",
-              origen_deposito_id AS "origenId", destino_deposito_id AS "destinoId", ref_destino_id AS "refDest"
+              origen_deposito_id AS "origenId", destino_deposito_id AS "destinoId", ref_destino_id AS "refDest",
+              precio, moneda
          FROM movimientos WHERE empresa_id = $1`,
       [empresaId]
     );
@@ -2629,14 +2630,28 @@ app.get('/api/comprobantes', async (req, res) => {
   }
 });
 
+// Fecha (YYYY-MM-DD) del último cierre de stock de la empresa, o null. Todo lo
+// fechado hasta ese día queda cerrado (como bloqueoFecha() del cliente).
+async function fechaCierreStock(db, empresaId) {
+  const r = await db.query(
+    `SELECT to_char(MAX(fecha), 'YYYY-MM-DD') AS f FROM cierres_stock WHERE empresa_id = $1`, [empresaId]);
+  return r.rows[0].f || null;
+}
+function msgCierre(fc) {
+  const p = fc.split('-');
+  return 'El stock está cerrado al ' + p[2] + '/' + p[1] + '/' + p[0].slice(2) +
+    ': no se pueden cargar, editar ni borrar movimientos con fecha anterior o igual.';
+}
+
 async function _guardarLineasComprobante(client, compId, empresaId, lineas) {
   await client.query('DELETE FROM movimientos WHERE comprobante_id=$1 AND empresa_id=$2', [compId, empresaId]);
   for (const ln of (lineas || [])) {
     const lnId = ln.id || (compId + '_' + Math.random().toString(36).slice(2, 8));
     await client.query(
-      `INSERT INTO movimientos (id, empresa_id, comprobante_id, insumo_id, cantidad, origen_deposito_id, destino_deposito_id, ref_destino_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [lnId, empresaId, compId, ln.insumoId, ln.cant || 0, ln.origenId || null, ln.destinoId || null, ln.refDest || null]
+      `INSERT INTO movimientos (id, empresa_id, comprobante_id, insumo_id, cantidad, origen_deposito_id, destino_deposito_id, ref_destino_id, precio, moneda)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [lnId, empresaId, compId, ln.insumoId, ln.cant || 0, ln.origenId || null, ln.destinoId || null, ln.refDest || null,
+       Number(ln.precio) > 0 ? Number(ln.precio) : null, Number(ln.precio) > 0 ? (ln.moneda === 'USD' ? 'USD' : 'ARS') : null]
     );
   }
 }
@@ -2652,6 +2667,9 @@ app.post('/api/comprobantes', async (req, res) => {
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
     if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
+
+    const fcPost = await fechaCierreStock(client, empresaId);
+    if (fcPost && c.fecha && String(c.fecha).slice(0, 10) <= fcPost) { client.release(); return res.status(409).json({ error: msgCierre(fcPost) }); }
 
     const id = c.id || ('comp_' + Date.now());
     await client.query('BEGIN');
@@ -2686,6 +2704,12 @@ app.put('/api/comprobantes/:id', async (req, res) => {
     if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
     const bloqueo = await verificarLockPropio('comprobantes', req.params.id, sesion);
     if (bloqueo) { client.release(); return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre }); }
+    const fcPut = await fechaCierreStock(client, empresaId);
+    if (fcPut) {
+      const ant = await client.query(`SELECT to_char(fecha,'YYYY-MM-DD') AS f FROM comprobantes WHERE id=$1 AND empresa_id=$2`, [req.params.id, empresaId]);
+      const fAnt = ant.rows[0] ? ant.rows[0].f : null;
+      if ((fAnt && fAnt <= fcPut) || (c.fecha && String(c.fecha).slice(0, 10) <= fcPut)) { client.release(); return res.status(409).json({ error: msgCierre(fcPut) }); }
+    }
 
     await client.query('BEGIN');
     await client.query(
@@ -2719,12 +2743,126 @@ app.delete('/api/comprobantes/:id', async (req, res) => {
     const bloqueo = await verificarLockPropio('comprobantes', req.params.id, sesion);
     if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
 
+    const fcDel = await fechaCierreStock(pool, empresaId);
+    if (fcDel) {
+      const ant = await pool.query(`SELECT to_char(fecha,'YYYY-MM-DD') AS f FROM comprobantes WHERE id=$1 AND empresa_id=$2`, [req.params.id, empresaId]);
+      if (ant.rows[0] && ant.rows[0].f && ant.rows[0].f <= fcDel) return res.status(409).json({ error: msgCierre(fcDel) });
+    }
     // ON DELETE CASCADE en movimientos se encarga de las líneas.
     await pool.query('DELETE FROM comprobantes WHERE id=$1 AND empresa_id=$2', [req.params.id, empresaId]);
     res.json({ status: 'ok' });
   } catch (err) {
     console.error('/api/comprobantes DELETE error:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CIERRES DE STOCK (portado de client-src/2026-10-30: openCierreStock /
+// confirmarCierreStock / anularUltimoCierre). El cierre y sus comprobantes de
+// ajuste se graban en una sola transacción; anular solo se puede con el último.
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/cierres-stock', async (req, res) => {
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    const empresaId = req.query.empresaId;
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    const r = await pool.query(
+      `SELECT id, to_char(fecha,'YYYY-MM-DD') AS fecha, precios, comp_ids AS "compIds",
+              to_char(creado_el,'YYYY-MM-DD') AS el, creado_por AS por
+         FROM cierres_stock WHERE empresa_id = $1 ORDER BY fecha`, [empresaId]);
+    res.json(r.rows);
+  } catch (err) {
+    console.error('/api/cierres-stock GET error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.post('/api/cierres-stock', async (req, res) => {
+  const b = req.body || {};
+  const empresaId = b.empresaId;
+  const client = await pool.connect();
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { client.release(); return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
+    const fecha = String(b.fecha || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { client.release(); return res.status(400).json({ error: 'Falta la fecha del cierre' }); }
+
+    await client.query('BEGIN');
+    // Serializa cierres concurrentes de la misma empresa.
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['cierre_stock:' + empresaId]);
+    const fc = await fechaCierreStock(client, empresaId);
+    if (fc && fecha <= fc) {
+      await client.query('ROLLBACK'); client.release();
+      return res.status(409).json({ error: 'La fecha tiene que ser posterior al último cierre (' + fc + ').' });
+    }
+    const comps = Array.isArray(b.comprobantes) ? b.comprobantes : [];
+    const compIds = [];
+    for (const c of comps) {
+      const cid = c.id || ('comp_' + Date.now() + '_' + compIds.length);
+      await client.query(
+        `INSERT INTO comprobantes (id, empresa_id, fecha, tipo, comp_tipo, comp_nro, proveedor_id, campania_id, obs, ref_ot_trabajo, ref_ot_num, ref_tanda)
+         VALUES ($1,$2,$3,$4,$5,$6,NULL,NULL,$7,NULL,NULL,NULL)`,
+        [cid, empresaId, fecha, c.tipo || null, c.compTipo || 'Cierre', c.compNro || null, c.obs || null]
+      );
+      await _guardarLineasComprobante(client, cid, empresaId, c.lineas);
+      compIds.push(cid);
+    }
+    const id = b.id || ('cierre_' + Date.now());
+    const precios = (b.precios && typeof b.precios === 'object') ? b.precios : {};
+    await client.query(
+      `INSERT INTO cierres_stock (id, empresa_id, fecha, precios, comp_ids, creado_el, creado_por)
+       VALUES ($1,$2,$3,$4::jsonb,$5,CURRENT_DATE,$6)`,
+      [id, empresaId, fecha, JSON.stringify(precios), compIds, sesion.nombre || null]
+    );
+    await client.query('COMMIT');
+    res.status(201).json({ id, fecha, precios, compIds, por: sesion.nombre || null });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('/api/cierres-stock POST error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
+  }
+});
+
+app.delete('/api/cierres-stock/:id', async (req, res) => {
+  const empresaId = req.query.empresaId;
+  const client = await pool.connect();
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { client.release(); return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
+
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['cierre_stock:' + empresaId]);
+    const ult = await client.query(
+      `SELECT id, comp_ids FROM cierres_stock WHERE empresa_id=$1 ORDER BY fecha DESC LIMIT 1`, [empresaId]);
+    if (!ult.rows.length || ult.rows[0].id !== req.params.id) {
+      await client.query('ROLLBACK'); client.release();
+      return res.status(409).json({ error: 'Solo se puede anular el último cierre de stock.' });
+    }
+    const ids = ult.rows[0].comp_ids || [];
+    if (ids.length) await client.query('DELETE FROM comprobantes WHERE empresa_id=$1 AND id = ANY($2)', [empresaId, ids]);
+    await client.query('DELETE FROM cierres_stock WHERE id=$1 AND empresa_id=$2', [req.params.id, empresaId]);
+    await client.query('COMMIT');
+    res.json({ status: 'ok' });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('/api/cierres-stock DELETE error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
   }
 });
 
