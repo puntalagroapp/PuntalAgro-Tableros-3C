@@ -1790,6 +1790,8 @@ function buildFiltros(){
   // Scope base para contar opciones disponibles
   var base = LOTES.slice();
   base = base.filter(function(l){return campoMatch(l);});
+  if(state.estado==='activos') base = base.filter(function(l){return loteActivo(l);});
+  else if(state.estado==='inactivos') base = base.filter(function(l){return !loteActivo(l);});
 
   // Tipo (uso): un uso por opción, contando lotes con esa actividad en la campaña activa.
   var usosCatFiltro = listarUsos();
@@ -1815,12 +1817,15 @@ function buildFiltros(){
   });
   buildMultiSelect('msAmbiente', 'Ambiente', ambOpts, 'fAmb', {grouped:false, showSig:true});
   
-  // Antecesor: cultivos que aparecen en campaña previa
+  // Antecesor: cultivos que aparecen en la campaña previa (iterar actividades por .c)
   var antCount = {};
   for(var i=0;i<base.length;i++){
     if(prev && base[i].p[prev]){
-      if(base[i].p[prev][1]) antCount[base[i].p[prev][1]] = (antCount[base[i].p[prev][1]]||0)+1;
-      if(base[i].p[prev][2]) antCount[base[i].p[prev][2]] = (antCount[base[i].p[prev][2]]||0)+1;
+      var actsPrev = base[i].p[prev];
+      for(var ap=0; ap<actsPrev.length; ap++){
+        var sig = actsPrev[ap] && actsPrev[ap].c;
+        if(sig) antCount[sig] = (antCount[sig]||0)+1;
+      }
     }
   }
   var antOpts = Object.keys(antCount).sort().map(function(k){
