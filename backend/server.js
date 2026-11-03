@@ -294,6 +294,18 @@ function puedeEscribirMaestroEmpresa(sesion, permiso) {
     permiso.nivel === 'administrar' || permiso.nivel === 'cargar';
 }
 
+// Nivel del usuario sobre una herramienta (ver < cargar < administrar).
+// herramientas=[] significa "todas" solo con nivel 'administrar' (admin_general y
+// admin_cliente lo tienen siempre vía obtenerPermiso); con 'ver'/'cargar' la
+// herramienta tiene que estar tildada en el permiso.
+const NIVEL_RANGO = { ver: 1, cargar: 2, administrar: 3 };
+function puedeEnHerramienta(permiso, herramienta, nivelRequerido) {
+  if (!permiso) return false;
+  if ((NIVEL_RANGO[permiso.nivel] || 0) < (NIVEL_RANGO[nivelRequerido] || 1)) return false;
+  if (permiso.nivel === 'administrar') return true;
+  return (permiso.herramientas || []).indexOf(herramienta) !== -1;
+}
+
 // Depósito general (sin campoId): lo ve cualquiera de la empresa, pero solo lo
 // crea/edita/borra nivel 'administrar' (admin_general/admin_cliente siempre
 // tienen ese nivel vía obtenerPermiso). Depósito de campo: alcanza 'cargar' +
@@ -2368,21 +2380,42 @@ app.get('/api/herramientas/:id/archivo', async (req, res) => {
 // Reemplaza TODOS los trabajos (labores) de una OT: borra e inserta de
 // nuevo, igual que _guardarLineasComprobante hace con las líneas de un
 // comprobante. El frontend manda siempre el conjunto completo de trabajos.
+// Upsert por id, no "borrar todo y reinsertar": el flujo real de edición de
+// una OT reenvía TAMBIÉN los trabajos ya aplicados (los que generaron un
+// comprobante) junto con los nuevos/editados — y esos tienen
+// comprobantes.ref_ot_trabajo con ON DELETE RESTRICT. Un DELETE sobre esos
+// ids rompería la edición. Por eso: UPDATE si el id ya existe, INSERT si es
+// nuevo, y DELETE solo de los que NO vienen en el array nuevo (el usuario
+// los sacó del formulario) — si alguno de esos tiene comprobantes, el
+// RESTRICT lo frena con un error claro en vez de un borrado silencioso.
 async function _guardarTrabajosOt(client, otId, empresaId, trabajos) {
-  await client.query('DELETE FROM ot_trabajos WHERE ot_id=$1 AND empresa_id=$2', [otId, empresaId]);
+  const incoming = trabajos || [];
+  const incomingIds = incoming.filter(t => t.id).map(t => t.id);
+  if (incomingIds.length) {
+    await client.query(
+      `DELETE FROM ot_trabajos WHERE ot_id=$1 AND empresa_id=$2 AND id <> ALL($3::text[])`,
+      [otId, empresaId, incomingIds]
+    );
+  } else {
+    await client.query('DELETE FROM ot_trabajos WHERE ot_id=$1 AND empresa_id=$2', [otId, empresaId]);
+  }
   const out = [];
   let orden = 0;
-  for (const t of (trabajos || [])) {
+  for (const t of incoming) {
     orden++;
     const id = t.id || (otId + '_tr' + orden);
     await client.query(
       `INSERT INTO ot_trabajos (id, empresa_id, ot_id, labor_tipo, labor_id, subactividad, tercero_id,
-                                tarifa, tarifa_moneda, monto_facturado, estado_fact, es_resiembra,
-                                plantilla, destinos, orden)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+                                tarifa, tarifa_moneda, monto_facturado, estado_fact, estado_pago, monto_pagado,
+                                es_resiembra, plantilla, destinos, orden)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+       ON CONFLICT (id, empresa_id) DO UPDATE SET
+         ot_id=$3, labor_tipo=$4, labor_id=$5, subactividad=$6, tercero_id=$7,
+         tarifa=$8, tarifa_moneda=$9, monto_facturado=$10, estado_fact=$11, estado_pago=$12, monto_pagado=$13,
+         es_resiembra=$14, plantilla=$15, destinos=$16, orden=$17`,
       [id, empresaId, otId, t.laborTipo || null, t.laborId || null, t.subactividad || null,
        t.contratistaId || null, t.tarifa || null, t.tarifaMoneda || 'ARS', t.montoFacturado || 0,
-       t.estadoFact || 'Sin facturar', t.esResiembra || false,
+       t.estadoFact || 'Sin facturar', t.estadoPago || 'No', t.montoPagado || 0, t.esResiembra || false,
        JSON.stringify(t.plantilla || []), JSON.stringify(t.destinos || []), orden]
     );
     out.push({ ...t, id, otId, empresaId, orden });
@@ -2394,7 +2427,8 @@ function _trabajoRow(r) {
   return {
     id: r.id, otId: r.ot_id, laborTipo: r.labor_tipo, laborId: r.labor_id, subactividad: r.subactividad,
     contratistaId: r.tercero_id, tarifa: r.tarifa, tarifaMoneda: r.tarifa_moneda,
-    montoFacturado: r.monto_facturado, estadoFact: r.estado_fact, esResiembra: r.es_resiembra,
+    montoFacturado: r.monto_facturado, estadoFact: r.estado_fact,
+    estadoPago: r.estado_pago, montoPagado: r.monto_pagado, esResiembra: r.es_resiembra,
     plantilla: r.plantilla, destinos: r.destinos, orden: r.orden,
   };
 }
@@ -2409,7 +2443,7 @@ app.get('/api/ordenes-trabajo', async (req, res) => {
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
 
     const params = [empresaId];
-    let sql = `SELECT id, num, campania_id AS "campaniaId", fecha, obs, estado
+    let sql = `SELECT id, num, campania_id AS "campaniaId", fecha, obs, estado, ultimo_registro AS "ultimoRegistro", impresa, rapida
                  FROM ordenes_trabajo WHERE empresa_id = $1`;
     if (req.query.campaniaId) { params.push(req.query.campaniaId); sql += ` AND campania_id = $${params.length}`; }
     sql += ' ORDER BY num DESC';
@@ -2437,27 +2471,35 @@ app.post('/api/ordenes-trabajo', async (req, res) => {
     if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
 
     await client.query('BEGIN');
     await client.query(
       `INSERT INTO contadores_ot (empresa_id, siguiente) VALUES ($1, 1) ON CONFLICT (empresa_id) DO NOTHING`,
       [empresaId]
     );
+    // GREATEST con el máximo existente: si el contador quedó atrasado (restore,
+    // limpieza a mano), se corrige solo en vez de chocar con un número ya usado.
     const numRes = await client.query(
-      `UPDATE contadores_ot SET siguiente = siguiente + 1 WHERE empresa_id = $1 RETURNING siguiente - 1 AS num`,
+      `UPDATE contadores_ot
+          SET siguiente = GREATEST(siguiente,
+                (SELECT COALESCE(MAX(num), 0) + 1 FROM ordenes_trabajo WHERE empresa_id = $1)) + 1
+        WHERE empresa_id = $1
+        RETURNING siguiente - 1 AS num`,
       [empresaId]
     );
     const num = numRes.rows[0].num;
     const id = o.id || ('ot_' + Date.now());
     await client.query(
-      `INSERT INTO ordenes_trabajo (id, empresa_id, num, campania_id, fecha, obs, estado)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [id, empresaId, num, o.campaniaId || null, o.fecha || null, o.obs || null, o.estado || 'Pendiente']
+      `INSERT INTO ordenes_trabajo (id, empresa_id, num, campania_id, fecha, obs, estado, ultimo_registro, impresa, rapida)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [id, empresaId, num, o.campaniaId || null, o.fecha || null, o.obs || null, o.estado || 'Pendiente',
+       o.ultimoRegistro ? JSON.stringify(o.ultimoRegistro) : null, !!o.impresa, !!o.rapida]
     );
     const trabajos = await _guardarTrabajosOt(client, id, empresaId, o.trabajos);
     await client.query('COMMIT');
     res.status(201).json({ id, num, empresaId, campaniaId: o.campaniaId || null, fecha: o.fecha || null,
-      obs: o.obs || null, estado: o.estado || 'Pendiente', trabajos });
+      obs: o.obs || null, estado: o.estado || 'Pendiente', impresa: !!o.impresa, rapida: !!o.rapida, trabajos });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     console.error('/api/ordenes-trabajo POST error:', err);
@@ -2477,14 +2519,16 @@ app.put('/api/ordenes-trabajo/:id', async (req, res) => {
     if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
     const bloqueo = await verificarLockPropio('ordenes_trabajo', req.params.id, sesion);
     if (bloqueo) { client.release(); return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre }); }
 
     await client.query('BEGIN');
     await client.query(
-      `UPDATE ordenes_trabajo SET campania_id=$3, fecha=$4, obs=$5, estado=$6
+      `UPDATE ordenes_trabajo SET campania_id=$3, fecha=$4, obs=$5, estado=$6, ultimo_registro=$7, impresa=$8
         WHERE id=$1 AND empresa_id=$2`,
-      [req.params.id, empresaId, o.campaniaId || null, o.fecha || null, o.obs || null, o.estado || 'Pendiente']
+      [req.params.id, empresaId, o.campaniaId || null, o.fecha || null, o.obs || null, o.estado || 'Pendiente',
+       o.ultimoRegistro ? JSON.stringify(o.ultimoRegistro) : null, !!o.impresa]
     );
     const trabajos = await _guardarTrabajosOt(client, req.params.id, empresaId, o.trabajos);
     await client.query('COMMIT');
@@ -2509,6 +2553,7 @@ app.delete('/api/ordenes-trabajo/:id', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
     const bloqueo = await verificarLockPropio('ordenes_trabajo', req.params.id, sesion);
     if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
 
@@ -2544,7 +2589,7 @@ app.get('/api/comprobantes', async (req, res) => {
     const params = [empresaId];
     let sql = `SELECT id, fecha, tipo, comp_tipo AS "compTipo", comp_nro AS "compNro",
                       proveedor_id AS "proveedorId", campania_id AS "campaniaId", obs,
-                      ref_ot_trabajo AS "refOtTrabajo", ref_ot_num AS "refOtNum"
+                      ref_ot_trabajo AS "refOtTrabajo", ref_ot_num AS "refOtNum", ref_tanda AS "refTanda"
                  FROM comprobantes WHERE empresa_id = $1`;
     if (req.query.campaniaId) { params.push(req.query.campaniaId); sql += ` AND campania_id = $${params.length}`; }
     const comps = await pool.query(sql, params);
@@ -2588,14 +2633,15 @@ app.post('/api/comprobantes', async (req, res) => {
     if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
 
     const id = c.id || ('comp_' + Date.now());
     await client.query('BEGIN');
     await client.query(
-      `INSERT INTO comprobantes (id, empresa_id, fecha, tipo, comp_tipo, comp_nro, proveedor_id, campania_id, obs, ref_ot_trabajo, ref_ot_num)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      `INSERT INTO comprobantes (id, empresa_id, fecha, tipo, comp_tipo, comp_nro, proveedor_id, campania_id, obs, ref_ot_trabajo, ref_ot_num, ref_tanda)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
       [id, empresaId, c.fecha || null, c.tipo || null, c.compTipo || null, c.compNro || null,
-       c.proveedorId || null, c.campaniaId || null, c.obs || null, c.refOtTrabajo || null, c.refOtNum || null]
+       c.proveedorId || null, c.campaniaId || null, c.obs || null, c.refOtTrabajo || null, c.refOtNum || null, c.refTanda || null]
     );
     await _guardarLineasComprobante(client, id, empresaId, c.lineas);
     await client.query('COMMIT');
@@ -2619,16 +2665,17 @@ app.put('/api/comprobantes/:id', async (req, res) => {
     if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
     const bloqueo = await verificarLockPropio('comprobantes', req.params.id, sesion);
     if (bloqueo) { client.release(); return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre }); }
 
     await client.query('BEGIN');
     await client.query(
       `UPDATE comprobantes
-          SET fecha=$3, tipo=$4, comp_tipo=$5, comp_nro=$6, proveedor_id=$7, campania_id=$8, obs=$9, ref_ot_trabajo=$10, ref_ot_num=$11
+          SET fecha=$3, tipo=$4, comp_tipo=$5, comp_nro=$6, proveedor_id=$7, campania_id=$8, obs=$9, ref_ot_trabajo=$10, ref_ot_num=$11, ref_tanda=$12
         WHERE id=$1 AND empresa_id=$2`,
       [req.params.id, empresaId, c.fecha || null, c.tipo || null, c.compTipo || null, c.compNro || null,
-       c.proveedorId || null, c.campaniaId || null, c.obs || null, c.refOtTrabajo || null, c.refOtNum || null]
+       c.proveedorId || null, c.campaniaId || null, c.obs || null, c.refOtTrabajo || null, c.refOtNum || null, c.refTanda || null]
     );
     await _guardarLineasComprobante(client, req.params.id, empresaId, c.lineas);
     await client.query('COMMIT');
@@ -2650,6 +2697,7 @@ app.delete('/api/comprobantes/:id', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
     const bloqueo = await verificarLockPropio('comprobantes', req.params.id, sesion);
     if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
 
@@ -2658,6 +2706,58 @@ app.delete('/api/comprobantes/:id', async (req, res) => {
     res.json({ status: 'ok' });
   } catch (err) {
     console.error('/api/comprobantes DELETE error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TARIFAS DE REFERENCIA DE LABOR (por empresa, labor y campaña)
+// Es solo una sugerencia para autocompletar al emitir una OT — el valor
+// real queda en ot_trabajos.tarifa de cada OT ya emitida, editable ahí.
+// GET devuelve { 'laborId||campaniaId': {v, m} }, listo para asignar
+// directo a state.tarifasLP en el frontend.
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api/tarifas-referencia-labor', async (req, res) => {
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    const empresaId = req.query.empresaId;
+    if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    const permiso = await obtenerPermiso(req, empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+
+    const r = await pool.query(
+      'SELECT labor_id AS "laborId", campania_id AS "campaniaId", valor, moneda FROM tarifas_referencia_labor WHERE empresa_id = $1',
+      [empresaId]
+    );
+    const out = {};
+    r.rows.forEach(row => { out[row.laborId + '||' + row.campaniaId] = { v: Number(row.valor), m: row.moneda }; });
+    res.json(out);
+  } catch (err) {
+    console.error('/api/tarifas-referencia-labor GET error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.put('/api/tarifas-referencia-labor', async (req, res) => {
+  const c = req.body || {};
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    if (!c.empresaId || !c.laborId || !c.campaniaId) return res.status(400).json({ error: 'Faltan datos' });
+    const permiso = await obtenerPermiso(req, c.empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (permiso.nivel !== 'administrar') return res.status(403).json({ error: 'Sin permiso' });
+
+    await pool.query(
+      `INSERT INTO tarifas_referencia_labor (empresa_id, labor_id, campania_id, valor, moneda)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (empresa_id, labor_id, campania_id) DO UPDATE SET valor=$4, moneda=$5`,
+      [c.empresaId, c.laborId, c.campaniaId, c.valor || 0, c.moneda || 'ARS']
+    );
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('/api/tarifas-referencia-labor PUT error:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
@@ -2710,6 +2810,7 @@ app.put('/api/config-operativa', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
 
     await pool.query(
       `INSERT INTO config_operativa (empresa_id, tc_usd, tc_apertura, tc_cierre)
@@ -2737,6 +2838,7 @@ app.put('/api/config-operativa/tc-mensual/:anioMes', async (req, res) => {
     }
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
 
     await pool.query(
       `INSERT INTO tipo_cambio_mensual (empresa_id, anio_mes, valor)
@@ -2759,6 +2861,7 @@ app.delete('/api/config-operativa/tc-mensual/:anioMes', async (req, res) => {
     if (!empresaId) return res.status(400).json({ error: 'Falta empresaId' });
     const permiso = await obtenerPermiso(req, empresaId);
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
 
     await pool.query(
       'DELETE FROM tipo_cambio_mensual WHERE empresa_id = $1 AND anio_mes = $2',
