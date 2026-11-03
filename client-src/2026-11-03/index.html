@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Herramientas · Puntal Agro</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+/* =====================================================================
+   ESTÉTICA "MOSAICO"
+   Cada herramienta es una baldosa: ícono, categoría, nombre y descripción.
+   REGLA DE COLOR: cada sección tiene UN color (el de su acceso en la
+   portada) y lo usan el ícono y la categoría de todas sus baldosas.
+   Gris = recurso externo.
+   ===================================================================== */
+:root{
+  --pun:#2F4220; --olive:#4A6533; --moss:#5E7A2C; --ochre:#A86A1F; --terra:#C8642D;
+  --olive-t:#E7EDDF; --moss-t:#E9EFDC; --ochre-t:#F6EBDA; --terra-t:#F8E7DB;
+  --bg:#E4ECDD; --card:#FFFFFF; --border:#D3DCC9; --line:#E6EBE0;
+  --text:#18221A; --muted:#6B7764; --soft:#9AA394; --hover:#F7F9F3;
+  --shadow-1:0 1px 2px rgba(31,45,22,.05);
+  --shadow-2:0 14px 30px -14px rgba(31,45,22,.28), 0 2px 6px rgba(31,45,22,.05);
+  --radius:14px; --sans:'DM Sans',system-ui,sans-serif; --mono:var(--sans);
+  --wrap:1280px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15px;line-height:1.45;min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.wrap{width:100%;max-width:var(--wrap);margin:0 auto;padding:0 32px}
+:focus-visible{outline:2px solid var(--olive);outline-offset:2px;border-radius:8px}
+
+/* ---------- header ---------- */
+header{background:var(--card);border-bottom:1px solid var(--border)}
+.hdr{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;padding-top:18px;padding-bottom:18px}
+.logo{display:flex;align-items:center;gap:16px;min-width:0}
+.logo-icon img{height:54px;width:auto;display:block}
+.logo-sub{font-size:10.5px;font-weight:600;letter-spacing:1.6px;text-transform:uppercase;color:var(--terra);margin-bottom:4px}
+.logo-title{font-size:21px;font-weight:700;letter-spacing:-.4px;line-height:1.2;color:var(--pun)}
+/* Alineación: el selector lleva la etiqueta "Empresa" encima, así que
+   todo el bloque se alinea por abajo y los tres controles miden 36px. */
+.h-right{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.h-user{font-size:12px;color:var(--muted);white-space:nowrap;line-height:36px}
+.h-sep{align-self:flex-end;margin-bottom:4px}
+.h-emp{height:36px}
+.h-out{height:36px}
+.h-user strong{color:var(--text);font-weight:600}
+.h-sep{width:1px;height:28px;background:var(--line)}
+.h-emp-wrap{display:flex;flex-direction:column;gap:2px}
+.h-emp-lbl{font-size:9.5px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--soft);padding-left:2px}
+.h-emp{font-family:var(--sans);font-size:13px;font-weight:500;border:1px solid var(--border);border-radius:9px;padding:6px 30px 6px 10px;color:var(--text);background:var(--hover) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B7764' stroke-width='1.5' fill='none'/%3E%3C/svg%3E") no-repeat right 10px center;-webkit-appearance:none;appearance:none;cursor:pointer;max-width:260px}
+.h-emp:focus{outline:none;border-color:var(--olive);box-shadow:0 0 0 3px var(--olive-t)}
+.h-out{font-family:var(--sans);font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:20px;padding:7px 16px;cursor:pointer;transition:all .15s}
+.h-out:hover{color:var(--terra);border-color:var(--terra);background:var(--terra-t)}
+
+/* ---------- estructura ---------- */
+main{flex:1}
+.view{display:none}
+.view.on{display:block;animation:fade .22s ease-out}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.sec{padding:36px 0 52px}
+
+#view-dec{--c:var(--olive);--ct:var(--olive-t)}
+#view-ges{--c:var(--moss);--ct:var(--moss-t)}
+#view-pun{--c:var(--ochre);--ct:var(--ochre-t)}
+#view-adm{--c:var(--terra);--ct:var(--terra-t)}
+#grid-dec-externos{--c:#6E766A;--ct:#EDF0EA}
+
+.crumb{display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:12.5px;color:var(--soft)}
+.volver{background:none;border:none;padding:0;font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.volver:hover{color:var(--c)}
+.volver svg{width:14px;height:14px;stroke:currentColor;stroke-width:2.2;fill:none}
+.crumb .here{color:var(--text);font-weight:500}
+.block-title{font-size:26px;font-weight:700;letter-spacing:-.6px;color:var(--pun);line-height:1.2}
+.subsec{display:flex;align-items:center;gap:12px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);margin:34px 0 14px}
+.subsec::after{content:"";flex:1;height:1px;background:var(--border)}
+.subsec.first{margin-top:26px}
+.empty{font-size:13px;color:var(--muted);padding:14px 16px;font-style:italic;background:var(--card);border:1px dashed var(--border);border-radius:var(--radius)}
+
+/* ---------- baldosas (portada y herramientas) ---------- */
+.home-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+
+.tool,.acc{position:relative;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 20px 22px;text-decoration:none;color:inherit;text-align:left;font-family:var(--sans);box-shadow:var(--shadow-1);transition:box-shadow .2s,transform .2s,border-color .2s;cursor:pointer;width:100%}
+.tool:hover,.acc:hover{box-shadow:var(--shadow-2);transform:translateY(-3px);border-color:var(--c)}
+.t-ico{width:44px;height:44px;border-radius:12px;background:var(--ct);display:flex;align-items:center;justify-content:center;margin-bottom:18px;transition:background .2s}
+.t-ico svg{width:22px;height:22px;stroke:var(--c);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:stroke .2s}
+.tool:hover .t-ico,.acc:hover .t-ico{background:var(--c)}
+.tool:hover .t-ico svg,.acc:hover .t-ico svg{stroke:#fff}
+.t-go{position:absolute;top:22px;right:20px;width:16px;height:16px;stroke:var(--soft);stroke-width:2;fill:none;transition:stroke .2s,transform .2s}
+.tool:hover .t-go,.acc:hover .t-go{stroke:var(--c);transform:translateX(2px)}
+.t-cat{font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--c);margin-bottom:5px}
+.t-name{font-size:15.5px;font-weight:600;letter-spacing:-.25px;line-height:1.3;color:var(--text)}
+.t-desc{font-size:12.5px;color:var(--muted);line-height:1.55;margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* portada: un poco más grandes y con contador */
+.acc{padding:26px 24px 22px}
+.acc-a{--c:var(--olive);--ct:var(--olive-t)}
+.acc-b{--c:var(--moss);--ct:var(--moss-t)}
+.acc-d{--c:var(--ochre);--ct:var(--ochre-t)}
+.acc-c{--c:var(--terra);--ct:var(--terra-t)}
+.acc .t-ico{width:50px;height:50px;border-radius:13px}
+.acc .t-ico svg{width:25px;height:25px}
+.acc .t-name{font-size:18px;letter-spacing:-.35px}
+.acc .t-desc{-webkit-line-clamp:3;font-size:13px;flex:1}
+.acc-cnt{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);font-size:11.5px;font-weight:600;color:var(--c)}
+.acc-cnt.vacio{color:var(--soft);font-weight:500;font-style:italic}
+
+/* próximamente */
+.tool-off{background:transparent;border-style:dashed;box-shadow:none;cursor:default}
+.tool-off:hover{transform:none;box-shadow:none;border-color:var(--border)}
+.tool-off .t-ico,.tool-off:hover .t-ico{background:rgba(255,255,255,.55)}
+.tool-off .t-ico svg,.tool-off:hover .t-ico svg{stroke:var(--soft)}
+.tool-off .t-cat{color:var(--soft)}
+.tool-off .t-name{color:var(--muted)}
+
+/* ---------- pie ---------- */
+footer{border-top:1px solid var(--border);background:var(--card);font-size:11.5px;color:var(--soft)}
+.ftr{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;padding-top:12px;padding-bottom:12px}
+
+@media (max-width:1100px){.home-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:768px){
+  .wrap{padding:0 16px}
+  .sec{padding:24px 0 36px}
+  .home-grid,.grid{grid-template-columns:1fr}
+  .logo-icon img{height:42px}
+  .logo-title{font-size:17px}
+  .h-sep{display:none}
+  .block-title{font-size:21px}
+}
+
+/* Números tabulares: alinea las columnas numéricas de las tablas.
+   Criterio unificado con maestros.html y tablero_uso_suelo.html. */
+table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap hdr">
+    <div class="logo">
+      <div class="logo-icon"><img src="logo-iso.png" alt="Puntal Agro"></div>
+      <div>
+        <div class="logo-sub">Puntal Agro</div>
+        <div class="logo-title">Herramientas de Gestión y Tableros de Decisión</div>
+      </div>
+    </div>
+    <div class="h-right">
+      <span class="h-user" id="huser">—</span>
+      <span class="h-sep"></span>
+      <label class="h-emp-wrap"><span class="h-emp-lbl">Empresa</span>
+        <select class="h-emp" id="hemp" onchange="cambiarEmpresa(this.value)"></select>
+      </label>
+      <button class="h-out" onclick="salir()">Salir</button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ PORTADA ============ -->
+  <div class="view on sec" id="view-home">
+    <div class="wrap">
+      <div class="home-grid">
+
+        <button class="acc acc-a" onclick="irA('dec')">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-name">Tableros de Decisión</span>
+          <span class="t-desc">Precios, contexto económico y relaciones de referencia para decidir. Tableros propios y fuentes externas.</span>
+          <span class="acc-cnt" id="cnt-dec"></span>
+        </button>
+
+        <button class="acc acc-b" onclick="irA('ges')">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><path d="M12 21v-9"/><path d="M12 12C12 8 9 5 5 5c0 4 3 7 7 7z"/><path d="M12 10c0-3 2-6 6-6 0 3-2 6-6 6z"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-name">Gestión Productiva y Económica</span>
+          <span class="t-desc">Planificación y registro de la operación: uso del suelo, siembra, insumos, labores, ganadería, finanzas y maestros.</span>
+          <span class="acc-cnt" id="cnt-ges"></span>
+        </button>
+
+        <button class="acc acc-d" id="acc-pun" onclick="irA('pun')">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z"/><path d="M4 17a2 2 0 0 1 2-2h12M9 7h5"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-name">Consulta</span>
+          <span class="t-desc">Herramientas internas del equipo Puntal Agro para el trabajo de consultoría.</span>
+          <span class="acc-cnt" id="cnt-pun"></span>
+        </button>
+
+        <button class="acc acc-c" id="acc-adm" onclick="irA('adm')">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="18" cy="7" r="2"/><path d="M16.5 13c2.5.5 4.5 2.6 4.5 5"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-name">Administración</span>
+          <span class="t-desc">Estructura de clientes, empresas y campos, usuarios y permisos, y carga de datos desde Excel.</span>
+          <span class="acc-cnt" id="cnt-adm">3 módulos</span>
+        </button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TABLEROS DE DECISIÓN ============ -->
+  <div class="view sec" id="view-dec">
+    <div class="wrap">
+      <div class="crumb"><button class="volver" onclick="irA('home')"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Inicio</button><span>/</span><span class="here">Tableros de Decisión</span></div>
+      <div class="block-title">Tableros de Decisión</div>
+
+      <div class="subsec first">Propios</div>
+      <div class="grid" id="grid-dec-propios">
+
+        <a class="tool" data-tool="tablero_agro" href="tablero_agro.html" target="_blank" rel="noopener" title="Disponible, futuros y pizarra de granos. Precios de referencia y escenarios comerciales para la toma de decisión.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-cat">Comercial</span>
+          <span class="t-name">Tablero Comercial Agrícola</span>
+          <span class="t-desc">Disponible, futuros y pizarra de granos para decidir ventas.</span>
+        </a>
+
+        <a class="tool" data-tool="tablero_evolucion" href="tablero_evolucion.html" target="_blank" rel="noopener" title="Series del contexto económico-financiero: inflación, tipos de cambio, tasas, descuento de cheque y créditos.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-cat">Contexto</span>
+          <span class="t-name">Evolución de Variables</span>
+          <span class="t-desc">Inflación, tipos de cambio, tasas, descuento de cheque y créditos.</span>
+        </a>
+
+        <a class="tool" data-tool="tablero_hacienda" href="tablero_hacienda.html" target="_blank" rel="noopener" title="Relaciones de precios y categorías de hacienda para análisis de la actividad ganadera.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 7h14"/><path d="M5 7l-3 7a3 3 0 0 0 6 0z"/><path d="M19 7l-3 7a3 3 0 0 0 6 0z"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-cat">Ganadería</span>
+          <span class="t-name">Relaciones Ganaderas</span>
+          <span class="t-desc">Relaciones de precios entre categorías de hacienda.</span>
+        </a>
+
+        <a class="tool" data-tool="tablero_labores" href="tablero_labores.html" target="_blank" rel="noopener" title="Tarifas de referencia para labores agrícolas y fletes. Valores actualizados para presupuestar y comparar contratos.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><path d="M2 6h12v10H2zM14 9h4l4 4v3h-8"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-cat">Costos</span>
+          <span class="t-name">Tarifa de Labores y Fletes</span>
+          <span class="t-desc">Valores de referencia para presupuestar y comparar contratos.</span>
+        </a>
+
+      </div>
+      <div class="empty" id="empty-dec-propios" style="display:none">No tenés tableros de decisión habilitados para esta empresa.</div>
+
+      <div class="subsec">Externos</div>
+      <div class="grid" id="grid-dec-externos">
+
+        <a class="tool" href="https://simpleza.com.ar/herramientas/calculadora-alquileres/" target="_blank" rel="noopener" title="Calculadora de arrendamientos agrícolas para estimar el valor del alquiler de campo en distintos esquemas.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M8 15h2M12 15h2M16 11v4"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg>
+          <span class="t-cat">Externo · Simpleza</span>
+          <span class="t-name">Calculadora de Alquileres</span>
+          <span class="t-desc">Valor del arrendamiento de campo en distintos esquemas.</span>
+        </a>
+
+        <a class="tool" href="https://simpleza.com.ar/herramientas/agriculturafinanciera/" target="_blank" rel="noopener" title="Simulador financiero agrícola: rentabilidad por cultivo, impacto de shocks de precios y rindes, y escenarios de financiamiento con o sin socio a riesgo.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M16 15h2"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg>
+          <span class="t-cat">Externo · Simpleza</span>
+          <span class="t-name">Agricultura &amp; Finanzas</span>
+          <span class="t-desc">Rentabilidad por cultivo, shocks de precio y escenarios de financiamiento.</span>
+        </a>
+
+        <a class="tool" href="https://drive.google.com/file/d/1xfwCMCIAalW0YV47MCtThDFhc60dBNIJ/view" target="_blank" rel="noopener" title="Reporte de actualidad del sector agropecuario con análisis de coyuntura y datos de referencia.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg>
+          <span class="t-cat">Externo · CREA</span>
+          <span class="t-name">Reporte de Actualidad Agro</span>
+          <span class="t-desc">Coyuntura del sector agropecuario y datos de referencia.</span>
+        </a>
+
+        <a class="tool" href="rif_especial_urea_india.pdf" target="_blank" rel="noopener" title="Informe especial sobre la licitación oficial de compra de urea de India (NFL) de mayo 2026: volúmenes, fechas, restricciones geopolíticas e impacto esperado en precios internacionales.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg>
+          <span class="t-cat">Externo · Ing. en Fertilizantes</span>
+          <span class="t-name">RIF Especial · Urea India</span>
+          <span class="t-desc">Licitación de urea de India de mayo 2026 e impacto en precios.</span>
+        </a>
+
+        <a class="tool" href="apuntes_zorraquin_meneses_mayo2026.pdf" target="_blank" rel="noopener" title="Análisis de contexto para empresas agropecuarias: macro en la micro, baja de retenciones, negocio agrícola, ganadero y lechero. Método del 1% y el Furgón de Cola.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg>
+          <span class="t-cat">Externo · Zorraquín + Meneses</span>
+          <span class="t-name">Apuntes para Empresas · Mayo 2026</span>
+          <span class="t-desc">Macro, retenciones y negocio agrícola, ganadero y lechero.</span>
+        </a>
+
+        <a class="tool" href="rif_semanal_2026_22.pdf" target="_blank" rel="noopener" title="Reporte semanal del mercado de fertilizantes (29 mayo 2026): nitrogenados, fosfatados, precios locales e internacionales, y relación insumo-producto para trigo y maíz.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg>
+          <span class="t-cat">Externo · Ing. en Fertilizantes</span>
+          <span class="t-name">RIF Semanal · Fertilizantes</span>
+          <span class="t-desc">Precios de nitrogenados y fosfatados y relación insumo-producto.</span>
+        </a>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ HERRAMIENTAS DE GESTIÓN ============ -->
+  <div class="view sec" id="view-ges">
+    <div class="wrap">
+      <div class="crumb"><button class="volver" onclick="irA('home')"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Inicio</button><span>/</span><span class="here">Gestión Productiva y Económica</span></div>
+      <div class="block-title">Gestión Productiva y Económica</div>
+
+      <div class="subsec first">Gestión Productiva</div>
+      <div class="grid" id="grid-gestion">
+
+        <a class="tool" data-tool="tablero_uso_suelo" href="tablero_uso_suelo.html" title="Planificación del uso del suelo por lote y campaña: rotaciones, cultivos asignados y superficies.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-cat">Planificación</span>
+          <span class="t-name">Plan de Uso del Suelo</span>
+          <span class="t-desc">Rotaciones, cultivos y superficies por lote y campaña.</span>
+        </a>
+
+        <a class="tool" data-tool="ProgramaSiembra" href="programa_siembra_fertilizacion.html" title="Programación de siembra y fertilización en una sola herramienta: densidad por lote y por ambiente a partir del valor cultural de la partida, rangos de fecha, balance de sembradoras y necesidad total de insumos. Al abrirla migra lo cargado en la versión anterior.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><path d="M12 21v-9"/><path d="M12 12C12 8 9 5 5 5c0 4 3 7 7 7z"/><path d="M12 10c0-3 2-6 6-6 0 3-2 6-6 6z"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-cat">Planificación</span>
+          <span class="t-name">Programa de Siembra y Fertilización</span>
+          <span class="t-desc">Densidades, fechas, sembradoras y necesidad de insumos.</span>
+        </a>
+
+        <a class="tool" data-tool="Fitosanitarios" href="Fitosanitarios.html" title="Cálculo de requerimientos de fitosanitarios por lote y cultivo para planificar compras y aplicaciones de campaña.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-cat">Insumos</span>
+          <span class="t-name">Requerimiento de Fitosanitarios</span>
+          <span class="t-desc">Necesidades por lote y cultivo para compras y aplicaciones.</span>
+        </a>
+
+        <a class="tool" data-tool="tablero_insumos_ot" href="tablero_insumos_ot.html" title="Registro y seguimiento de labores, órdenes de trabajo e insumos aplicados. Planificación operativa de campaña.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-cat">Operativo</span>
+          <span class="t-name">Registro de Labores e Insumos</span>
+          <span class="t-desc">Órdenes de trabajo, stock e insumos aplicados.</span>
+        </a>
+
+        <a class="tool" data-tool="exist_prod_ganadera" href="exist_prod_ganadera.html" title="Existencias de hacienda por negocio, rodeo y categoría. Movimientos, conciliación de stock y seguimiento de cabezas y kilos.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><path d="M3 21V10l9-6 9 6v11z"/><path d="M9 21v-6h6v6"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-cat">Ganadería</span>
+          <span class="t-name">Existencia y Producción Ganadera</span>
+          <span class="t-desc">Existencias por rodeo y categoría, movimientos, cabezas y kilos.</span>
+        </a>
+
+        <a class="tool" href="maestros.html" title="Catálogos base que consumen los demás módulos: proveedores y clientes, choferes, depósitos y acopios, labores, cultivos, especies y unidades.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-cat">Configuración</span>
+          <span class="t-name">Maestros / Padrones</span>
+          <span class="t-desc">Proveedores, depósitos, labores, cultivos y unidades.</span>
+        </a>
+
+      </div>
+      <div class="empty" id="empty-gestion" style="display:none">No tenés herramientas de gestión productiva habilitadas para esta empresa.</div>
+
+      <div class="subsec">Gestión Económica</div>
+      <div class="grid" id="grid-gestion-eco">
+
+        <a class="tool" href="tablero_financiero.html" title="Presupuesto financiero de la empresa y seguimiento de lo real contra lo planificado: ingresos, egresos y saldos por período.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M16 15h2"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-cat">Finanzas</span>
+          <span class="t-name">Plan y Seguimiento Financiero</span>
+          <span class="t-desc">Presupuesto y seguimiento de lo real contra lo planificado.</span>
+        </a>
+
+      </div>
+      <div class="empty" id="empty-gestion-eco" style="display:none">No tenés herramientas de gestión económica habilitadas para esta empresa.</div>
+    </div>
+  </div>
+
+  <!-- ============ CONSULTA (ex Herramientas Puntal) ============
+       Etapa actual: sección visible solo para admin_general (ver puedePuntal).
+       Tarjetas SIN data-tool: se ven todas dentro de la sección.
+       Etapa futura (filtro por permiso): agregar data-tool a cada tarjeta,
+       dar de alta las herramientas en pa-core y usar filtrarGrupo. -->
+  <div class="view sec" id="view-pun">
+    <div class="wrap">
+      <div class="crumb"><button class="volver" onclick="irA('home')"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Inicio</button><span>/</span><span class="here">Consulta</span></div>
+      <div class="block-title">Consulta</div>
+
+      <div class="subsec first">Disponible ahora</div>
+      <div class="grid" id="grid-puntal">
+
+        <a class="tool" href="calendario_actividades.html" title="Guía de tareas según los protocolos de Puntal: qué hacer cada mes, por rol y actividad, y con qué herramienta.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-cat">Protocolos</span>
+          <span class="t-name">Calendario de Actividades</span>
+          <span class="t-desc">Qué hacer cada mes, por rol y actividad, y con qué herramienta.</span>
+        </a>
+
+      </div>
+
+      <div class="subsec">Próximamente</div>
+      <div class="grid" id="grid-pun-secciones">
+        <div class="tool tool-off"><span class="t-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/></svg></span><span class="t-cat">Próximamente</span><span class="t-name">Agricultura</span><span class="t-desc">Herramientas de consulta para la gestión agrícola.</span></div>
+        <div class="tool tool-off"><span class="t-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/></svg></span><span class="t-cat">Próximamente</span><span class="t-name">Ganadería</span><span class="t-desc">Herramientas de consulta para la gestión ganadera.</span></div>
+        <div class="tool tool-off"><span class="t-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/></svg></span><span class="t-cat">Próximamente</span><span class="t-name">Ambiente</span><span class="t-desc">Herramientas de consulta de gestión ambiental.</span></div>
+        <div class="tool tool-off"><span class="t-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/></svg></span><span class="t-cat">Próximamente</span><span class="t-name">Empresa</span><span class="t-desc">Herramientas de consulta para la gestión de la empresa.</span></div>
+        <div class="tool tool-off"><span class="t-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/></svg></span><span class="t-cat">Próximamente</span><span class="t-name">Consulta</span><span class="t-desc">Material y herramientas de consulta de Puntal.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ADMINISTRACIÓN ============ -->
+  <div class="view sec" id="view-adm">
+    <div class="wrap">
+      <div class="crumb"><button class="volver" onclick="irA('home')"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Inicio</button><span>/</span><span class="here">Administración</span></div>
+      <div class="block-title">Administración</div>
+      <div class="grid" style="margin-top:26px">
+
+        <a class="tool" href="administracion.html" title="Alta y edición de la estructura Cliente → Empresa → Campo, base sobre la que se reparten los permisos de cada usuario.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-4h12v4"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-cat">Configuración</span>
+          <span class="t-name">Estructura de Clientes</span>
+          <span class="t-desc">Alta y edición de Cliente → Empresa → Campo.</span>
+        </a>
+
+        <a class="tool" href="usuarios.html" title="Gestión de usuarios, roles y permisos de acceso por empresa, campo y herramienta.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="18" cy="7" r="2"/><path d="M16.5 13c2.5.5 4.5 2.6 4.5 5"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-cat">Configuración</span>
+          <span class="t-name">Usuarios y Permisos</span>
+          <span class="t-desc">Roles y permisos por empresa, campo y herramienta.</span>
+        </a>
+
+        <a class="tool" href="cargar_datos.html" title="Carga los datos reales de una empresa desde sus Excel: Plan de Uso del Suelo (lotes y actividades por campaña) y Registro de Labores e Insumos (insumos, depósitos, stock, movimientos y órdenes de trabajo). Reemplaza lo que esa empresa tenga cargado.">
+          <span class="t-ico"><svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></span>
+          <svg class="t-go" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span class="t-cat">Importación</span>
+          <span class="t-name">Carga de datos desde Excel</span>
+          <span class="t-desc">Uso del suelo y labores e insumos desde los Excel de la empresa.</span>
+        </a>
+
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <div class="wrap ftr">
+    <span>Herramientas · Puntal Agro</span>
+    <span id="fts2">—</span>
+  </div>
+</footer>
+
+<script src="pa-core.js"></script>
+<script>
+/* ================== navegación entre vistas ==================
+   Portada con 4 accesos + una vista por bloque. Sin recarga: se
+   muestra/oculta con la clase .on y se sincroniza con el hash para
+   que el botón Atrás del navegador funcione. */
+var VISTAS = ['home','dec','ges','pun','adm'];
+
+function irA(v){
+  if (v !== 'home' && location.hash !== '#'+v) { location.hash = v; return; }
+  if (v === 'home' && location.hash) { location.hash = ''; return; }
+  mostrar(v);
+}
+
+function mostrar(v){
+  var ok = false, i;
+  for (i=0;i<VISTAS.length;i++) if (VISTAS[i] === v) ok = true;
+  if (!ok) v = 'home';
+  if (v === 'adm' && !puedeAdmin()) v = 'home';
+  if (v === 'pun' && !puedePuntal()) v = 'home';
+  for (i=0;i<VISTAS.length;i++){
+    var el = document.getElementById('view-'+VISTAS[i]);
+    if (el) { if (VISTAS[i] === v) el.className = 'view on sec'; else el.className = 'view sec'; }
+  }
+  window.scrollTo(0,0);
+}
+
+function desdeHash(){
+  var h = location.hash ? location.hash.replace('#','') : 'home';
+  mostrar(h);
+}
+
+/* ================== contexto y permisos ================== */
+var CTX = null;
+
+/* Sin contexto cargado no se puede decidir: se muestra igual (fail-open).
+   Las pantallas de Administración tienen su propio control de acceso. */
+function puedeAdmin(){
+  if (!CTX || !CTX.usuario) return true;
+  return CTX.usuario.rol === 'admin_general' || CTX.usuario.rol === 'admin_cliente';
+}
+
+/* Herramientas Puntal: por ahora solo admin_general (equipo Puntal).
+   Mismo criterio fail-open que puedeAdmin. */
+function puedePuntal(){
+  if (!CTX || !CTX.usuario) return true;
+  return CTX.usuario.rol === 'admin_general';
+}
+
+function aplicarCtx(ctx){
+  CTX = ctx;
+
+  // header: usuario
+  document.getElementById('huser').innerHTML = '<strong>'+ctx.usuario.nombre+'</strong> · '+ctx.permiso.nivel;
+
+  // selector de empresa
+  var sel = document.getElementById('hemp');
+  sel.innerHTML = '';
+  for (var i=0;i<ctx.empresasDisponibles.length;i++){
+    var e = ctx.empresasDisponibles[i];
+    var op = document.createElement('option');
+    op.value = e.id; op.textContent = e.razonSocial;
+    if (e.id === ctx.empresaActivaId) op.selected = true;
+    sel.appendChild(op);
+  }
+
+  // filtrar tarjetas por herramientas del permiso
+  var nDec = filtrarGrupo('grid-dec-propios', 'empty-dec-propios');
+  var nGes = filtrarGrupo('grid-gestion', 'empty-gestion') + filtrarGrupo('grid-gestion-eco', 'empty-gestion-eco');
+  var nExt = contarVisibles('grid-dec-externos');
+
+  // acceso Administración: solo roles administrativos
+  var accAdm = document.getElementById('acc-adm');
+  accAdm.style.display = puedeAdmin() ? '' : 'none';
+  if (!puedeAdmin() && location.hash === '#adm') { location.hash = ''; }
+
+  // acceso Herramientas Puntal: solo admin_general (etapa actual)
+  var accPun = document.getElementById('acc-pun');
+  accPun.style.display = puedePuntal() ? '' : 'none';
+  if (!puedePuntal() && location.hash === '#pun') { location.hash = ''; }
+  var nPun = contarVisibles('grid-puntal');
+
+  // contadores de la portada
+  ponerCnt('cnt-dec', nDec, 'tablero propio', 'tableros propios', nExt + ' externos');
+  ponerCnt('cnt-ges', nGes, 'herramienta disponible', 'herramientas disponibles', '');
+  var cPun = document.getElementById('cnt-pun');
+  if (nPun) { cPun.className = 'acc-cnt'; cPun.textContent = nPun + (nPun === 1 ? ' herramienta' : ' herramientas'); }
+  else { cPun.className = 'acc-cnt vacio'; cPun.textContent = 'Próximamente'; }
+}
+
+function ponerCnt(id, n, sing, plur, extra){
+  var el = document.getElementById(id);
+  if (!el) return;
+  if (n === 0 && !extra){ el.className = 'acc-cnt vacio'; el.textContent = 'Sin herramientas habilitadas'; return; }
+  el.className = 'acc-cnt';
+  el.textContent = n + ' ' + (n === 1 ? sing : plur) + (extra ? ' · ' + extra : '');
+}
+
+function contarVisibles(gridId){
+  var grid = document.getElementById(gridId);
+  if (!grid) return 0;
+  return grid.querySelectorAll('.tool').length;
+}
+
+function filtrarGrupo(gridId, emptyId){
+  var grid = document.getElementById(gridId);
+  if (!grid) return 0;
+  var cards = grid.querySelectorAll('.tool[data-tool]');
+  var libres = grid.querySelectorAll('.tool:not([data-tool])').length; // siempre visibles (ej. Maestros)
+  var visibles = 0;
+  for (var c=0;c<cards.length;c++){
+    var id = cards[c].getAttribute('data-tool');
+    if (PA.can('ver', { herramienta: id })) { cards[c].style.display=''; visibles++; }
+    else { cards[c].style.display='none'; }
+  }
+  var tot = visibles + libres;
+  var emp = document.getElementById(emptyId);
+  if (emp) emp.style.display = tot ? 'none' : 'block';
+  return tot;
+}
+
+function cambiarEmpresa(empresaId){
+  PA.setEmpresaActiva(empresaId, function(err, ctx){
+    if (err) { location.href='login.html'; return; }
+    aplicarCtx(ctx);
+  });
+}
+function salir(){ PA.logout(); location.href='login.html'; }
+
+if (window.addEventListener) window.addEventListener('hashchange', desdeHash, false);
+else window.attachEvent('onhashchange', desdeHash);
+
+PA.init({ modo:'demo' }, function(){
+  if (!PA.haySesion()) { location.href='login.html'; return; }
+  PA.loadContext(null, function(err, ctx){
+    if (err) { location.href='login.html'; return; }
+    aplicarCtx(ctx);
+    desdeHash();
+  });
+  document.getElementById('fts2').textContent = 'Versión v2026-10-30 20:00 · BUILD 17';
+});
+</script>
+
+</body>
+</html>
