@@ -1792,6 +1792,8 @@ function guardarInsumoOperativoApi(idx, cb){
 // Rellena en state los catálogos compartidos desde PA.demo.*, mapeando al formato
 // que el tablero ya espera. Si PA no está (archivo suelto), deja los del state local.
 // Marca catalogosReadOnly=true cuando el origen es el contexto (para bloquear edición).
+// Campaña elegida a mano en el encabezado durante esta sesión ('' = no se eligió).
+var _campaniaElegida='';
 function inyectarCatalogosDesdePA(empresaId){
   if(typeof PA==='undefined' || !PA.demo || !empresaId){ state.catalogosReadOnly=false; return; }
   state.catalogosReadOnly=true;
@@ -1905,7 +1907,14 @@ function inyectarCatalogosDesdePA(empresaId){
   var camps = PA.demo.listarCampanias() || [];
   state.campanias = camps.map(function(c){ return { id:c.id, nombre:c.nombre, orden:c.orden, activa:!!c.activa }; });
   var ca = PA.demo.campaniaActiva();
-  state.campaniaActivaId = ca ? ca.id : (state.campanias.length ? state.campanias[state.campanias.length-1].id : '');
+  var campDef = ca ? ca.id : (state.campanias.length ? state.campanias[state.campanias.length-1].id : '');
+  // Como el cliente (client-src/2026-10-30): la campaña elegida en el encabezado se
+  // respeta cuando se releen los catálogos (p. ej. al volver a la pestaña); solo cae
+  // al default si ya no existe en el catálogo.
+  var elegida = _campaniaElegida;
+  var vigente = false;
+  for(var cv=0; elegida && cv<state.campanias.length; cv++){ if(state.campanias[cv].id===elegida){ vigente=true; break; } }
+  state.campaniaActivaId = vigente ? elegida : campDef;
 }
 
 // Guard de solo lectura para catálogos compartidos. Si están en modo lectura
@@ -7552,7 +7561,7 @@ function refreshCtx(){
 // Cambia la campaña por defecto (la sugerida al registrar OT/movimientos). No filtra
 // ni impone: en cada registro se puede elegir otra. Refresca los defaults de los forms.
 function setCampaniaDefecto(id){
-  state.campaniaActivaId=id;
+  state.campaniaActivaId=id; _campaniaElegida=id;
   var mc=byId('m_campania'); if(mc) mc.value=id;
   var oc=byId('o_campania'); if(oc) oc.value=id;
   toast('Campaña por defecto: '+(getCampaniaNombre(id)||id));
