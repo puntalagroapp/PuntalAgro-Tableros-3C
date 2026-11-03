@@ -2577,6 +2577,14 @@ function confirmarCierreStock(){
 ================================================================ */
 var currentTab='stock';
 function setTab(tab,btn){
+  // Órdenes de trabajo con una OT a medio cargar: volver desde otra solapa la muestra
+  // tal cual; tocar la solapa estando en ella pregunta antes de descartarla.
+  var otEnCurso = (tab==='ot' && otHayCambios());
+  if(otEnCurso && currentTab==='ot'){
+    if(!otSalirSinPerder()) return;
+    liberarLockOT(); resetOtForm(); otPant={id:null, modo:'nueva', v:1};
+    otEnCurso=false;
+  }
   currentTab=tab;
   var btns=document.querySelectorAll('.inst-btn[data-tab]');
   for(var i=0;i<btns.length;i++) btns[i].classList.remove('active');
@@ -2586,7 +2594,7 @@ function setTab(tab,btn){
   byId('page-'+tab).classList.add('active');
   if(tab==='stock') renderStock();
   else if(tab==='movtos') renderMovtos();
-  else if(tab==='ot') renderOtList();
+  else if(tab==='ot'){ if(!otEnCurso) renderOtList(); }
   else if(tab==='consumos') renderConsumos();
   else if(tab==='contratistas') renderContratistas();
   else if(tab==='costos') renderCostos();
@@ -4055,7 +4063,7 @@ function saveOT(e, vSig){
     guardarOTApi(existente, function(){ abrirOT(existente.id, vVolver, true); toast('OT #'+existente.num+' guardada'); });
     return;
   }
-  var ot={ id:uid(), num:state.nextOt++, fecha:fechaOt, campaniaId:campaniaOt, obs:byId('o_obs').value, estado:'Pendiente', trabajos:nuevos };
+  var ot={ id:uid(), num:proxNumOt(), fecha:fechaOt, campaniaId:campaniaOt, obs:byId('o_obs').value, estado:'Pendiente', trabajos:nuevos };
   for(var tr2=0;tr2<ot.trabajos.length;tr2++) precargarTarifaRef(ot.trabajos[tr2], campaniaOt);
   espejoLegacy(ot);
   state.ots.push(ot);
@@ -4090,7 +4098,7 @@ function resetOtForm(){
   var submitBtn=byId('otForm').querySelector('button[type=submit]');
   if(submitBtn) submitBtn.textContent='Emitir OT';
   var titulo=byId('otFormTitle'); if(titulo) titulo.textContent='Nueva orden de trabajo';
-  var nm=byId('o_num'); if(nm) nm.textContent='OT #'+(state.nextOt||1);
+  var nm=byId('o_num'); if(nm) nm.textContent='OT #'+proxNumOt();
 }
 /* ================================================================
    LA OT EN 4 VENTANAS (portado de client-src/2026-10-30)
@@ -4197,6 +4205,13 @@ function resumenCambiosOT(ex, camp, nuevos){
 }
 function plantillaConInsumo(){ for(var i=0;i<plantillaTmp.length;i++){ if(plantillaTmp[i].insumoId) return true; } return false; }
 // ¿Hay algo cargado en la pantalla que se perdería?
+// Número que va a tener la próxima OT: el último existente + 1. Con servidor es
+// provisorio (lo asigna POST /api/ordenes-trabajo, que usa el mismo criterio);
+// state.nextOt del cliente no se carga desde la base y quedaba siempre en 1.
+function proxNumOt(){
+  var mx=0; for(var i=0;i<state.ots.length;i++){ var n=Number(state.ots[i].num)||0; if(n>mx) mx=n; }
+  return Math.max(mx+1, _esModoApi() ? 1 : (Number(state.nextOt)||1));
+}
 function otHayCambios(){
   var pant=byId('ot-pantalla'); if(!pant || pant.style.display==='none') return false;
   var enCurso = !!(byId('o_subact') && byId('o_subact').value) || destinosTmp.length>0 || plantillaConInsumo();
@@ -4711,7 +4726,7 @@ function saveOtRapida(){
     dest.lineas.push(x);
   }
   var trId=uid();
-  var ot={id:uid(), num:state.nextOt++, fecha:t.fecha, campaniaId:t.campania, obs:'OT rápida (labor ya realizada)', estado:'Aplicada', rapida:true,
+  var ot={id:uid(), num:proxNumOt(), fecha:t.fecha, campaniaId:t.campania, obs:'OT rápida (labor ya realizada)', estado:'Aplicada', rapida:true,
     trabajos:[{id:trId, laborId:t.laborId, laborTipo:t.laborTipo, contratistaId:t.laborTipo==='LC'?(t.contratistaId||''):'',
       tarifa:(Number(t.tarifa)>0?Number(t.tarifa):''), tarifaMoneda:t.moneda||'ARS', esResiembra:esLaborResiembra(t.laborId, t.laborTipo),
       estadoFact:'Sin facturar', montoFacturado:0, estadoPago:'No', montoPagado:0, plantilla:[], destinos:[dest]}]};
