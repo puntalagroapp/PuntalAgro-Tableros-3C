@@ -629,7 +629,7 @@ footer{padding:10px 24px;border-top:1px solid var(--border);background:var(--car
     </div>
     <button class="btn" onclick="openCierreStock()" title="Conciliar stock teórico vs real al cierre de campaña y registrar ajustes">📋 Cerrar stock</button>
     <button class="btn btn-primary" onclick="exportExcel()">Exportar Excel</button>
-    <a class="hnav-btn" href="index.html#ges">← Menú</a>
+    <a class="hnav-btn" href="index.html#ges" onclick="return otConfirmarSalida()">← Menú</a>
     <button class="hnav-btn" onclick="salir()">Salir</button>
   </div>
 </header>
@@ -2131,6 +2131,7 @@ function fm(v){ if(v==null||isNaN(Number(v))) return '—'; return '$ '+Number(v
 function fd(d){ if(!d) return '—'; var p=String(d).split('-'); if(p.length<3) return d; return p[2]+'/'+p[1]+'/'+p[0].slice(2); }
 function uid(){ return 'x'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36); }
 function salir(){
+  if(!otConfirmarSalida()) return;
   apiPost('/api/auth/logout', null, function(){
     localStorage.removeItem('pa_sesion_activa');
     location.href='login.html';
@@ -2412,6 +2413,11 @@ function refreshWsSelect(){
 // Cambia de empresa activa. Con contexto, recarga el CTX vía pa-core y sincroniza
 // el estado operativo de esa empresa; sin contexto, cae al modo espacio-local.
 function switchWs(id){
+  // Cambiar de empresa con una OT a medio cargar la descarta (sus lotes e insumos son de la otra).
+  if(otHayCambios()){
+    if(!otSalirSinPerder()){ var wsSel=byId('wsSel'); if(wsSel && CTX) wsSel.value=CTX.empresaActivaId; return; }
+    liberarLockOT(); resetOtForm(); otPant={id:null, modo:'nueva', v:1}; mostrarListadoOT();
+  }
   if(CTX && typeof PA!=='undefined'){
     PA.setEmpresaActiva(id, function(err, ctx){
       if(!err && ctx){ CTX=ctx; }
@@ -4206,6 +4212,22 @@ function otHayCambios(){
 function otSalirSinPerder(){
   if(!otHayCambios()) return true;
   return confirm('Hay cambios sin guardar en esta orden.\n\n¿Salir igual y descartarlos?');
+}
+// Salir de la página (← Menú, Salir) con una OT a medio cargar: misma pregunta que
+// el resto del tablero. Si acepta, el aviso del navegador (beforeunload) no se repite.
+var _salidaConfirmada=false;
+function otConfirmarSalida(){
+  if(!otSalirSinPerder()) return false;
+  _salidaConfirmada=true;
+  return true;
+}
+// F5, cerrar la pestaña o escribir otra dirección: el navegador solo permite su
+// propio aviso ("¿Salir del sitio? Es posible que no se guarden los cambios").
+if(typeof window!=='undefined'){
+  window.addEventListener('beforeunload', function(e){
+    if(_salidaConfirmada || !otHayCambios()) return;
+    e.preventDefault(); e.returnValue=''; return '';
+  });
 }
 function otVolverListado(){
   if(!otSalirSinPerder()) return;
