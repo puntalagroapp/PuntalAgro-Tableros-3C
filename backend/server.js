@@ -55,11 +55,11 @@ app.use(cors({
     callback(null, false); // rechazar silenciosamente
   }
 }));
-// La carga desde Excel manda la campaña entera de una vez (OT, movimientos):
-// esas rutas aceptan más que el resto.
+// La carga desde Excel manda la campaña entera de una vez (OT, movimientos) y el
+// mapa de un campo (KML) trae miles de vértices: esas rutas aceptan más que el resto.
 const jsonChico = express.json({ limit: '2mb' });
 const jsonGrande = express.json({ limit: '40mb' });
-app.use((req, res, next) => (req.path.indexOf('/api/carga-excel/') === 0 ? jsonGrande : jsonChico)(req, res, next));
+app.use((req, res, next) => ((req.path.indexOf('/api/carga-excel/') === 0 || req.path === '/api/lotes-geo') ? jsonGrande : jsonChico)(req, res, next));
 
 // ── RATE LIMITING (en memoria, login) ───────────────────────────────────────
 const _loginRateMap = new Map();
@@ -522,10 +522,10 @@ app.get('/api/maestros-empresa/:empresaId', async (req, res) => {
       pool.query(
         filtraCampos
           ? `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha,
-                                       'ambiente',ambiente,'explotable',explotable,'activo',activo,'tipoOverride',tipo_override) AS datos
+                                       'ambiente',ambiente,'explotable',explotable,'activo',activo,'tipoOverride',tipo_override,'geo',geo) AS datos
                FROM lotes WHERE empresa_id = $1 AND campo_id = ANY($2::text[])`
           : `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha,
-                                       'ambiente',ambiente,'explotable',explotable,'activo',activo,'tipoOverride',tipo_override) AS datos
+                                       'ambiente',ambiente,'explotable',explotable,'activo',activo,'tipoOverride',tipo_override,'geo',geo) AS datos
                FROM lotes WHERE empresa_id = $1`,
         filtraCampos ? [empresaId, campoIds] : [empresaId]
       ),
@@ -741,10 +741,10 @@ app.get('/api/maestros/:coleccion', async (req, res) => {
         const r = await pool.query(
           filtraCampos
             ? `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha,
-                                         'ambiente',ambiente,'explotable',explotable,'activo',activo,'tipoOverride',tipo_override) AS datos
+                                         'ambiente',ambiente,'explotable',explotable,'activo',activo,'tipoOverride',tipo_override,'geo',geo) AS datos
                  FROM lotes WHERE empresa_id = $1 AND campo_id = ANY($2::text[]) ORDER BY nombre`
             : `SELECT jsonb_build_object('id',id,'campoId',campo_id,'empresaId',empresa_id,'nombre',nombre,'ha',ha,
-                                         'ambiente',ambiente,'explotable',explotable,'activo',activo,'tipoOverride',tipo_override) AS datos
+                                         'ambiente',ambiente,'explotable',explotable,'activo',activo,'tipoOverride',tipo_override,'geo',geo) AS datos
                  FROM lotes WHERE empresa_id = $1 ORDER BY nombre`,
           filtraCampos ? [empresaId, campoIds] : [empresaId]
         );
@@ -1851,6 +1851,77 @@ app.delete('/api/empresas/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MAPA DE LOTES (KML/KMZ cargado en el Plan de Uso del Suelo)
+// Reemplaza el mapa de UN campo entero: los lotes del campo que no vienen en el
+// pedido quedan sin mapa. lote.geo = [{id, nombre, ha, ring:[[lat,lng],…]}]; un
+// polígono puede estar en varios lotes (mismo id) y un lote tener varios.
+// Mismo permiso que editar lotes en el Plan de Uso, más el campo habilitado.
+// ─────────────────────────────────────────────────────────────────────────────
+function normalizarGeoLote(geo) {
+  if (geo == null) return null;
+  if (!Array.isArray(geo)) throw new Error('geo inválido');
+  const out = [];
+  for (const g of geo) {
+    if (!g || !Array.isArray(g.ring) || g.ring.length < 3) throw new Error('polígono inválido');
+    const ring = g.ring.map(p => {
+      const lat = Number(p && p[0]), lng = Number(p && p[1]);
+      if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) throw new Error('coordenada inválida');
+      return [lat, lng];
+    });
+    out.push({ id: String(g.id || '').slice(0, 120), nombre: String(g.nombre || '').slice(0, 200),
+               ha: isFinite(Number(g.ha)) ? Number(g.ha) : null, ring });
+  }
+  return out.length ? out : null;
+}
+
+app.put('/api/lotes-geo', async (req, res) => {
+  const b = req.body || {};
+  const client = await pool.connect();
+  try {
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    if (!b.empresaId || !b.campoId) return res.status(400).json({ error: 'Falta empresaId o campoId' });
+    if (!Array.isArray(b.lotes)) return res.status(400).json({ error: 'Falta la lista de lotes' });
+    const permiso = await obtenerPermiso(req, b.empresaId);
+    if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    if (!puedeEscribirMaestroEmpresa(sesion, permiso)) return res.status(403).json({ error: 'Tu usuario es de solo lectura: no puede cargar mapas' });
+    const campoIds = permiso.campoIds || [];
+    if (campoIds.length && campoIds.indexOf(b.campoId) === -1) return res.status(403).json({ error: 'No tenés habilitado ese campo' });
+    const campo = await client.query('SELECT 1 FROM campos WHERE id=$1 AND empresa_id=$2', [b.campoId, b.empresaId]);
+    if (!campo.rows.length) return res.status(400).json({ error: 'El campo no es de esta empresa' });
+
+    const lotes = [];
+    try {
+      for (const l of b.lotes) lotes.push({ id: String(l && l.id || ''), geo: normalizarGeoLote(l && l.geo) });
+    } catch (e) {
+      return res.status(400).json({ error: 'El mapa tiene un polígono inválido' });
+    }
+
+    await client.query('BEGIN');
+    await client.query('UPDATE lotes SET geo=NULL WHERE empresa_id=$1 AND campo_id=$2', [b.empresaId, b.campoId]);
+    let conMapa = 0;
+    for (const l of lotes) {
+      if (!l.geo) continue;
+      const r = await client.query('UPDATE lotes SET geo=$3 WHERE id=$1 AND empresa_id=$2 AND campo_id=$4',
+        [l.id, b.empresaId, JSON.stringify(l.geo), b.campoId]);
+      if (r.rowCount !== 1) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Un lote del mapa no pertenece a ese campo. Recargá la página y probá de nuevo.' });
+      }
+      conMapa++;
+    }
+    await client.query('COMMIT');
+    res.json({ status: 'ok', lotesConMapa: conMapa });
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (e) {}
+    console.error('PUT /api/lotes-geo error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
+  }
+});
+
 app.get('/api/campos', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
@@ -2103,15 +2174,25 @@ app.post('/api/carga-excel/plan', async (req, res) => {
       vistosNombre[k] = (vistosNombre[k] || 0) + 1;
       if (vistosNombre[k] > 1) l.nombre = (l.nombre || '').trim() + ' (' + vistosNombre[k] + ')';
     }
+    // El Excel no trae el mapa (KML): se conserva el de cada lote que sigue
+    // existiendo, por id o por campo + nombre.
+    const geoPrev = await client.query(
+      'SELECT id, campo_id, lower(trim(nombre)) AS nom, geo FROM lotes WHERE empresa_id=$1 AND geo IS NOT NULL', [empresaId]);
+    const geoPorId = {}, geoPorNombre = {};
+    for (const g of geoPrev.rows) { geoPorId[g.id] = g.geo; geoPorNombre[g.campo_id + '|' + g.nom] = g.geo; }
     await client.query('DELETE FROM actividades WHERE empresa_id=$1', [empresaId]);
     await client.query('DELETE FROM lotes WHERE empresa_id=$1', [empresaId]);
     for (const l of lotes) {
       const campoIdReal = (l.campoId && campoIdMap[l.campoId]) || l.campoId;
       await client.query(
-        `INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha, ambiente, explotable, activo, tipo_override)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        `INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha, ambiente, explotable, activo, tipo_override, geo)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
         [l.id, campoIdReal || null, empresaId, l.nombre || null, l.ha != null ? l.ha : null,
-         l.ambiente || null, l.explotable != null ? l.explotable : null, l.activo !== false, l.tipoOverride || null]
+         l.ambiente || null, l.explotable != null ? l.explotable : null, l.activo !== false, l.tipoOverride || null,
+         (function () {
+           const g = geoPorId[l.id] || geoPorNombre[(campoIdReal || null) + '|' + String(l.nombre || '').trim().toLowerCase()];
+           return g ? JSON.stringify(g) : null;
+         })()]
       );
     }
     for (const a of actividades) {
