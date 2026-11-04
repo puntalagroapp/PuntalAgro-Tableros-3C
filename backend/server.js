@@ -349,6 +349,34 @@ function destinosAjenos(permiso, trabajos) {
     .map(d => String(d.id || '') + '|' + d.campoId).sort();
 }
 
+// Movimientos y campos habilitados (mismo criterio que renderMovtos() del tablero):
+// un movimiento es "ajeno" si toca algún depósito y ninguno de sus depósitos es
+// de un campo habilitado. Un depósito sin campo (general) lo ve cualquiera.
+// Devuelve null si el usuario no tiene restricción de campos.
+async function depositosAjenos(db, permiso, empresaId) {
+  const campoIds = permiso.campoIds || [];
+  if (!campoIds.length) return null;
+  const r = await db.query(
+    `SELECT id FROM depositos
+      WHERE empresa_id = $1 AND COALESCE(datos->>'campoId', '') <> ''
+        AND NOT (datos->>'campoId' = ANY($2::text[]))`,
+    [empresaId, campoIds]);
+  return new Set(r.rows.map(x => x.id));
+}
+function lineaAjena(ajenos, origenId, destinoId) {
+  if (!ajenos || (!origenId && !destinoId)) return false;
+  const visO = origenId && !ajenos.has(origenId), visD = destinoId && !ajenos.has(destinoId);
+  return !visO && !visD;
+}
+const MSG_COMP_AJENO = 'El comprobante tiene movimientos de depósitos de campos que tu usuario no tiene habilitados';
+async function comprobanteTieneAjenos(db, ajenos, compId, empresaId) {
+  if (!ajenos) return false;
+  const r = await db.query(
+    `SELECT origen_deposito_id AS o, destino_deposito_id AS d FROM movimientos WHERE comprobante_id=$1 AND empresa_id=$2`,
+    [compId, empresaId]);
+  return r.rows.some(x => lineaAjena(ajenos, x.o, x.d));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // LOCKING PESIMISTA DE REGISTROS
 // Evita que dos usuarios de la MISMA empresa pisen el mismo registro editando
@@ -2091,14 +2119,13 @@ app.post('/api/carga-excel/plan', async (req, res) => {
   const client = await pool.connect();
   try {
     const sesion = await obtenerSesion(req);
-    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
+    if (!sesion) { return res.status(401).json({ error: 'No autenticado' }); }
     if (sesion.rol !== 'admin_general' && sesion.rol !== 'admin_cliente') {
-      client.release();
       return res.status(403).json({ error: 'La carga masiva desde Excel la hace un administrador' });
     }
-    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    if (!empresaId) { return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
-    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!permiso) { return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
 
     const campos = b.campos || [];
     const lotes = b.lotes || [];
@@ -2601,12 +2628,12 @@ app.post('/api/ordenes-trabajo', async (req, res) => {
   const client = await pool.connect();
   try {
     const sesion = await obtenerSesion(req);
-    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
-    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    if (!sesion) { return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
-    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
-    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
-    if (destinosAjenos(permiso, o.trabajos).length) { client.release(); return res.status(403).json({ error: 'La OT tiene lotes de campos que tu usuario no tiene habilitados' }); }
+    if (!permiso) { return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
+    if (destinosAjenos(permiso, o.trabajos).length) { return res.status(403).json({ error: 'La OT tiene lotes de campos que tu usuario no tiene habilitados' }); }
 
     await client.query('BEGIN');
     await client.query(
@@ -2650,19 +2677,19 @@ app.put('/api/ordenes-trabajo/:id', async (req, res) => {
   const client = await pool.connect();
   try {
     const sesion = await obtenerSesion(req);
-    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
-    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    if (!sesion) { return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
-    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
-    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
+    if (!permiso) { return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
     const bloqueo = await verificarLockPropio('ordenes_trabajo', req.params.id, sesion);
-    if (bloqueo) { client.release(); return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre }); }
+    if (bloqueo) { return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre }); }
     if ((permiso.campoIds || []).length) {
       // Los lotes de campos ajenos de una OT mixta tienen que llegar los mismos que estaban.
       const previos = await trabajosGuardadosDeOt(client, req.params.id, empresaId);
       if (!otVisibleParaPermiso(permiso, previos) ||
           destinosAjenos(permiso, previos).join(',') !== destinosAjenos(permiso, o.trabajos).join(',')) {
-        client.release(); return res.status(403).json({ error: 'La OT tiene lotes de campos que tu usuario no tiene habilitados' });
+        return res.status(403).json({ error: 'La OT tiene lotes de campos que tu usuario no tiene habilitados' });
       }
     }
 
@@ -2753,7 +2780,16 @@ app.get('/api/comprobantes', async (req, res) => {
     for (const m of movs.rows) {
       (lineasPorComp[m.comprobanteId] = lineasPorComp[m.comprobanteId] || []).push(m);
     }
-    res.json(comps.rows.map(c => ({ ...c, lineas: lineasPorComp[c.id] || [] })));
+    // Usuario con campos restringidos: los comprobantes cuyos movimientos son todos de
+    // depósitos de otros campos viajan sin proveedor, número ni observaciones. Las líneas
+    // (insumo, cantidad, precio, fecha) hacen falta igual: el precio promedio de cada
+    // insumo es de toda la empresa. La pantalla no muestra esos movimientos.
+    const ajenos = await depositosAjenos(pool, permiso, empresaId);
+    res.json(comps.rows.map(c => {
+      const lineas = lineasPorComp[c.id] || [];
+      const oculto = ajenos && lineas.length && lineas.every(l => lineaAjena(ajenos, l.origenId, l.destinoId));
+      return oculto ? { ...c, proveedorId: null, compNro: null, obs: null, lineas } : { ...c, lineas };
+    }));
   } catch (err) {
     console.error('/api/comprobantes GET error:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -2792,14 +2828,17 @@ app.post('/api/comprobantes', async (req, res) => {
   const client = await pool.connect();
   try {
     const sesion = await obtenerSesion(req);
-    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
-    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    if (!sesion) { return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
-    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
-    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
+    if (!permiso) { return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
+
+    const ajenosPost = await depositosAjenos(client, permiso, empresaId);
+    if ((c.lineas || []).some(l => lineaAjena(ajenosPost, l.origenId, l.destinoId))) { return res.status(403).json({ error: MSG_COMP_AJENO }); }
 
     const fcPost = await fechaCierreStock(client, empresaId);
-    if (fcPost && c.fecha && String(c.fecha).slice(0, 10) <= fcPost) { client.release(); return res.status(409).json({ error: msgCierre(fcPost) }); }
+    if (fcPost && c.fecha && String(c.fecha).slice(0, 10) <= fcPost) { return res.status(409).json({ error: msgCierre(fcPost) }); }
 
     const id = c.id || ('comp_' + Date.now());
     await client.query('BEGIN');
@@ -2827,18 +2866,25 @@ app.put('/api/comprobantes/:id', async (req, res) => {
   const client = await pool.connect();
   try {
     const sesion = await obtenerSesion(req);
-    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
-    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    if (!sesion) { return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
-    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
-    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { client.release(); return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
+    if (!permiso) { return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
     const bloqueo = await verificarLockPropio('comprobantes', req.params.id, sesion);
-    if (bloqueo) { client.release(); return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre }); }
+    if (bloqueo) { return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre }); }
+    // Un comprobante con movimientos de otros campos le llega sin proveedor/número/obs:
+    // guardarlo los borraría. Tampoco se pueden agregar movimientos a esos depósitos.
+    const ajenosPut = await depositosAjenos(client, permiso, empresaId);
+    if ((c.lineas || []).some(l => lineaAjena(ajenosPut, l.origenId, l.destinoId)) ||
+        await comprobanteTieneAjenos(client, ajenosPut, req.params.id, empresaId)) {
+      return res.status(403).json({ error: MSG_COMP_AJENO });
+    }
     const fcPut = await fechaCierreStock(client, empresaId);
     if (fcPut) {
       const ant = await client.query(`SELECT to_char(fecha,'YYYY-MM-DD') AS f FROM comprobantes WHERE id=$1 AND empresa_id=$2`, [req.params.id, empresaId]);
       const fAnt = ant.rows[0] ? ant.rows[0].f : null;
-      if ((fAnt && fAnt <= fcPut) || (c.fecha && String(c.fecha).slice(0, 10) <= fcPut)) { client.release(); return res.status(409).json({ error: msgCierre(fcPut) }); }
+      if ((fAnt && fAnt <= fcPut) || (c.fecha && String(c.fecha).slice(0, 10) <= fcPut)) { return res.status(409).json({ error: msgCierre(fcPut) }); }
     }
 
     await client.query('BEGIN');
@@ -2873,6 +2919,9 @@ app.delete('/api/comprobantes/:id', async (req, res) => {
     const bloqueo = await verificarLockPropio('comprobantes', req.params.id, sesion);
     if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
 
+    if (await comprobanteTieneAjenos(pool, await depositosAjenos(pool, permiso, empresaId), req.params.id, empresaId)) {
+      return res.status(403).json({ error: MSG_COMP_AJENO });
+    }
     const fcDel = await fechaCierreStock(pool, empresaId);
     if (fcDel) {
       const ant = await pool.query(`SELECT to_char(fecha,'YYYY-MM-DD') AS f FROM comprobantes WHERE id=$1 AND empresa_id=$2`, [req.params.id, empresaId]);
@@ -2911,11 +2960,11 @@ app.delete('/api/insumos-ot/datos', async (req, res) => {
   const client = await pool.connect();
   try {
     const sesion = await obtenerSesion(req);
-    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
-    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    if (!sesion) { return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
-    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
-    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { client.release(); return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
+    if (!permiso) { return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
     await client.query('BEGIN');
     const n = await borrarOperativoInsumosOt(client, empresaId);
     await client.query('COMMIT');
@@ -2943,14 +2992,13 @@ app.post('/api/carga-excel/registro', async (req, res) => {
   const client = await pool.connect();
   try {
     const sesion = await obtenerSesion(req);
-    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
+    if (!sesion) { return res.status(401).json({ error: 'No autenticado' }); }
     if (sesion.rol !== 'admin_general' && sesion.rol !== 'admin_cliente') {
-      client.release();
       return res.status(403).json({ error: 'La carga masiva desde Excel la hace un administrador' });
     }
-    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    if (!empresaId) { return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
-    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!permiso) { return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
 
     const arr = x => (Array.isArray(x) ? x : []);
     const labores = arr(b.labores), unidades = arr(b.unidades), insumos = arr(b.insumos);
@@ -3100,21 +3148,20 @@ app.post('/api/cierres-stock', async (req, res) => {
   const client = await pool.connect();
   try {
     const sesion = await obtenerSesion(req);
-    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
-    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    if (!sesion) { return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
-    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
-    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { client.release(); return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
+    if (!permiso) { return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
     const fecha = String(b.fecha || '').slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { client.release(); return res.status(400).json({ error: 'Falta la fecha del cierre' }); }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { return res.status(400).json({ error: 'Falta la fecha del cierre' }); }
 
     await client.query('BEGIN');
     // Serializa cierres concurrentes de la misma empresa.
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['cierre_stock:' + empresaId]);
     const fc = await fechaCierreStock(client, empresaId);
     if (fc && fecha <= fc) {
-      await client.query('ROLLBACK'); client.release();
-      return res.status(409).json({ error: 'La fecha tiene que ser posterior al último cierre (' + fc + ').' });
+      await client.query('ROLLBACK'); return res.status(409).json({ error: 'La fecha tiene que ser posterior al último cierre (' + fc + ').' });
     }
     const comps = Array.isArray(b.comprobantes) ? b.comprobantes : [];
     const compIds = [];
@@ -3151,19 +3198,18 @@ app.delete('/api/cierres-stock/:id', async (req, res) => {
   const client = await pool.connect();
   try {
     const sesion = await obtenerSesion(req);
-    if (!sesion) { client.release(); return res.status(401).json({ error: 'No autenticado' }); }
-    if (!empresaId) { client.release(); return res.status(400).json({ error: 'Falta empresaId' }); }
+    if (!sesion) { return res.status(401).json({ error: 'No autenticado' }); }
+    if (!empresaId) { return res.status(400).json({ error: 'Falta empresaId' }); }
     const permiso = await obtenerPermiso(req, empresaId);
-    if (!permiso) { client.release(); return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
-    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { client.release(); return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
+    if (!permiso) { return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
+    if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'administrar')) { return res.status(403).json({ error: 'Esta acción requiere permiso de administrar.' }); }
 
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['cierre_stock:' + empresaId]);
     const ult = await client.query(
       `SELECT id, comp_ids FROM cierres_stock WHERE empresa_id=$1 ORDER BY fecha DESC LIMIT 1`, [empresaId]);
     if (!ult.rows.length || ult.rows[0].id !== req.params.id) {
-      await client.query('ROLLBACK'); client.release();
-      return res.status(409).json({ error: 'Solo se puede anular el último cierre de stock.' });
+      await client.query('ROLLBACK'); return res.status(409).json({ error: 'Solo se puede anular el último cierre de stock.' });
     }
     const ids = ult.rows[0].comp_ids || [];
     if (ids.length) await client.query('DELETE FROM comprobantes WHERE empresa_id=$1 AND id = ANY($2)', [empresaId, ids]);
