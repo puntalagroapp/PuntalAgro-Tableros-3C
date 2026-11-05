@@ -2618,6 +2618,9 @@ function comprometido(){
     if(!por[co.insumoId][dq]) por[co.insumoId][dq]={cant:0, ots:{}};
     por[co.insumoId][dq].cant+=cc; por[co.insumoId][dq].otros=true;
   }
+  // Redondeo a 6 decimales: el total de otros campos llega sumado en otro orden y el
+  // ruido de punto flotante (3,3150000000000004 vs 3,315) cambiaba el 2º decimal en pantalla.
+  for(var ri in por) for(var rd in por[ri]) por[ri][rd].cant=Math.round(por[ri][rd].cant*1e6)/1e6;
   var val={por:por, nOts:nOts};
   _compCache={key:key, st:state, refs:refsActuales(), val:val};
   return val;
