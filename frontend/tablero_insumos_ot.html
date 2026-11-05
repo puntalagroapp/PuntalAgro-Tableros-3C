@@ -1310,6 +1310,7 @@ function syncRootConContexto(empresaId, nombreEmpresa, callback){
   if (!_esModoApi() || !empresaId) { saveRoot(); if(callback) callback(); return; }
   // Modo API: OTs/comprobantes/config vienen de sus propias tablas, no del blob.
   cargarOTsApi(function(){
+   cargarCompOtrosApi(function(){
     cargarComprobantesApi(function(){
       cargarConfigOperativaApi(function(){
         cargarTarifasRefApi(function(){
@@ -1319,6 +1320,22 @@ function syncRootConContexto(empresaId, nombreEmpresa, callback){
         });
       });
     });
+   });
+  });
+}
+
+// Stock que reservan OT pendientes de campos que este usuario no tiene habilitados,
+// en los depósitos que sí ve: [{insumoId, depositoId, cant}]. Lo manda el servidor
+// ya sumado, sin número de OT ni lotes; comprometido() lo agrega como "otros campos".
+// Vacío si el usuario ve todos los campos (ahí recibe todas las OT).
+// N_OTS_OTROS: cuántas de esas OT tienen pendientes (indicador "OT con pendientes").
+var COMP_OTROS=[], N_OTS_OTROS=0;
+function cargarCompOtrosApi(callback){
+  apiGet('/api/ordenes-trabajo/comprometido-otros-campos?empresaId='+encodeURIComponent(CTX.empresaActivaId), function(err, data){
+    if(err){ console.error('Error cargando comprometido de otros campos:', err); COMP_OTROS=[]; N_OTS_OTROS=0; }
+    else { COMP_OTROS=(data&&data.lineas)||[]; N_OTS_OTROS=(data&&Number(data.nOts))||0; }
+    DATA_VER++;   // invalida el comprometido cacheado
+    if(callback) callback();
   });
 }
 
@@ -2594,6 +2611,16 @@ function comprometido(){
     }
     if(tiene) nOts++;
   }
+  for(var q=0;q<COMP_OTROS.length;q++){
+    var co=COMP_OTROS[q], cc=Number(co.cant)||0; if(!co.insumoId || cc<=0) continue;
+    var dq=co.depositoId||DEP_SIN;
+    if(!por[co.insumoId]) por[co.insumoId]={};
+    if(!por[co.insumoId][dq]) por[co.insumoId][dq]={cant:0, ots:{}};
+    por[co.insumoId][dq].cant+=cc; por[co.insumoId][dq].otros=true;
+  }
+  // Redondeo a 6 decimales: el total de otros campos llega sumado en otro orden y el
+  // ruido de punto flotante (3,3150000000000004 vs 3,315) cambiaba el 2º decimal en pantalla.
+  for(var ri in por) for(var rd in por[ri]) por[ri][rd].cant=Math.round(por[ri][rd].cant*1e6)/1e6;
   var val={por:por, nOts:nOts};
   _compCache={key:key, st:state, refs:refsActuales(), val:val};
   return val;
@@ -2605,7 +2632,7 @@ function stockDe(insId, depId, w){
   var cp=(C.por[insId]&&C.por[insId][depId])||{cant:0, ots:{}};
   var real=x.ini+x.ent-x.sal;
   var ots=[]; for(var n in cp.ots){ if(cp.ots.hasOwnProperty(n)) ots.push(Number(n)); } ots.sort(function(a,b){return a-b;});
-  return {ini:x.ini, ent:x.ent, sal:x.sal, real:real, comp:cp.cant, disp:real-cp.cant, ots:ots};
+  return {ini:x.ini, ent:x.ent, sal:x.sal, real:real, comp:cp.cant, disp:real-cp.cant, ots:ots, otros:!!cp.otros};
 }
 function stockHoy(insId, depId){ return stockDe(insId, depId, WIN_TODO); }
 // Depósitos (ids) con algún dato del insumo en la ventana: saldo, movimiento o compromiso.
@@ -2862,7 +2889,7 @@ function renderStock(){
     var ins=state.insumos[k];
     if(fcat && ins.cat!==fcat) continue;
     if(q && ins.nombre.toLowerCase().indexOf(q)<0) continue;
-    var deps=depsDeInsumo(ins.id), filas=[], t={ini:0,ent:0,sal:0,real:0,comp:0,disp:0}, peor={t:'OK',b:'bg',r:1}, campos={}, otsSet={};
+    var deps=depsDeInsumo(ins.id), filas=[], t={ini:0,ent:0,sal:0,real:0,comp:0,disp:0}, peor={t:'OK',b:'bg',r:1}, campos={}, otsSet={}, otrosAny=false;
     for(var di=0;di<deps.length;di++){
       var depId=deps[di], depObj=depId===DEP_SIN?null:getDepositoById(depId);
       var campoId=depObj?depObj.campoId:'';
@@ -2874,12 +2901,13 @@ function renderStock(){
       t.ini+=s.ini; t.ent+=s.ent; t.sal+=s.sal; t.real+=s.real; t.comp+=s.comp; t.disp+=s.disp;
       campos[campoId||'__gen__']=true;
       for(var on=0;on<s.ots.length;on++) otsSet[s.ots[on]]=true;
+      if(s.otros) otrosAny=true;
       if(e.r>peor.r) peor=e;
     }
     if(!filas.length) continue;
     var nCampos=0; for(var cc in campos){ if(campos.hasOwnProperty(cc)) nCampos++; }
     var ots=[]; for(var o2 in otsSet){ if(otsSet.hasOwnProperty(o2)) ots.push(Number(o2)); } ots.sort(function(a,b){return a-b;});
-    filtrados.push({ins:ins, filas:filas, t:t, e:peor, nCampos:nCampos, ots:ots});
+    filtrados.push({ins:ins, filas:filas, t:t, e:peor, nCampos:nCampos, ots:ots, otros:otrosAny});
     tot.n++;
     if(peor.t==='OK') tot.ok++; else if(peor.t==='Falta p/ OT') tot.falta++; else if(peor.t==='Agotado') tot.agot++; else tot.neg++;
   }
@@ -2893,7 +2921,11 @@ function renderStock(){
     if(!dep) return '<span class="bdg bf" title="El depósito ya no existe">(depósito eliminado)</span>';
     return esc(dep.nombre)+(dep.local?' <span class="bdg by" title="Este depósito ya no está en Maestros. Trasladá el saldo a uno vigente.">no está en Maestros</span>':'');
   }
-  function compTxt(v, ots){ return v>0 ? '<span title="OT pendientes: #'+ots.join(', #')+'">'+f(v,2)+'</span>' : fCant(0); }
+  function compTxt(v, ots, otros){
+    if(!(v>0)) return fCant(0);
+    var tit=(ots.length?'OT pendientes: #'+ots.join(', #'):'')+(otros?(ots.length?' y OT de otros campos':'OT pendientes de otros campos'):'');
+    return '<span title="'+tit+'">'+f(v,2)+'</span>';
+  }
   function dispTxt(v){ return v<-1e-9 ? '<strong style="color:var(--bad)">'+f(v,2)+'</strong>' : '<strong>'+f(v,2)+'</strong>'; }
   var grupos=[], gIndex={};
   for(var r=0;r<filtrados.length;r++){
@@ -2915,14 +2947,14 @@ function renderStock(){
       rows+='<tr class="stk-row-main'+(multi?' stk-clickable':'')+'"'+(multi?' onclick="toggleStockIns(\''+y.ins.id+'\')"':'')+'>'+
         '<td class="tdname">'+flecha+esc(y.ins.nombre)+(y.ins.inactivo?' <span class="bdg by">inactivo</span>':'')+(y.ins.local?' <span class="bdg by">no está en Maestros</span>':'')+'</td><td>'+esc(y.ins.un)+'</td>'+
         '<td class="num">'+fCant(y.t.ini)+'</td><td class="num">'+fCant(y.t.ent)+'</td><td class="num">'+fCant(y.t.sal)+'</td>'+
-        '<td class="num"><strong>'+f(y.t.real,2)+'</strong></td><td class="num">'+compTxt(y.t.comp, y.ots)+'</td><td class="num">'+dispTxt(y.t.disp)+'</td>'+
+        '<td class="num"><strong>'+f(y.t.real,2)+'</strong></td><td class="num">'+compTxt(y.t.comp, y.ots, y.otros)+'</td><td class="num">'+dispTxt(y.t.disp)+'</td>'+
         '<td class="tdname">'+depLbl+'</td><td class="tdname">'+campoLbl+'</td><td><span class="bdg '+y.e.b+'">'+y.e.t+'</span></td></tr>';
       if(multi && abierto){
         for(var sd2=0;sd2<y.filas.length;sd2++){
           var z=y.filas[sd2];
           rows+='<tr class="stk-row-sub"><td class="tdname stk-sub-name">↳ '+esc(getDepNombre(z.depId))+'</td><td>'+esc(y.ins.un)+'</td>'+
             '<td class="num">'+fCant(z.s.ini)+'</td><td class="num">'+fCant(z.s.ent)+'</td><td class="num">'+fCant(z.s.sal)+'</td>'+
-            '<td class="num">'+f(z.s.real,2)+'</td><td class="num">'+compTxt(z.s.comp, z.s.ots)+'</td><td class="num">'+dispTxt(z.s.disp)+'</td>'+
+            '<td class="num">'+f(z.s.real,2)+'</td><td class="num">'+compTxt(z.s.comp, z.s.ots, z.s.otros)+'</td><td class="num">'+dispTxt(z.s.disp)+'</td>'+
             '<td class="tdname">'+depTxt(z.depId, z.dep)+'</td><td class="tdname">'+campoTxt(z.campoId)+'</td><td><span class="bdg '+z.e.b+'">'+z.e.t+'</span></td></tr>';
         }
       }
@@ -2945,7 +2977,8 @@ function renderStock(){
     '<div class="kpi '+(tot.falta>0?'kpi-attention':'kpi-neutral')+'"><div class="kpi-lbl">Falta para OT</div><div class="kpi-val">'+tot.falta+'</div></div>'+
     '<div class="kpi '+(tot.agot>0?'kpi-attention':'kpi-neutral')+'"><div class="kpi-lbl">Agotados</div><div class="kpi-val">'+tot.agot+'</div></div>'+
     '<div class="kpi '+(tot.neg>0?'kpi-attention':'kpi-neutral')+'"><div class="kpi-lbl">Negativos</div><div class="kpi-val">'+tot.neg+'</div></div>'+
-    '<div class="kpi kpi-neutral"><div class="kpi-lbl">OT con pendientes</div><div class="kpi-val">'+C.nOts+'</div></div>';
+    '<div class="kpi kpi-neutral"><div class="kpi-lbl">OT con pendientes</div><div class="kpi-val">'+C.nOts+
+      (N_OTS_OTROS>0?' <span style="font-size:.55em;font-weight:500;opacity:.75">(+'+N_OTS_OTROS+' de otros campos)</span>':'')+'</div></div>';
   marcarFiltrosActivos(['stockSearch','stockCampoFilter','stockCatFilter','stockDepFilter','stockEstadoFilter'],'stockClearBtn');
 }
 // Ajustes y bajas (lo que sale o entra sin ir a un lote) dentro de la ventana, valorizados.
