@@ -1328,11 +1328,12 @@ function syncRootConContexto(empresaId, nombreEmpresa, callback){
 // en los depósitos que sí ve: [{insumoId, depositoId, cant}]. Lo manda el servidor
 // ya sumado, sin número de OT ni lotes; comprometido() lo agrega como "otros campos".
 // Vacío si el usuario ve todos los campos (ahí recibe todas las OT).
-var COMP_OTROS=[];
+// N_OTS_OTROS: cuántas de esas OT tienen pendientes (indicador "OT con pendientes").
+var COMP_OTROS=[], N_OTS_OTROS=0;
 function cargarCompOtrosApi(callback){
   apiGet('/api/ordenes-trabajo/comprometido-otros-campos?empresaId='+encodeURIComponent(CTX.empresaActivaId), function(err, data){
-    if(err){ console.error('Error cargando comprometido de otros campos:', err); COMP_OTROS=[]; }
-    else COMP_OTROS=data||[];
+    if(err){ console.error('Error cargando comprometido de otros campos:', err); COMP_OTROS=[]; N_OTS_OTROS=0; }
+    else { COMP_OTROS=(data&&data.lineas)||[]; N_OTS_OTROS=(data&&Number(data.nOts))||0; }
     DATA_VER++;   // invalida el comprometido cacheado
     if(callback) callback();
   });
@@ -2973,7 +2974,8 @@ function renderStock(){
     '<div class="kpi '+(tot.falta>0?'kpi-attention':'kpi-neutral')+'"><div class="kpi-lbl">Falta para OT</div><div class="kpi-val">'+tot.falta+'</div></div>'+
     '<div class="kpi '+(tot.agot>0?'kpi-attention':'kpi-neutral')+'"><div class="kpi-lbl">Agotados</div><div class="kpi-val">'+tot.agot+'</div></div>'+
     '<div class="kpi '+(tot.neg>0?'kpi-attention':'kpi-neutral')+'"><div class="kpi-lbl">Negativos</div><div class="kpi-val">'+tot.neg+'</div></div>'+
-    '<div class="kpi kpi-neutral"><div class="kpi-lbl">OT con pendientes</div><div class="kpi-val">'+C.nOts+'</div></div>';
+    '<div class="kpi kpi-neutral"><div class="kpi-lbl">OT con pendientes</div><div class="kpi-val">'+C.nOts+
+      (N_OTS_OTROS>0?' <span style="font-size:.55em;font-weight:500;opacity:.75">(+'+N_OTS_OTROS+' de otros campos)</span>':'')+'</div></div>';
   marcarFiltrosActivos(['stockSearch','stockCampoFilter','stockCatFilter','stockDepFilter','stockEstadoFilter'],'stockClearBtn');
 }
 // Ajustes y bajas (lo que sale o entra sin ir a un lote) dentro de la ventana, valorizados.

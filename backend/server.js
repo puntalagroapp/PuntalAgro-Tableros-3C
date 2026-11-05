@@ -2628,6 +2628,9 @@ app.get('/api/ordenes-trabajo', async (req, res) => {
 // mandan solo los totales por insumo y depósito, sin número de OT ni lotes. Misma
 // cuenta que comprometido() del tablero: lotes no aplicados de OT no canceladas,
 // dosis × ha (o la dosis sola si el destino es una unidad de negocio).
+// Respuesta: { lineas: [{insumoId, depositoId, cant}], nOts } — nOts es cuántas de
+// esas OT tienen pendientes (en cualquier depósito), para el indicador "OT con
+// pendientes": propias + otros campos = el total del administrador.
 app.get('/api/ordenes-trabajo/comprometido-otros-campos', async (req, res) => {
   try {
     const sesion = await obtenerSesion(req);
@@ -2638,7 +2641,7 @@ app.get('/api/ordenes-trabajo/comprometido-otros-campos', async (req, res) => {
     if (!permiso) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
     if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'ver')) return res.status(403).json({ error: 'Tu usuario no tiene acceso a Registro de Labores e Insumos' });
     const ajenos = await depositosAjenos(pool, permiso, empresaId);
-    if (!ajenos) return res.json([]); // sin restricción de campos: ya recibe todas las OT
+    if (!ajenos) return res.json({ lineas: [], nOts: 0 }); // sin restricción de campos: ya recibe todas las OT
 
     const ots = await pool.query(
       `SELECT id FROM ordenes_trabajo WHERE empresa_id = $1 AND estado <> 'Cancelada'`, [empresaId]);
@@ -2647,9 +2650,11 @@ app.get('/api/ordenes-trabajo/comprometido-otros-campos', async (req, res) => {
     const porOt = {};
     for (const t of trs.rows) (porOt[t.ot_id] = porOt[t.ot_id] || []).push({ destinos: t.destinos });
     const tot = {};
+    let nOts = 0;
     for (const o of ots.rows) {
       const trabajos = porOt[o.id] || [];
       if (otVisibleParaPermiso(permiso, trabajos)) continue; // esa OT ya le llega entera
+      let tiene = false;
       for (const de of destinosDeTrabajos(trabajos)) {
         if (de.estadoLote === 'Aplicado') continue;
         const esUN = String(de.loteId || '').indexOf('UN:') === 0;
@@ -2657,17 +2662,22 @@ app.get('/api/ordenes-trabajo/comprometido-otros-campos', async (req, res) => {
           if (!ln || !ln.insumoId) continue;
           const cant = esUN ? (Number(ln.dosis) || 0) : (Number(ln.dosis) || 0) * (Number(de.ha) || 0);
           if (!(cant > 0)) continue;
+          tiene = true;
           const dep = ln.depositoId || '__sin__';
           if (ajenos.has(dep)) continue; // depósito de otro campo: el usuario no lo ve
           const k = ln.insumoId + '|' + dep;
           tot[k] = (tot[k] || 0) + cant;
         }
       }
+      if (tiene) nOts++;
     }
-    res.json(Object.keys(tot).map(k => {
-      const i = k.indexOf('|');
-      return { insumoId: k.slice(0, i), depositoId: k.slice(i + 1), cant: tot[k] };
-    }));
+    res.json({
+      lineas: Object.keys(tot).map(k => {
+        const i = k.indexOf('|');
+        return { insumoId: k.slice(0, i), depositoId: k.slice(i + 1), cant: tot[k] };
+      }),
+      nOts: nOts
+    });
   } catch (err) {
     console.error('/api/ordenes-trabajo/comprometido-otros-campos GET error:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
