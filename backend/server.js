@@ -232,9 +232,32 @@ const FK_ERROR_MESSAGES = {
   'empresas_cliente_id_fkey': 'No se puede borrar: el cliente tiene empresas asociadas',
   'usuarios_cliente_id_fkey': 'No se puede borrar: el cliente tiene usuarios asociados',
   'comprobantes_ref_ot_trabajo_empresa_id_fkey': 'No se puede borrar: ya generó movimientos de stock (comprobantes)',
+  'ot_destino_lineas_insumo_fk':    'No se puede borrar: el insumo está usado en órdenes de trabajo',
+  'ot_plantilla_insumo_fk':         'No se puede borrar: el insumo está usado en órdenes de trabajo',
+  'ot_destino_lineas_deposito_fk':  'No se puede borrar: el depósito está usado en órdenes de trabajo',
+  'ot_plantilla_deposito_fk':       'No se puede borrar: el depósito está usado en órdenes de trabajo',
+  'movimientos_insumo_id_empresa_id_fkey':           'No se puede borrar: el insumo tiene movimientos de stock',
+  'movimientos_origen_deposito_id_empresa_id_fkey':  'No se puede borrar: el depósito tiene movimientos de stock',
+  'movimientos_destino_deposito_id_empresa_id_fkey': 'No se puede borrar: el depósito tiene movimientos de stock',
+  'ot_destinos_campo_fk':           'No se puede borrar: el campo tiene órdenes de trabajo',
+  'depositos_campo_fk':             'No se puede borrar: el campo tiene depósitos',
+  'depositos_especie_fk':           'No se puede borrar: hay depósitos de granos de esa especie',
+};
+// Mismo código de error (23503) cuando lo que se guarda apunta a algo que no existe.
+const FK_FALTANTE_MESSAGES = {
+  'ot_destino_lineas_insumo_fk':   'La OT usa un insumo que ya no existe',
+  'ot_plantilla_insumo_fk':        'La OT usa un insumo que ya no existe',
+  'ot_destino_lineas_deposito_fk': 'La OT usa un depósito que ya no existe',
+  'ot_plantilla_deposito_fk':      'La OT usa un depósito que ya no existe',
+  'ot_destinos_campo_fk':          'La OT tiene un lote de un campo que ya no existe',
+  'depositos_campo_fk':            'El campo elegido para el depósito ya no existe',
+  'depositos_especie_fk':          'La especie elegida para el depósito ya no existe',
 };
 function fkViolation(err) {
   if (err.code !== '23503') return null;
+  if (/is not present in table/.test(err.detail || '')) {
+    return FK_FALTANTE_MESSAGES[err.constraint] || 'Hace referencia a un registro que ya no existe';
+  }
   return FK_ERROR_MESSAGES[err.constraint] || 'No se puede borrar: tiene registros asociados';
 }
 
@@ -341,8 +364,12 @@ function otVisibleParaPermiso(permiso, trabajos) {
 }
 // ids de los lotes de la OT que son de campos NO habilitados (para comparar antes/después)
 async function trabajosGuardadosDeOt(db, otId, empresaId) {
-  const r = await db.query('SELECT destinos FROM ot_trabajos WHERE ot_id=$1 AND empresa_id=$2', [otId, empresaId]);
-  return r.rows;
+  // Solo hace falta id y campo de cada lote (ver destinosAjenos/otVisibleParaPermiso).
+  const r = await db.query(
+    `SELECT d.id, d.campo_id AS "campoId"
+       FROM ot_destinos d JOIN ot_trabajos t ON t.id = d.trabajo_id AND t.empresa_id = d.empresa_id
+      WHERE t.ot_id = $1 AND t.empresa_id = $2`, [otId, empresaId]);
+  return [{ destinos: r.rows }];
 }
 function destinosAjenos(permiso, trabajos) {
   return destinosDeTrabajos(trabajos).filter(d => !campoHabilitado(permiso, d.campoId))
@@ -358,8 +385,8 @@ async function depositosAjenos(db, permiso, empresaId) {
   if (!campoIds.length) return null;
   const r = await db.query(
     `SELECT id FROM depositos
-      WHERE empresa_id = $1 AND COALESCE(datos->>'campoId', '') <> ''
-        AND NOT (datos->>'campoId' = ANY($2::text[]))`,
+      WHERE empresa_id = $1 AND campo_id IS NOT NULL
+        AND NOT (campo_id = ANY($2::text[]))`,
     [empresaId, campoIds]);
   return new Set(r.rows.map(x => x.id));
 }
@@ -415,6 +442,21 @@ pool.query(`
 // Define qué tablas acepta el endpoint genérico /api/maestros/:coleccion.
 // porEmpresa = true  → los registros llevan empresa_id; se filtra al leer.
 // ─────────────────────────────────────────────────────────────────────────────
+// Depósitos: columnas propias (migración 022). Se arma el mismo objeto que
+// antes guardaba datos JSONB, que es lo que esperan pa-core y los tableros.
+const SQL_DEPOSITO_DATOS = `jsonb_build_object('id',id,'empresaId',empresa_id,'campoId',campo_id,'nombre',nombre,
+                                               'clase',clase,'especieId',especie_id,'activo',activo)`;
+async function guardarDeposito(db, obj) {
+  await db.query(
+    `INSERT INTO depositos (id, empresa_id, nombre, clase, campo_id, especie_id, activo)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (id, empresa_id) DO UPDATE
+       SET nombre=$3, clase=$4, campo_id=$5, especie_id=$6, activo=$7`,
+    [obj.id, obj.empresaId, String(obj.nombre || '').trim(), obj.clase === 'granos' ? 'granos' : 'insumos',
+     obj.campoId || null, obj.especieId || null, obj.activo !== false]
+  );
+}
+
 const COLECCIONES = {
   'terceros':          { tabla: 'terceros',          porEmpresa: true  },
   'choferes':          { tabla: 'choferes',          porEmpresa: true  },
@@ -571,7 +613,7 @@ app.get('/api/maestros-empresa/:empresaId', async (req, res) => {
       ),
       pool.query('SELECT datos FROM terceros        WHERE empresa_id = $1', [empresaId]),
       pool.query('SELECT datos FROM choferes        WHERE empresa_id = $1', [empresaId]),
-      pool.query('SELECT datos FROM depositos       WHERE empresa_id = $1', [empresaId]),
+      pool.query(`SELECT ${SQL_DEPOSITO_DATOS} AS datos FROM depositos WHERE empresa_id = $1`, [empresaId]),
       pool.query('SELECT datos FROM insumos         WHERE empresa_id = $1', [empresaId]),
       pool.query('SELECT datos FROM tipos_actividad WHERE empresa_id = $1', [empresaId]),
       pool.query('SELECT datos FROM ambientes       WHERE empresa_id = $1', [empresaId]),
@@ -824,9 +866,9 @@ app.get('/api/maestros/:coleccion', async (req, res) => {
         // los atados a un campo puntual solo si el usuario tiene acceso a ese campo.
         const r = await pool.query(
           filtraCampos
-            ? `SELECT datos FROM depositos WHERE empresa_id = $1
-                 AND (datos->>'campoId' IS NULL OR datos->>'campoId' = ANY($2::text[]))`
-            : `SELECT datos FROM depositos WHERE empresa_id = $1`,
+            ? `SELECT ${SQL_DEPOSITO_DATOS} AS datos FROM depositos WHERE empresa_id = $1
+                 AND (campo_id IS NULL OR campo_id = ANY($2::text[]))`
+            : `SELECT ${SQL_DEPOSITO_DATOS} AS datos FROM depositos WHERE empresa_id = $1`,
           filtraCampos ? [empresaId, campoIds] : [empresaId]
         );
         rows = r.rows.map(r => r.datos);
@@ -921,6 +963,8 @@ app.post('/api/maestros/:coleccion', async (req, res) => {
           [obj.id, obj.empresaId, obj.loteId || null, obj.campaniaId || null,
            obj.tipoActividadId || null, obj.ha != null ? obj.ha : null, obj.esSegunda || false, obj.tenenciaId || null]
         );
+      } else if (cfg.tabla === 'depositos') {
+        await guardarDeposito(pool, obj);
       } else {
         // Validación de duplicados para insumos: empresa + nombre (case-insensitive) + tipo
         if (cfg.tabla === 'insumos') {
@@ -949,7 +993,7 @@ app.post('/api/maestros/:coleccion', async (req, res) => {
     res.status(201).json(obj);
   } catch (err) {
     console.error(`POST /api/maestros/${req.params.coleccion}:`, err);
-    const msg = uniqueViolation(err);
+    const msg = uniqueViolation(err) || fkViolation(err);
     if (msg) return res.status(409).json({ error: msg });
     res.status(500).json({ error: 'Error interno del servidor' });
   }
@@ -976,7 +1020,7 @@ app.put('/api/maestros/:coleccion/:id', async (req, res) => {
       if (!puedeEscribirMaestroEmpresa(sesion, permiso)) return res.status(403).json({ error: 'Sin permiso' });
       if (cfg.tabla === 'depositos' && (permiso.campoIds || []).length > 0) {
         const actual = await pool.query(
-          `SELECT datos->>'campoId' AS "campoId" FROM depositos WHERE id = $1 AND empresa_id = $2`,
+          `SELECT campo_id AS "campoId" FROM depositos WHERE id = $1 AND empresa_id = $2`,
           [obj.id, obj.empresaId]
         );
         const campoIdActual = actual.rows[0] ? actual.rows[0].campoId : null;
@@ -1002,6 +1046,13 @@ app.put('/api/maestros/:coleccion/:id', async (req, res) => {
             WHERE id=$1 AND empresa_id=$2`,
           [obj.id, obj.empresaId, obj.loteId || null, obj.campaniaId || null,
            obj.tipoActividadId || null, obj.ha != null ? obj.ha : null, obj.esSegunda || false, obj.tenenciaId || null]
+        );
+      } else if (cfg.tabla === 'depositos') {
+        await pool.query(
+          `UPDATE depositos SET nombre=$3, clase=$4, campo_id=$5, especie_id=$6, activo=$7
+            WHERE id=$1 AND empresa_id=$2`,
+          [obj.id, obj.empresaId, String(obj.nombre || '').trim(), obj.clase === 'granos' ? 'granos' : 'insumos',
+           obj.campoId || null, obj.especieId || null, obj.activo !== false]
         );
       } else {
         // Validación de duplicados para insumos en actualización
@@ -1036,7 +1087,7 @@ app.put('/api/maestros/:coleccion/:id', async (req, res) => {
     res.json(obj);
   } catch (err) {
     console.error(`PUT /api/maestros/${req.params.coleccion}/${req.params.id}:`, err);
-    const msg = uniqueViolation(err);
+    const msg = uniqueViolation(err) || fkViolation(err);
     if (msg) return res.status(409).json({ error: msg });
     res.status(500).json({ error: 'Error interno del servidor' });
   }
@@ -1062,7 +1113,7 @@ app.delete('/api/maestros/:coleccion/:id', async (req, res) => {
       if (!puedeEscribirMaestroEmpresa(sesion, permiso)) return res.status(403).json({ error: 'Sin permiso' });
       if (cfg.tabla === 'depositos' && (permiso.campoIds || []).length > 0) {
         const actual = await pool.query(
-          `SELECT datos->>'campoId' AS "campoId" FROM depositos WHERE id = $1 AND empresa_id = $2`,
+          `SELECT campo_id AS "campoId" FROM depositos WHERE id = $1 AND empresa_id = $2`,
           [req.params.id, empresaId]
         );
         const campoIdActual = actual.rows[0] ? actual.rows[0].campoId : null;
@@ -1084,6 +1135,8 @@ app.delete('/api/maestros/:coleccion/:id', async (req, res) => {
     res.json({ status: 'ok' });
   } catch (err) {
     console.error(`DELETE /api/maestros/${req.params.coleccion}/${req.params.id}:`, err);
+    const msg = fkViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
@@ -2094,7 +2147,11 @@ app.delete('/api/campos/:id', async (req, res) => {
     if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
     await pool.query('DELETE FROM campos WHERE id=$1', [req.params.id]);
     res.json({ status: 'ok' });
-  } catch (err) { res.status(500).json({ error: 'Error interno del servidor' }); }
+  } catch (err) {
+    const msg = fkViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2565,30 +2622,179 @@ async function _guardarTrabajosOt(client, otId, empresaId, trabajos) {
     await client.query(
       `INSERT INTO ot_trabajos (id, empresa_id, ot_id, labor_tipo, labor_id, subactividad, tercero_id,
                                 tarifa, tarifa_moneda, monto_facturado, estado_fact, estado_pago, monto_pagado,
-                                es_resiembra, plantilla, destinos, orden)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+                                es_resiembra, orden)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
        ON CONFLICT (id, empresa_id) DO UPDATE SET
          ot_id=$3, labor_tipo=$4, labor_id=$5, subactividad=$6, tercero_id=$7,
          tarifa=$8, tarifa_moneda=$9, monto_facturado=$10, estado_fact=$11, estado_pago=$12, monto_pagado=$13,
-         es_resiembra=$14, plantilla=$15, destinos=$16, orden=$17`,
+         es_resiembra=$14, orden=$15`,
       [id, empresaId, otId, t.laborTipo || null, t.laborId || null, t.subactividad || null,
        t.contratistaId || null, t.tarifa || null, t.tarifaMoneda || 'ARS', t.montoFacturado || 0,
-       t.estadoFact || 'Sin facturar', t.estadoPago || 'No', t.montoPagado || 0, t.esResiembra || false,
-       JSON.stringify(t.plantilla || []), JSON.stringify(t.destinos || []), orden]
+       t.estadoFact || 'Sin facturar', t.estadoPago || 'No', t.montoPagado || 0, t.esResiembra || false, orden]
     );
+    await _guardarDestinosTrabajo(client, id, empresaId, t);
     out.push({ ...t, id, otId, empresaId, orden });
   }
   return out;
 }
 
-function _trabajoRow(r) {
-  return {
+// Destinos (lotes), líneas de insumo, cambios de cultivo y plantilla de un
+// trabajo: se borran y se vuelven a escribir enteros (nada apunta a ellos con
+// FK; movimientos.ref_destino_id es solo texto). jsonb_to_recordset se usa
+// para mandar todas las filas de una tabla en un solo INSERT.
+function _otNum(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return isFinite(n) ? n : null;
+}
+function _otFecha(v) {
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(v || ''));
+  return m ? m[1] : null;
+}
+function _otTxt(v) { return v === null || v === undefined ? null : String(v); }
+async function _guardarDestinosTrabajo(client, trabajoId, empresaId, t) {
+  await client.query('DELETE FROM ot_destinos  WHERE trabajo_id=$1 AND empresa_id=$2', [trabajoId, empresaId]);
+  await client.query('DELETE FROM ot_plantilla WHERE trabajo_id=$1 AND empresa_id=$2', [trabajoId, empresaId]);
+  const dests = [], lineas = [], cambios = [], plantilla = [];
+  const vistos = {};
+  (t.destinos || []).forEach((d, i) => {
+    if (!d || typeof d !== 'object') return;
+    const id = String(d.id || (trabajoId + '_d' + (i + 1)));
+    if (vistos[id]) return; // id repetido dentro del mismo trabajo: queda el primero
+    vistos[id] = true;
+    dests.push({
+      id, orden: i + 1, lote_id: _otTxt(d.loteId), campo_id: d.campoId || null, cultivo: _otTxt(d.cultivo),
+      ha: _otNum(d.ha), ha_real: _otNum(d.haReal), obs: _otTxt(d.obs),
+      estado_lote: d.estadoLote === 'Aplicado' ? 'Aplicado' : 'Pendiente',
+      fecha_aplic_real: _otFecha(d.fechaAplicReal), tanda_id: _otTxt(d.tandaId),
+      cultivo_mantenido: _otTxt(d.cultivoMantenido), cultivo_mantenido_fecha: _otFecha(d.cultivoMantenidoFecha),
+      cultivo_mantenido_ahora: _otTxt(d.cultivoMantenidoAhora),
+      geo_ot: d.geoOt && typeof d.geoOt === 'object' ? d.geoOt : null,
+    });
+    (d.lineas || []).forEach((l, j) => {
+      if (!l || typeof l !== 'object') return;
+      lineas.push({
+        destino_id: id, orden: j + 1, insumo_id: l.insumoId || null, deposito_id: l.depositoId || null,
+        dosis: _otNum(l.dosis), dosis_real: _otNum(l.dosisReal), entregada: _otNum(l.entregada),
+        usado: _otNum(l.usado), dev_stock: _otNum(l.devStock), dev_baja: _otNum(l.devBaja),
+      });
+    });
+    (d.cambiosCultivo || []).forEach((c, j) => {
+      if (!c || typeof c !== 'object') return;
+      cambios.push({ destino_id: id, orden: j + 1, cultivo_de: _otTxt(c.de), cultivo_a: _otTxt(c.a), fecha: _otFecha(c.fecha) });
+    });
+  });
+  (t.plantilla || []).forEach((p, i) => {
+    if (!p || typeof p !== 'object') return;
+    plantilla.push({ orden: i + 1, insumo_id: p.insumoId || null, dosis: _otNum(p.dosis), deposito_id: p.depositoId || null });
+  });
+  if (dests.length) {
+    await client.query(
+      `INSERT INTO ot_destinos (id, empresa_id, trabajo_id, orden, lote_id, campo_id, cultivo, ha, ha_real, obs,
+                                estado_lote, fecha_aplic_real, tanda_id, cultivo_mantenido, cultivo_mantenido_fecha,
+                                cultivo_mantenido_ahora, geo_ot)
+       SELECT x.id, $1, $2, x.orden, x.lote_id, x.campo_id, x.cultivo, x.ha, x.ha_real, x.obs,
+              x.estado_lote, x.fecha_aplic_real, x.tanda_id, x.cultivo_mantenido, x.cultivo_mantenido_fecha,
+              x.cultivo_mantenido_ahora, x.geo_ot
+         FROM jsonb_to_recordset($3::jsonb) AS x(id text, orden int, lote_id text, campo_id text, cultivo text,
+              ha numeric, ha_real numeric, obs text, estado_lote text, fecha_aplic_real date, tanda_id text,
+              cultivo_mantenido text, cultivo_mantenido_fecha date, cultivo_mantenido_ahora text, geo_ot jsonb)`,
+      [empresaId, trabajoId, JSON.stringify(dests)]
+    );
+  }
+  if (lineas.length) {
+    await client.query(
+      `INSERT INTO ot_destino_lineas (empresa_id, trabajo_id, destino_id, orden, insumo_id, deposito_id,
+                                      dosis, dosis_real, entregada, usado, dev_stock, dev_baja)
+       SELECT $1, $2, x.destino_id, x.orden, x.insumo_id, x.deposito_id,
+              x.dosis, x.dosis_real, x.entregada, x.usado, x.dev_stock, x.dev_baja
+         FROM jsonb_to_recordset($3::jsonb) AS x(destino_id text, orden int, insumo_id text, deposito_id text,
+              dosis numeric, dosis_real numeric, entregada numeric, usado numeric, dev_stock numeric, dev_baja numeric)`,
+      [empresaId, trabajoId, JSON.stringify(lineas)]
+    );
+  }
+  if (cambios.length) {
+    await client.query(
+      `INSERT INTO ot_destino_cambios_cultivo (empresa_id, trabajo_id, destino_id, orden, cultivo_de, cultivo_a, fecha)
+       SELECT $1, $2, x.destino_id, x.orden, x.cultivo_de, x.cultivo_a, x.fecha
+         FROM jsonb_to_recordset($3::jsonb) AS x(destino_id text, orden int, cultivo_de text, cultivo_a text, fecha date)`,
+      [empresaId, trabajoId, JSON.stringify(cambios)]
+    );
+  }
+  if (plantilla.length) {
+    await client.query(
+      `INSERT INTO ot_plantilla (empresa_id, trabajo_id, orden, insumo_id, dosis, deposito_id)
+       SELECT $1, $2, x.orden, x.insumo_id, x.dosis, x.deposito_id
+         FROM jsonb_to_recordset($3::jsonb) AS x(orden int, insumo_id text, dosis numeric, deposito_id text)`,
+      [empresaId, trabajoId, JSON.stringify(plantilla)]
+    );
+  }
+}
+
+// Lee los trabajos de la empresa (o de una OT) con sus destinos y plantilla
+// armados como los guardaba el tablero. Un campo opcional del destino solo
+// aparece si tiene valor, igual que en el documento original.
+function _numDb(v) { return v === null || v === undefined ? null : Number(v); }
+async function leerTrabajosOt(db, empresaId, otId) {
+  const pTr = otId ? [empresaId, otId] : [empresaId];
+  const filtroTr = otId ? ' AND t.ot_id = $2' : '';
+  const [trs, dests, lins, ccs, plas] = await Promise.all([
+    db.query(`SELECT t.* FROM ot_trabajos t WHERE t.empresa_id = $1${filtroTr} ORDER BY t.ot_id, t.orden`, pTr),
+    db.query(`SELECT d.*, to_char(d.fecha_aplic_real, 'YYYY-MM-DD') AS f_aplic,
+                     to_char(d.cultivo_mantenido_fecha, 'YYYY-MM-DD') AS f_mant
+                FROM ot_destinos d JOIN ot_trabajos t ON t.id = d.trabajo_id AND t.empresa_id = d.empresa_id
+               WHERE d.empresa_id = $1${filtroTr} ORDER BY d.trabajo_id, d.orden`, pTr),
+    db.query(`SELECT l.* FROM ot_destino_lineas l JOIN ot_trabajos t ON t.id = l.trabajo_id AND t.empresa_id = l.empresa_id
+               WHERE l.empresa_id = $1${filtroTr} ORDER BY l.trabajo_id, l.destino_id, l.orden`, pTr),
+    db.query(`SELECT c.*, to_char(c.fecha, 'YYYY-MM-DD') AS f
+                FROM ot_destino_cambios_cultivo c JOIN ot_trabajos t ON t.id = c.trabajo_id AND t.empresa_id = c.empresa_id
+               WHERE c.empresa_id = $1${filtroTr} ORDER BY c.trabajo_id, c.destino_id, c.orden`, pTr),
+    db.query(`SELECT p.* FROM ot_plantilla p JOIN ot_trabajos t ON t.id = p.trabajo_id AND t.empresa_id = p.empresa_id
+               WHERE p.empresa_id = $1${filtroTr} ORDER BY p.trabajo_id, p.orden`, pTr),
+  ]);
+  const k = (a, b) => a + '\u0000' + b;
+  const linPorDest = {}, ccPorDest = {}, destPorTr = {}, plaPorTr = {};
+  for (const l of lins.rows) {
+    const o = { insumoId: l.insumo_id || '', depositoId: l.deposito_id || '' };
+    if (l.dosis !== null) o.dosis = _numDb(l.dosis);
+    if (l.entregada !== null) o.entregada = _numDb(l.entregada);
+    if (l.usado !== null) o.usado = _numDb(l.usado);
+    if (l.dev_stock !== null) o.devStock = _numDb(l.dev_stock);
+    if (l.dev_baja !== null) o.devBaja = _numDb(l.dev_baja);
+    if (l.dosis_real !== null) o.dosisReal = _numDb(l.dosis_real);
+    (linPorDest[k(l.trabajo_id, l.destino_id)] = linPorDest[k(l.trabajo_id, l.destino_id)] || []).push(o);
+  }
+  for (const c of ccs.rows) {
+    (ccPorDest[k(c.trabajo_id, c.destino_id)] = ccPorDest[k(c.trabajo_id, c.destino_id)] || [])
+      .push({ de: c.cultivo_de, a: c.cultivo_a, fecha: c.f || '' });
+  }
+  for (const d of dests.rows) {
+    const o = {
+      id: d.id, campoId: d.campo_id, loteId: d.lote_id, cultivo: d.cultivo, ha: _numDb(d.ha), obs: d.obs,
+      estadoLote: d.estado_lote, fechaAplicReal: d.f_aplic || '',
+      lineas: linPorDest[k(d.trabajo_id, d.id)] || [],
+    };
+    if (d.ha_real !== null) o.haReal = _numDb(d.ha_real);
+    if (d.tanda_id !== null) o.tandaId = d.tanda_id;
+    if (ccPorDest[k(d.trabajo_id, d.id)]) o.cambiosCultivo = ccPorDest[k(d.trabajo_id, d.id)];
+    if (d.cultivo_mantenido !== null) o.cultivoMantenido = d.cultivo_mantenido;
+    if (d.f_mant !== null) o.cultivoMantenidoFecha = d.f_mant;
+    if (d.cultivo_mantenido_ahora !== null) o.cultivoMantenidoAhora = d.cultivo_mantenido_ahora;
+    if (d.geo_ot !== null) o.geoOt = d.geo_ot;
+    (destPorTr[d.trabajo_id] = destPorTr[d.trabajo_id] || []).push(o);
+  }
+  for (const p of plas.rows) {
+    const o = { insumoId: p.insumo_id || '', depositoId: p.deposito_id || '' };
+    if (p.dosis !== null) o.dosis = _numDb(p.dosis);
+    (plaPorTr[p.trabajo_id] = plaPorTr[p.trabajo_id] || []).push(o);
+  }
+  return trs.rows.map(r => ({
     id: r.id, otId: r.ot_id, laborTipo: r.labor_tipo, laborId: r.labor_id, subactividad: r.subactividad,
     contratistaId: r.tercero_id, tarifa: r.tarifa, tarifaMoneda: r.tarifa_moneda,
     montoFacturado: r.monto_facturado, estadoFact: r.estado_fact,
     estadoPago: r.estado_pago, montoPagado: r.monto_pagado, esResiembra: r.es_resiembra,
-    plantilla: r.plantilla, destinos: r.destinos, orden: r.orden,
-  };
+    plantilla: plaPorTr[r.id] || [], destinos: destPorTr[r.id] || [], orden: r.orden,
+  }));
 }
 
 app.get('/api/ordenes-trabajo', async (req, res) => {
@@ -2607,12 +2813,8 @@ app.get('/api/ordenes-trabajo', async (req, res) => {
     if (req.query.campaniaId) { params.push(req.query.campaniaId); sql += ` AND campania_id = $${params.length}`; }
     sql += ' ORDER BY num DESC';
     const r = await pool.query(sql, params);
-    const trRes = await pool.query(
-      `SELECT * FROM ot_trabajos WHERE empresa_id = $1 ORDER BY ot_id, orden`,
-      [empresaId]
-    );
     const porOt = {};
-    for (const row of trRes.rows) { (porOt[row.ot_id] = porOt[row.ot_id] || []).push(_trabajoRow(row)); }
+    for (const tr of await leerTrabajosOt(pool, empresaId)) { (porOt[tr.otId] = porOt[tr.otId] || []).push(tr); }
     // Usuario con campos restringidos: no recibe las OT que son solo de otros campos.
     res.json(r.rows.map(ot => ({ ...ot, trabajos: porOt[ot.id] || [] }))
       .filter(ot => otVisibleParaPermiso(permiso, ot.trabajos)));
@@ -2643,34 +2845,36 @@ app.get('/api/ordenes-trabajo/comprometido-otros-campos', async (req, res) => {
     const ajenos = await depositosAjenos(pool, permiso, empresaId);
     if (!ajenos) return res.json({ lineas: [], nOts: 0 }); // sin restricción de campos: ya recibe todas las OT
 
-    const ots = await pool.query(
-      `SELECT id FROM ordenes_trabajo WHERE empresa_id = $1 AND estado <> 'Cancelada'`, [empresaId]);
-    const trs = await pool.query(
-      `SELECT ot_id, destinos FROM ot_trabajos WHERE empresa_id = $1`, [empresaId]);
-    const porOt = {};
-    for (const t of trs.rows) (porOt[t.ot_id] = porOt[t.ot_id] || []).push({ destinos: t.destinos });
+    // OT no canceladas que el usuario no recibe: tienen lotes y ninguno es de un
+    // campo habilitado (ni sin campo). De esas, las líneas de lotes no aplicados.
+    const r = await pool.query(
+      `SELECT t.ot_id, d.lote_id, d.ha, l.insumo_id, l.deposito_id, l.dosis
+         FROM ordenes_trabajo o
+         JOIN ot_trabajos t       ON t.ot_id = o.id AND t.empresa_id = o.empresa_id
+         JOIN ot_destinos d       ON d.trabajo_id = t.id AND d.empresa_id = t.empresa_id
+         JOIN ot_destino_lineas l ON l.trabajo_id = d.trabajo_id AND l.empresa_id = d.empresa_id AND l.destino_id = d.id
+        WHERE o.empresa_id = $1 AND o.estado <> 'Cancelada'
+          AND d.estado_lote <> 'Aplicado' AND l.insumo_id IS NOT NULL
+          AND NOT EXISTS (
+                SELECT 1 FROM ot_trabajos t2
+                  JOIN ot_destinos d2 ON d2.trabajo_id = t2.id AND d2.empresa_id = t2.empresa_id
+                 WHERE t2.ot_id = o.id AND t2.empresa_id = o.empresa_id
+                   AND (d2.campo_id IS NULL OR d2.campo_id = ANY($2::text[])))
+        ORDER BY o.num, t.orden, d.orden, l.orden`,
+      [empresaId, permiso.campoIds]);
     const tot = {};
-    let nOts = 0;
-    for (const o of ots.rows) {
-      const trabajos = porOt[o.id] || [];
-      if (otVisibleParaPermiso(permiso, trabajos)) continue; // esa OT ya le llega entera
-      let tiene = false;
-      for (const de of destinosDeTrabajos(trabajos)) {
-        if (de.estadoLote === 'Aplicado') continue;
-        const esUN = String(de.loteId || '').indexOf('UN:') === 0;
-        for (const ln of de.lineas || []) {
-          if (!ln || !ln.insumoId) continue;
-          const cant = esUN ? (Number(ln.dosis) || 0) : (Number(ln.dosis) || 0) * (Number(de.ha) || 0);
-          if (!(cant > 0)) continue;
-          tiene = true;
-          const dep = ln.depositoId || '__sin__';
-          if (ajenos.has(dep)) continue; // depósito de otro campo: el usuario no lo ve
-          const k = ln.insumoId + '|' + dep;
-          tot[k] = (tot[k] || 0) + cant;
-        }
-      }
-      if (tiene) nOts++;
+    const conPendientes = new Set();
+    for (const x of r.rows) {
+      const esUN = String(x.lote_id || '').indexOf('UN:') === 0;
+      const cant = esUN ? (Number(x.dosis) || 0) : (Number(x.dosis) || 0) * (Number(x.ha) || 0);
+      if (!(cant > 0)) continue;
+      conPendientes.add(x.ot_id);
+      const dep = x.deposito_id || '__sin__';
+      if (ajenos.has(dep)) continue; // depósito de otro campo: el usuario no lo ve
+      const k = x.insumo_id + '|' + dep;
+      tot[k] = (tot[k] || 0) + cant;
     }
+    const nOts = conPendientes.size;
     res.json({
       lineas: Object.keys(tot).map(k => {
         const i = k.indexOf('|');
@@ -2727,6 +2931,8 @@ app.post('/api/ordenes-trabajo', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     console.error('/api/ordenes-trabajo POST error:', err);
+    const msg = fkViolation(err);
+    if (msg) return res.status(409).json({ error: msg });
     res.status(500).json({ error: 'Error interno del servidor' });
   } finally {
     client.release();
@@ -3123,7 +3329,7 @@ app.post('/api/carga-excel/registro', async (req, res) => {
       if (op) { if (op.depositoId) d.depositoId = op.depositoId; d.stockMin = Number(op.stockMin) || 0; d.moneda = op.moneda === 'USD' ? 'USD' : 'ARS'; }
       await client.query('INSERT INTO insumos (id, empresa_id, datos) VALUES ($1,$2,$3)', [x.id, empresaId, d]);
     }
-    for (const x of depositos) await client.query('INSERT INTO depositos (id, empresa_id, datos) VALUES ($1,$2,$3)', [x.id, empresaId, sinIdEmp(x)]);
+    for (const x of depositos) await guardarDeposito(client, sinIdEmp(x));
     for (const x of terceros) await client.query('INSERT INTO terceros (id, empresa_id, datos) VALUES ($1,$2,$3)', [x.id, empresaId, sinIdEmp(x)]);
 
     // OT con su número del Excel
@@ -3173,6 +3379,8 @@ app.post('/api/carga-excel/registro', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     console.error('/api/carga-excel/registro POST error:', err);
+    const msgFk = fkViolation(err);
+    if (msgFk) return res.status(409).json({ error: msgFk });
     res.status(500).json({ error: 'Error interno del servidor' + (err && err.code === '23505' ? ': hay nombres repetidos en el Excel' : '') });
   } finally {
     client.release();
