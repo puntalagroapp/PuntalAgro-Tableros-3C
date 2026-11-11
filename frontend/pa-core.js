@@ -81,7 +81,8 @@
     { id: 'ProgramaSiembra',    nombre: 'Programa de Siembra' },
     { id: 'tablero_hacienda',   nombre: 'Tablero de Relaciones Ganaderas' },
     { id: 'tablero_labores',    nombre: 'Precio de Labores y Fletes' },
-    { id: 'Fitosanitarios',     nombre: 'Fitosanitarios' }
+    { id: 'Fitosanitarios',     nombre: 'Fitosanitarios' },
+    { id: 'registro_pastoreos', nombre: 'Registro de Pastoreos' }
   ];
 
   // ── 3. ALMACENAMIENTO DUAL ───────────────────────────────────────────────

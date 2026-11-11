@@ -222,7 +222,13 @@ const UNIQUE_ERROR_MESSAGES = {
   'uq_formulaciones_descripcion':      'Ya existe una formulación con esa descripción',
   'uq_principios_activos_nombre':      'Ya existe un principio activo con ese nombre',
   'uq_socios_nombre_empresa':          'Ya existe un socio con ese nombre en esta empresa',
+  'uq_categorias_hacienda_nombre':     'Ya existe una categoría de hacienda con ese nombre',
+  'uq_negocios_ganaderos_nombre':     'Ya existe una unidad de negocio con ese nombre',
+  'uq_rodeos_nombre':                 'Ya existe un rodeo con ese nombre',
+  'uq_raciones_nombre':               'Ya existe una ración con ese nombre',
 };
+// datos del insumo + % de materia seca (columna propia, la carga Registro de Pastoreos)
+const SQL_INSUMO_DATOS = `CASE WHEN pct_ms IS NULL THEN datos ELSE datos || jsonb_build_object('pctMS', pct_ms) END AS datos`;
 function uniqueViolation(err) {
   if (err.code !== '23505') return null;
   return UNIQUE_ERROR_MESSAGES[err.constraint] || 'Ya existe un registro con esos datos';
@@ -572,7 +578,7 @@ app.get('/api/maestros-empresa/:empresaId', async (req, res) => {
       pool.query('SELECT datos FROM terceros        WHERE empresa_id = $1', [empresaId]),
       pool.query('SELECT datos FROM choferes        WHERE empresa_id = $1', [empresaId]),
       pool.query('SELECT datos FROM depositos       WHERE empresa_id = $1', [empresaId]),
-      pool.query('SELECT datos FROM insumos         WHERE empresa_id = $1', [empresaId]),
+      pool.query(`SELECT ${SQL_INSUMO_DATOS} FROM insumos WHERE empresa_id = $1`, [empresaId]),
       pool.query('SELECT datos FROM tipos_actividad WHERE empresa_id = $1', [empresaId]),
       pool.query('SELECT datos FROM ambientes       WHERE empresa_id = $1', [empresaId]),
       pool.query(
@@ -832,7 +838,7 @@ app.get('/api/maestros/:coleccion', async (req, res) => {
         rows = r.rows.map(r => r.datos);
       } else {
         const r = await pool.query(
-          `SELECT datos FROM ${cfg.tabla} WHERE empresa_id = $1`,
+          `SELECT ${cfg.tabla === 'insumos' ? SQL_INSUMO_DATOS : 'datos'} FROM ${cfg.tabla} WHERE empresa_id = $1`,
           [empresaId]
         );
         rows = r.rows.map(r => r.datos);
@@ -924,6 +930,7 @@ app.post('/api/maestros/:coleccion', async (req, res) => {
       } else {
         // Validación de duplicados para insumos: empresa + nombre (case-insensitive) + tipo
         if (cfg.tabla === 'insumos') {
+          delete obj.pctMS; // vive en la columna insumos.pct_ms
           const dup = await pool.query(
             `SELECT id FROM insumos
               WHERE empresa_id = $1
@@ -1006,6 +1013,7 @@ app.put('/api/maestros/:coleccion/:id', async (req, res) => {
       } else {
         // Validación de duplicados para insumos en actualización
         if (cfg.tabla === 'insumos') {
+          delete obj.pctMS; // vive en la columna insumos.pct_ms
           const dup = await pool.query(
             `SELECT id FROM insumos
               WHERE empresa_id = $1
@@ -3108,6 +3116,11 @@ app.post('/api/carga-excel/registro', async (req, res) => {
     }
 
     // Borrar lo de la empresa (operativo primero: movimientos/OT apuntan a los catálogos).
+    // % MS (Registro de Pastoreos): el Excel no lo trae; se conserva por id o por nombre + tipo.
+    const msPrev = await client.query(
+      `SELECT id, lower(trim(datos->>'nombre')) || '|' || coalesce(datos->>'tipo','') AS k, pct_ms FROM insumos WHERE empresa_id=$1 AND pct_ms IS NOT NULL`, [empresaId]);
+    const msPorId = {}, msPorNombre = {};
+    for (const r of msPrev.rows) { msPorId[r.id] = r.pct_ms; msPorNombre[r.k] = r.pct_ms; }
     const borrados = await borrarOperativoInsumosOt(client, empresaId);
     borrados['insumos'] = (await client.query('DELETE FROM insumos WHERE empresa_id=$1', [empresaId])).rowCount;
     borrados['depósitos'] = (await client.query('DELETE FROM depositos WHERE empresa_id=$1', [empresaId])).rowCount;
@@ -3121,7 +3134,9 @@ app.post('/api/carga-excel/registro', async (req, res) => {
       if (d.unidadId && unidadIdMap[d.unidadId]) d.unidadId = unidadIdMap[d.unidadId];
       const op = opIns[x.id];
       if (op) { if (op.depositoId) d.depositoId = op.depositoId; d.stockMin = Number(op.stockMin) || 0; d.moneda = op.moneda === 'USD' ? 'USD' : 'ARS'; }
-      await client.query('INSERT INTO insumos (id, empresa_id, datos) VALUES ($1,$2,$3)', [x.id, empresaId, d]);
+      delete d.pctMS;
+      const ms = msPorId[x.id] != null ? msPorId[x.id] : msPorNombre[String(d.nombre || '').trim().toLowerCase() + '|' + (d.tipo || '')];
+      await client.query('INSERT INTO insumos (id, empresa_id, datos, pct_ms) VALUES ($1,$2,$3,$4)', [x.id, empresaId, d, ms != null ? ms : null]);
     }
     for (const x of depositos) await client.query('INSERT INTO depositos (id, empresa_id, datos) VALUES ($1,$2,$3)', [x.id, empresaId, sinIdEmp(x)]);
     for (const x of terceros) await client.query('INSERT INTO terceros (id, empresa_id, datos) VALUES ($1,$2,$3)', [x.id, empresaId, sinIdEmp(x)]);
@@ -3568,5 +3583,508 @@ app.delete('/api/calendario-actividades/hechas/:anioMes/:tareaId', async (req, r
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// REGISTRO DE PASTOREOS (registro_pastoreos.html)
+// ─────────────────────────────────────────────────────────────────────────────
+// El tablero trabaja con los mismos objetos que guardaba en localStorage (claves
+// gan_*). El servidor los arma desde tablas en columnas al leer y los desarma al
+// guardar: el pastoreo viaja como documento (con sus movimientos y entregas de
+// suplemento) y se guarda entero en una transacción.
+//
+// Permisos (mismo criterio que el tablero): ver para leer, cargar para guardar,
+// administrar para borrar y restaurar respaldo; categorías de hacienda solo
+// admin_general. Campos: un usuario con campos restringidos ve solo los
+// pastoreos de sus campos y no puede guardar nada sobre lotes de otros campos
+// (incluye los pases: decisión del cliente, 2026-11-11).
+const TOOL_PAST = 'registro_pastoreos';
+const MSG_PAST_VER = 'Tu usuario no tiene acceso al Registro de Pastoreos';
+const MSG_PAST_CARGAR = 'Tu usuario tiene permiso solo de consulta en el Registro de Pastoreos';
+const MSG_PAST_ADM = 'Esta acción requiere permiso de administrar en el Registro de Pastoreos';
+
+// fecha 'YYYY-MM-DD' válida -> [fecha, null]; cualquier otra cosa se conserva como texto
+function pastFecha(s) {
+  if (s == null || s === '') return [null, null];
+  const t = String(s);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+    const d = new Date(t + 'T00:00:00Z');
+    if (!isNaN(d) && d.toISOString().slice(0, 10) === t) return [t, null];
+  }
+  return [null, t];
+}
+function pastNum(x) {
+  if (x == null || x === '') return null;
+  const n = Number(x);
+  return isFinite(n) ? n : null;
+}
+function pastTxt(x) { return x == null ? '' : String(x); }
+function pastFechaOut(fecha, txt) {
+  if (fecha) return (fecha instanceof Date) ? fecha.toISOString().slice(0, 10) : String(fecha).slice(0, 10);
+  return txt || '';
+}
+function pastIso(t) { return t ? new Date(t).toISOString() : undefined; }
+
+// Contexto común: sesión, permiso y nivel requerido. Devuelve null si ya respondió.
+async function pastContexto(req, res, empresaId, nivel) {
+  const sesion = await obtenerSesion(req);
+  if (!sesion) { res.status(401).json({ error: 'No autenticado' }); return null; }
+  if (!empresaId) { res.status(400).json({ error: 'Falta empresaId' }); return null; }
+  const permiso = await obtenerPermiso(req, empresaId);
+  if (!permiso) { res.status(403).json({ error: 'Sin acceso a esta empresa' }); return null; }
+  if (!puedeEnHerramienta(permiso, TOOL_PAST, 'ver')) { res.status(403).json({ error: MSG_PAST_VER }); return null; }
+  if (nivel === 'cargar' && !puedeEnHerramienta(permiso, TOOL_PAST, 'cargar')) { res.status(403).json({ error: MSG_PAST_CARGAR }); return null; }
+  if (nivel === 'administrar' && !puedeEnHerramienta(permiso, TOOL_PAST, 'administrar')) { res.status(403).json({ error: MSG_PAST_ADM }); return null; }
+  return { sesion, permiso };
+}
+
+// Lotes de campos que el usuario no tiene habilitados, entre los indicados.
+// Devuelve [] si no tiene restricción de campos.
+async function pastLotesAjenos(db, permiso, empresaId, loteIds) {
+  if (!(permiso.campoIds || []).length) return [];
+  const ids = (loteIds || []).filter(Boolean);
+  if (!ids.length) return [];
+  const r = await db.query(
+    `SELECT l.id, l.nombre, l.campo_id, c.nombre AS campo FROM lotes l LEFT JOIN campos c ON c.id = l.campo_id
+      WHERE l.empresa_id = $1 AND l.id = ANY($2::text[])`, [empresaId, ids]);
+  return r.rows.filter(x => !campoHabilitado(permiso, x.campo_id));
+}
+function pastMsgAjenos(ajenos) {
+  const campos = [...new Set(ajenos.map(x => x.campo || x.campo_id))].join(', ');
+  return 'No tenés permiso sobre el campo ' + campos + ' (lote ' + ajenos.map(x => x.nombre).join(', ') +
+    '). Pedile al administrador acceso a todos los campos que manejás.';
+}
+function lotesDeDoc(d) {
+  const ls = (d && Array.isArray(d.loteIds) && d.loteIds.length) ? d.loteIds : [d && d.loteId];
+  return ls.filter(Boolean);
+}
+
+// ── Lectura: arma los "documentos" gan_* que espera el tablero ───────────────
+async function pastLeerPastoreos(db, empresaId, permiso) {
+  const ps = await db.query(
+    `SELECT id, campania_id, campo_id, lote_id, lote_ids, num, tipo_actividad_id, origen, importado, creado
+       FROM pastoreos WHERE empresa_id = $1 ORDER BY lote_id, num`, [empresaId]);
+  const visibles = ps.rows.filter(p => campoHabilitado(permiso, p.campo_id));
+  if (!visibles.length) return [];
+  const ids = visibles.map(p => p.id);
+  const [mv, sp, sc] = await Promise.all([
+    db.query(`SELECT * FROM pastoreo_movimientos WHERE empresa_id = $1 AND pastoreo_id = ANY($2::text[]) ORDER BY pastoreo_id, orden`, [empresaId, ids]),
+    db.query(`SELECT * FROM pastoreo_suplementos WHERE empresa_id = $1 AND pastoreo_id = ANY($2::text[]) ORDER BY pastoreo_id, orden`, [empresaId, ids]),
+    db.query(`SELECT * FROM pastoreo_suplemento_componentes WHERE empresa_id = $1 AND pastoreo_id = ANY($2::text[]) ORDER BY pastoreo_id, suplemento_id, orden`, [empresaId, ids]),
+  ]);
+  const comps = {};
+  for (const c of sc.rows) {
+    const k = c.pastoreo_id + '|' + c.suplemento_id;
+    (comps[k] = comps[k] || []).push({ insumoId: c.insumo_id, pctIncl: pastNum(c.pct_incl), pctMS: pastNum(c.pct_ms) });
+  }
+  const docs = {};
+  for (const p of visibles) {
+    const d = {
+      id: p.id, empresaId, campaniaId: p.campania_id, campoId: p.campo_id, loteId: p.lote_id,
+      loteIds: (p.lote_ids && p.lote_ids.length) ? p.lote_ids : null, num: p.num,
+      tipoActividadId: p.tipo_actividad_id, movs: [], supl: [],
+    };
+    if (p.origen) d.origen = p.origen;
+    if (p.importado) d.importado = true;
+    if (p.creado) d.creado = pastIso(p.creado);
+    docs[p.id] = d;
+  }
+  for (const m of mv.rows) {
+    const d = docs[m.pastoreo_id]; if (!d) continue;
+    const o = { id: m.id, fecha: pastFechaOut(m.fecha, m.fecha_txt), tipo: m.tipo, categoriaId: m.categoria_id,
+      cab: pastNum(m.cab), kg: pastNum(m.kg), obs: m.obs };
+    if (m.rodeo_id) o.rodeoId = m.rodeo_id;
+    if (m.cambio_id) o.cambioId = m.cambio_id;
+    if (m.cierra) o.cierra = true;
+    d.movs.push(o);
+  }
+  for (const s of sp.rows) {
+    const d = docs[s.pastoreo_id]; if (!d) continue;
+    const o = { id: s.id, fecha: pastFechaOut(s.fecha, s.fecha_txt), kgTC: pastNum(s.kg_tc), obs: s.obs };
+    if (s.insumo_id) o.insumoId = s.insumo_id;
+    if (s.racion_id) { o.racionId = s.racion_id; o.comp = comps[s.pastoreo_id + '|' + s.id] || []; }
+    if (s.racion_nombre != null) o.racionNombre = s.racion_nombre;
+    if (s.pct_ms != null) o.pctMS = pastNum(s.pct_ms);
+    if (s.humedad != null) o.humedad = pastNum(s.humedad);
+    if (s.remito != null) o.remito = s.remito;
+    d.supl.push(o);
+  }
+  return Object.values(docs);
+}
+
+async function pastLeerTodo(db, empresaId, permiso) {
+  const filtra = (permiso.campoIds || []).length > 0;
+  const lotesOk = filtra
+    ? (await db.query('SELECT id FROM lotes WHERE empresa_id = $1 AND (campo_id IS NULL OR campo_id = ANY($2::text[]))', [empresaId, permiso.campoIds])).rows.map(r => r.id)
+    : null;
+  const loteVisible = id => !lotesOk || lotesOk.indexOf(id) !== -1;
+  await db.query(
+    `INSERT INTO negocios_ganaderos (id, empresa_id, nombre, activo)
+     SELECT $2, $1, 'Campo', true WHERE NOT EXISTS (SELECT 1 FROM negocios_ganaderos WHERE empresa_id = $1)
+     ON CONFLICT DO NOTHING`, [empresaId, 'neg_' + empresaId + '_campo']);
+  const [pastoreos, cats, negs, rods, racs, rcomp, ms, sup, rec, tas, cfg, pend] = await Promise.all([
+    pastLeerPastoreos(db, empresaId, permiso),
+    db.query('SELECT id, nombre, orden, activo FROM categorias_hacienda ORDER BY orden, nombre'),
+    db.query('SELECT id, nombre, activo FROM negocios_ganaderos WHERE empresa_id = $1 ORDER BY nombre', [empresaId]),
+    db.query('SELECT * FROM rodeos WHERE empresa_id = $1 ORDER BY nombre', [empresaId]),
+    db.query('SELECT * FROM raciones WHERE empresa_id = $1 ORDER BY nombre', [empresaId]),
+    db.query('SELECT racion_id, insumo_id, pct_incl FROM racion_componentes WHERE empresa_id = $1 ORDER BY racion_id, orden', [empresaId]),
+    db.query('SELECT id, pct_ms FROM insumos WHERE empresa_id = $1 AND pct_ms IS NOT NULL', [empresaId]),
+    db.query('SELECT campania_id, lote_id, ganadera FROM pastoreo_superficie WHERE empresa_id = $1', [empresaId]),
+    db.query('SELECT campania_id, lote_id, tipo_actividad_id FROM pastoreo_recurso WHERE empresa_id = $1', [empresaId]),
+    db.query('SELECT tipo_actividad_id, tcb, fecha FROM pastoreo_tasas WHERE empresa_id = $1', [empresaId]),
+    db.query('SELECT datos FROM pastoreo_config WHERE empresa_id = $1', [empresaId]),
+    db.query('SELECT items FROM pastoreo_pendientes WHERE empresa_id = $1', [empresaId]),
+  ]);
+  const compsPorRac = {};
+  for (const c of rcomp.rows) (compsPorRac[c.racion_id] = compsPorRac[c.racion_id] || []).push({ insumoId: c.insumo_id, pctIncl: pastNum(c.pct_incl) });
+  return {
+    gan_pastoreos: pastoreos,
+    gan_categorias: cats.rows.map(c => ({ id: c.id, nombre: c.nombre, orden: c.orden, activo: c.activo })),
+    gan_negocios: negs.rows.map(n => ({ id: n.id, empresaId, nombre: n.nombre, activo: n.activo })),
+    gan_rodeos: rods.rows.map(r => ({ id: r.id, empresaId, negocioId: r.negocio_id, nombre: r.nombre, activo: r.activo, obs: r.obs,
+      creado: pastIso(r.creado), actualizado: pastIso(r.actualizado) })),
+    gan_raciones: racs.rows.map(r => ({ id: r.id, empresaId, nombre: r.nombre, componentes: compsPorRac[r.id] || [], activa: r.activa,
+      obs: r.obs, creado: pastIso(r.creado), actualizado: pastIso(r.actualizado) })),
+    gan_insumos_ms: ms.rows.map(r => ({ empresaId, insumoId: r.id, pctMS: pastNum(r.pct_ms) })),
+    gan_superficie: sup.rows.filter(r => loteVisible(r.lote_id)).map(r => ({ empresaId, campaniaId: r.campania_id, loteId: r.lote_id, ganadera: r.ganadera })),
+    gan_recurso: rec.rows.filter(r => loteVisible(r.lote_id)).map(r => ({ empresaId, campaniaId: r.campania_id, loteId: r.lote_id, tipoActividadId: r.tipo_actividad_id })),
+    gan_tasas: tas.rows.map(r => ({ empresaId, tipoActividadId: r.tipo_actividad_id, tcb: pastNum(r.tcb), fecha: pastFechaOut(r.fecha, null) })),
+    gan_cfg: cfg.rows.length ? [Object.assign({}, cfg.rows[0].datos, { empresaId })] : [],
+    gan_pendientes: pend.rows.length ? [{ empresaId, items: pend.rows[0].items || [] }] : [],
+  };
+}
+
+app.get('/api/pastoreos/datos', async (req, res) => {
+  try {
+    const empresaId = req.query.empresaId;
+    const c = await pastContexto(req, res, empresaId, 'ver'); if (!c) return;
+    res.json(await pastLeerTodo(pool, empresaId, c.permiso));
+  } catch (err) {
+    console.error('/api/pastoreos/datos GET error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ── Escritura de un pastoreo (documento completo) ────────────────────────────
+async function pastEscribir(db, empresaId, d) {
+  const lotes = lotesDeDoc(d);
+  if (!d.id) throw Object.assign(new Error('pastoreo sin id'), { http: 400, msg: 'Pastoreo sin identificador' });
+  if (!lotes.length) throw Object.assign(new Error('pastoreo sin lote'), { http: 400, msg: 'El pastoreo no tiene lote' });
+  const lr = await db.query('SELECT campo_id FROM lotes WHERE id = $1 AND empresa_id = $2', [d.loteId || lotes[0], empresaId]);
+  const campoId = lr.rows.length ? lr.rows[0].campo_id : (d.campoId || null);
+  await db.query(
+    `INSERT INTO pastoreos (id, empresa_id, campania_id, campo_id, lote_id, lote_ids, num, tipo_actividad_id, origen, importado, creado, actualizado)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$11,$10, now())
+     ON CONFLICT (id, empresa_id) DO UPDATE SET campania_id=$3, campo_id=$4, lote_id=$5, lote_ids=$6, num=$7,
+       tipo_actividad_id=$8, origen=$9, importado=$11, creado=COALESCE(pastoreos.creado, $10), actualizado=now()`,
+    [d.id, empresaId, d.campaniaId || null, campoId, d.loteId || lotes[0],
+     (Array.isArray(d.loteIds) && d.loteIds.length) ? d.loteIds : null,
+     pastNum(d.num) != null ? Math.round(pastNum(d.num)) : null, d.tipoActividadId || null, pastTxt(d.origen),
+     d.creado || null, d.importado === true]);
+  // hijos: se reemplazan enteros (el documento es la verdad)
+  await db.query('DELETE FROM pastoreo_movimientos WHERE pastoreo_id = $1 AND empresa_id = $2', [d.id, empresaId]);
+  await db.query('DELETE FROM pastoreo_suplementos WHERE pastoreo_id = $1 AND empresa_id = $2', [d.id, empresaId]);
+  const movs = Array.isArray(d.movs) ? d.movs : [];
+  for (let i = 0; i < movs.length; i++) {
+    const m = movs[i] || {};
+    const f = pastFecha(m.fecha);
+    await db.query(
+      `INSERT INTO pastoreo_movimientos (pastoreo_id, empresa_id, id, orden, fecha, fecha_txt, tipo, categoria_id, rodeo_id, cab, kg, obs, cambio_id, cierra)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [d.id, empresaId, m.id || ('m' + i), i, f[0], f[1], pastTxt(m.tipo), m.categoriaId || null, m.rodeoId || null,
+       pastNum(m.cab), pastNum(m.kg), pastTxt(m.obs), m.cambioId || null, m.cierra === true]);
+  }
+  const supl = Array.isArray(d.supl) ? d.supl : [];
+  for (let i = 0; i < supl.length; i++) {
+    const s = supl[i] || {};
+    const f = pastFecha(s.fecha), sid = s.id || ('s' + i);
+    await db.query(
+      `INSERT INTO pastoreo_suplementos (pastoreo_id, empresa_id, id, orden, fecha, fecha_txt, insumo_id, racion_id, racion_nombre, kg_tc, pct_ms, humedad, remito, obs)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [d.id, empresaId, sid, i, f[0], f[1], s.insumoId || null, s.racionId || null,
+       s.racionNombre != null ? String(s.racionNombre) : null, pastNum(s.kgTC), pastNum(s.pctMS), pastNum(s.humedad),
+       s.remito != null ? String(s.remito) : null, pastTxt(s.obs)]);
+    const comp = Array.isArray(s.comp) ? s.comp : [];
+    for (let j = 0; j < comp.length; j++) {
+      const c = comp[j] || {};
+      if (!c.insumoId) continue;
+      await db.query(
+        `INSERT INTO pastoreo_suplemento_componentes (pastoreo_id, empresa_id, suplemento_id, orden, insumo_id, pct_incl, pct_ms)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [d.id, empresaId, sid, j, c.insumoId, pastNum(c.pctIncl), pastNum(c.pctMS)]);
+    }
+  }
+}
+
+function pastError(res, err, donde) {
+  if (err && err.http) return res.status(err.http).json({ error: err.msg });
+  const u = uniqueViolation(err); if (u) return res.status(409).json({ error: u });
+  if (err && err.code === '23503') {
+    const c = String(err.constraint || '');
+    const msg = /categoria/.test(c) ? 'Hay movimientos con una categoría de hacienda que no existe en el sistema'
+      : /rodeo/.test(c) ? 'Hay movimientos con un rodeo que no existe o que no se puede borrar porque tiene movimientos'
+      : /negocio/.test(c) ? 'La unidad de negocio tiene rodeos: dala de baja en lugar de eliminarla'
+      : /campania/.test(c) ? 'La campaña no existe en el sistema'
+      : (fkViolation(err) || 'Hay datos asociados que lo impiden');
+    return res.status(409).json({ error: msg });
+  }
+  if (err && (err.code === '22P02' || err.code === '22003' || err.code === '23514' || err.code === '22007' || err.code === '22008'))
+    return res.status(400).json({ error: 'Hay un dato con formato inválido' });
+  console.error(donde + ' error:', err);
+  return res.status(500).json({ error: 'Error interno del servidor' });
+}
+
+// Guarda uno o varios pastoreos en una transacción (un pase escribe el origen y
+// el destino juntos). importacion=true: carga única del histórico, solo
+// admin_general y solo si la empresa todavía no tiene pastoreos.
+app.post('/api/pastoreos/guardar', async (req, res) => {
+  const b = req.body || {}, empresaId = b.empresaId;
+  const c = await pastContexto(req, res, empresaId, 'cargar').catch(err => { pastError(res, err, '/api/pastoreos/guardar'); return null; });
+  if (!c) return;
+  const docs = Array.isArray(b.docs) ? b.docs : [];
+  if (!docs.length) return res.status(400).json({ error: 'No hay pastoreos para guardar' });
+  const client = await pool.connect();
+  try {
+    if (b.importacion) {
+      if (c.sesion.rol !== 'admin_general') return res.status(403).json({ error: 'La carga del histórico la hace el equipo Puntal' });
+      const ya = await client.query('SELECT 1 FROM pastoreos WHERE empresa_id = $1 LIMIT 1', [empresaId]);
+      if (ya.rows.length) return res.status(409).json({ error: 'Esta empresa ya tiene pastoreos: el histórico se importa una sola vez' });
+    }
+    // campos: los lotes nuevos y los que ya tenía cada pastoreo tienen que ser de campos habilitados
+    const ids = docs.map(d => d && d.id).filter(Boolean);
+    const prev = ids.length ? await client.query('SELECT lote_id, lote_ids FROM pastoreos WHERE empresa_id = $1 AND id = ANY($2::text[])', [empresaId, ids]) : { rows: [] };
+    let lotes = [];
+    for (const d of docs) lotes = lotes.concat(lotesDeDoc(d));
+    for (const p of prev.rows) lotes = lotes.concat(p.lote_ids && p.lote_ids.length ? p.lote_ids : [p.lote_id]);
+    const ajenos = await pastLotesAjenos(client, c.permiso, empresaId, [...new Set(lotes)]);
+    if (ajenos.length) return res.status(403).json({ error: pastMsgAjenos(ajenos) });
+
+    await client.query('BEGIN');
+    for (const d of docs) await pastEscribir(client, empresaId, d);
+    if (b.importacion && b.pendientes) {
+      await client.query(
+        `INSERT INTO pastoreo_pendientes (empresa_id, items) VALUES ($1, $2::jsonb)
+         ON CONFLICT (empresa_id) DO UPDATE SET items = $2::jsonb`, [empresaId, JSON.stringify(b.pendientes.items || [])]);
+    }
+    if (b.importacion && Array.isArray(b.insumosMs)) {
+      for (const x of b.insumosMs) {
+        if (!x || !x.insumoId || pastNum(x.pctMS) == null) continue;
+        await client.query('UPDATE insumos SET pct_ms = $3 WHERE id = $1 AND empresa_id = $2 AND pct_ms IS NULL', [x.insumoId, empresaId, pastNum(x.pctMS)]);
+      }
+    }
+    await client.query('COMMIT');
+    res.json({ status: 'ok', guardados: docs.length });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    pastError(res, err, '/api/pastoreos/guardar');
+  } finally {
+    client.release();
+  }
+});
+
+app.delete('/api/pastoreos/:id', async (req, res) => {
+  const empresaId = req.query.empresaId;
+  try {
+    const c = await pastContexto(req, res, empresaId, 'administrar'); if (!c) return;
+    const p = await pool.query('SELECT lote_id, lote_ids FROM pastoreos WHERE id = $1 AND empresa_id = $2', [req.params.id, empresaId]);
+    if (!p.rows.length) return res.status(404).json({ error: 'El pastoreo no existe' });
+    const ajenos = await pastLotesAjenos(pool, c.permiso, empresaId, p.rows[0].lote_ids && p.rows[0].lote_ids.length ? p.rows[0].lote_ids : [p.rows[0].lote_id]);
+    if (ajenos.length) return res.status(403).json({ error: pastMsgAjenos(ajenos) });
+    await pool.query('DELETE FROM pastoreos WHERE id = $1 AND empresa_id = $2', [req.params.id, empresaId]);
+    res.json({ status: 'ok' });
+  } catch (err) { pastError(res, err, '/api/pastoreos DELETE'); }
+});
+
+// ── Catálogos y correcciones (una fila por llamada) ──────────────────────────
+// POST /api/pastoreos/:col          { empresaId, rec }     alta o modificación
+// DELETE /api/pastoreos/:col/borrar { empresaId, ... }     baja (POST, la clave puede ser compuesta)
+const PAST_COLS = {
+  categorias: {
+    nivel: 'cargar', soloAdminGeneral: true,
+    async guardar(db, emp, r) {
+      if (!r.id || !String(r.nombre || '').trim()) throw Object.assign(new Error(), { http: 400, msg: 'Escribí un nombre.' });
+      await db.query(`INSERT INTO categorias_hacienda (id, nombre, orden, activo) VALUES ($1,$2,$3,$4)
+                      ON CONFLICT (id) DO UPDATE SET nombre=$2, orden=$3, activo=$4`,
+        [r.id, String(r.nombre).trim(), Math.round(pastNum(r.orden) || 0), r.activo !== false]);
+    },
+    async borrar(db, emp, k) {
+      const u = await db.query('SELECT 1 FROM pastoreo_movimientos WHERE categoria_id = $1 LIMIT 1', [k.id]);
+      if (u.rows.length) throw Object.assign(new Error(), { http: 409, msg: 'La categoría tiene movimientos en alguna empresa: dala de baja en lugar de eliminarla.' });
+      await db.query('DELETE FROM categorias_hacienda WHERE id = $1', [k.id]);
+    },
+  },
+  negocios: {
+    nivel: 'cargar',
+    async guardar(db, emp, r) {
+      if (!r.id || !String(r.nombre || '').trim()) throw Object.assign(new Error(), { http: 400, msg: 'Escribí un nombre.' });
+      await db.query(`INSERT INTO negocios_ganaderos (id, empresa_id, nombre, activo) VALUES ($1,$2,$3,$4)
+                      ON CONFLICT (id, empresa_id) DO UPDATE SET nombre=$3, activo=$4`,
+        [r.id, emp, String(r.nombre).trim(), r.activo !== false]);
+    },
+    async borrar(db, emp, k) { await db.query('DELETE FROM negocios_ganaderos WHERE id = $1 AND empresa_id = $2', [k.id, emp]); },
+  },
+  rodeos: {
+    nivel: 'cargar',
+    async guardar(db, emp, r) {
+      if (!r.id || !String(r.nombre || '').trim()) throw Object.assign(new Error(), { http: 400, msg: 'Escribí un nombre.' });
+      if (!r.negocioId) throw Object.assign(new Error(), { http: 400, msg: 'Elegí la unidad de negocio.' });
+      await db.query(`INSERT INTO rodeos (id, empresa_id, negocio_id, nombre, activo, obs, creado, actualizado) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+                      ON CONFLICT (id, empresa_id) DO UPDATE SET negocio_id=$3, nombre=$4, activo=$5, obs=$6, actualizado=$8`,
+        [r.id, emp, r.negocioId, String(r.nombre).trim(), r.activo !== false, pastTxt(r.obs), r.creado || new Date().toISOString(), r.actualizado || new Date().toISOString()]);
+    },
+    async borrar(db, emp, k) { await db.query('DELETE FROM rodeos WHERE id = $1 AND empresa_id = $2', [k.id, emp]); },
+  },
+  raciones: {
+    nivel: 'cargar',
+    async guardar(db, emp, r) {
+      if (!r.id || !String(r.nombre || '').trim()) throw Object.assign(new Error(), { http: 400, msg: 'Escribí un nombre.' });
+      await db.query(`INSERT INTO raciones (id, empresa_id, nombre, activa, obs, creado, actualizado) VALUES ($1,$2,$3,$4,$5,$6,$7)
+                      ON CONFLICT (id, empresa_id) DO UPDATE SET nombre=$3, activa=$4, obs=$5, actualizado=$7`,
+        [r.id, emp, String(r.nombre).trim(), r.activa !== false, pastTxt(r.obs), r.creado || new Date().toISOString(), r.actualizado || new Date().toISOString()]);
+      await db.query('DELETE FROM racion_componentes WHERE racion_id = $1 AND empresa_id = $2', [r.id, emp]);
+      const cs = Array.isArray(r.componentes) ? r.componentes : [];
+      for (let i = 0; i < cs.length; i++) {
+        if (!cs[i] || !cs[i].insumoId) continue;
+        await db.query('INSERT INTO racion_componentes (racion_id, empresa_id, orden, insumo_id, pct_incl) VALUES ($1,$2,$3,$4,$5)',
+          [r.id, emp, i, cs[i].insumoId, pastNum(cs[i].pctIncl)]);
+      }
+    },
+    async borrar(db, emp, k) {
+      const u = await db.query('SELECT 1 FROM pastoreo_suplementos WHERE racion_id = $1 AND empresa_id = $2 LIMIT 1', [k.id, emp]);
+      if (u.rows.length) throw Object.assign(new Error(), { http: 409, msg: 'Tiene entregas: dala de baja en lugar de eliminarla.' });
+      await db.query('DELETE FROM raciones WHERE id = $1 AND empresa_id = $2', [k.id, emp]);
+    },
+  },
+  // % MS: dato del insumo; lo carga cualquiera con "cargar" en la herramienta (decisión del cliente)
+  'insumos-ms': {
+    nivel: 'cargar', borrarNivel: 'cargar',
+    async guardar(db, emp, r) {
+      const pm = pastNum(r.pctMS);
+      if (pm == null || pm <= 0 || pm > 100) throw Object.assign(new Error(), { http: 400, msg: 'El % MS tiene que estar entre 1 y 100.' });
+      const u = await db.query('UPDATE insumos SET pct_ms = $3 WHERE id = $1 AND empresa_id = $2', [r.insumoId, emp, pm]);
+      if (!u.rowCount) throw Object.assign(new Error(), { http: 404, msg: 'El insumo no existe' });
+    },
+    async borrar(db, emp, k) { await db.query('UPDATE insumos SET pct_ms = NULL WHERE id = $1 AND empresa_id = $2', [k.insumoId, emp]); },
+  },
+  superficie: {
+    nivel: 'cargar', borrarNivel: 'cargar', porLote: true,
+    async guardar(db, emp, r) {
+      await db.query(`INSERT INTO pastoreo_superficie (empresa_id, campania_id, lote_id, ganadera) VALUES ($1,$2,$3,$4)
+                      ON CONFLICT (empresa_id, campania_id, lote_id) DO UPDATE SET ganadera=$4`, [emp, r.campaniaId, r.loteId, r.ganadera === true]);
+    },
+    async borrar(db, emp, k) { await db.query('DELETE FROM pastoreo_superficie WHERE empresa_id=$1 AND campania_id=$2 AND lote_id=$3', [emp, k.campaniaId, k.loteId]); },
+  },
+  recurso: {
+    nivel: 'cargar', borrarNivel: 'cargar', porLote: true,
+    async guardar(db, emp, r) {
+      if (!r.tipoActividadId) throw Object.assign(new Error(), { http: 400, msg: 'Elegí el recurso.' });
+      await db.query(`INSERT INTO pastoreo_recurso (empresa_id, campania_id, lote_id, tipo_actividad_id) VALUES ($1,$2,$3,$4)
+                      ON CONFLICT (empresa_id, campania_id, lote_id) DO UPDATE SET tipo_actividad_id=$4`, [emp, r.campaniaId, r.loteId, r.tipoActividadId]);
+    },
+    async borrar(db, emp, k) { await db.query('DELETE FROM pastoreo_recurso WHERE empresa_id=$1 AND campania_id=$2 AND lote_id=$3', [emp, k.campaniaId, k.loteId]); },
+  },
+  tasas: {
+    nivel: 'cargar', borrarNivel: 'cargar',
+    async guardar(db, emp, r) {
+      const v = pastNum(r.tcb);
+      if (v == null || v < 0 || v > 300) throw Object.assign(new Error(), { http: 400, msg: 'La tasa de crecimiento tiene que estar entre 0 y 300 kg MS/ha/día.' });
+      await db.query(`INSERT INTO pastoreo_tasas (empresa_id, tipo_actividad_id, tcb, fecha) VALUES ($1,$2,$3,$4)
+                      ON CONFLICT (empresa_id, tipo_actividad_id) DO UPDATE SET tcb=$3, fecha=$4`, [emp, r.tipoActividadId, v, pastFecha(r.fecha)[0]]);
+    },
+    async borrar(db, emp, k) { await db.query('DELETE FROM pastoreo_tasas WHERE empresa_id=$1 AND tipo_actividad_id=$2', [emp, k.tipoActividadId]); },
+  },
+  config: {
+    nivel: 'cargar',
+    async guardar(db, emp, r) {
+      const d = Object.assign({}, r); delete d.empresaId;
+      await db.query(`INSERT INTO pastoreo_config (empresa_id, datos) VALUES ($1,$2::jsonb)
+                      ON CONFLICT (empresa_id) DO UPDATE SET datos=$2::jsonb`, [emp, JSON.stringify(d)]);
+    },
+  },
+  pendientes: {
+    nivel: 'cargar',
+    async guardar(db, emp, r) {
+      await db.query(`INSERT INTO pastoreo_pendientes (empresa_id, items) VALUES ($1,$2::jsonb)
+                      ON CONFLICT (empresa_id) DO UPDATE SET items=$2::jsonb`, [emp, JSON.stringify(Array.isArray(r.items) ? r.items : [])]);
+    },
+  },
+};
+
+app.post('/api/pastoreos/catalogo/:col', async (req, res) => {
+  const b = req.body || {}, empresaId = b.empresaId, cfg = PAST_COLS[req.params.col];
+  try {
+    if (!cfg) return res.status(404).json({ error: 'Colección desconocida' });
+    const c = await pastContexto(req, res, empresaId, cfg.nivel); if (!c) return;
+    if (cfg.soloAdminGeneral && c.sesion.rol !== 'admin_general')
+      return res.status(403).json({ error: 'Las categorías de hacienda son generales: solo el equipo Puntal las crea o modifica.' });
+    const r = b.rec || {};
+    if (cfg.porLote) {
+      const ajenos = await pastLotesAjenos(pool, c.permiso, empresaId, [r.loteId]);
+      if (ajenos.length) return res.status(403).json({ error: pastMsgAjenos(ajenos) });
+    }
+    await cfg.guardar(pool, empresaId, r);
+    res.json({ status: 'ok' });
+  } catch (err) { pastError(res, err, '/api/pastoreos/catalogo/' + req.params.col); }
+});
+
+app.post('/api/pastoreos/catalogo/:col/borrar', async (req, res) => {
+  const b = req.body || {}, empresaId = b.empresaId, cfg = PAST_COLS[req.params.col];
+  try {
+    if (!cfg || !cfg.borrar) return res.status(404).json({ error: 'Colección desconocida' });
+    const c = await pastContexto(req, res, empresaId, cfg.borrarNivel || 'administrar'); if (!c) return;
+    if (cfg.soloAdminGeneral && c.sesion.rol !== 'admin_general')
+      return res.status(403).json({ error: 'Las categorías de hacienda son generales: solo el equipo Puntal las crea o modifica.' });
+    const k = b.clave || {};
+    if (cfg.porLote) {
+      const ajenos = await pastLotesAjenos(pool, c.permiso, empresaId, [k.loteId]);
+      if (ajenos.length) return res.status(403).json({ error: pastMsgAjenos(ajenos) });
+    }
+    await cfg.borrar(pool, empresaId, k);
+    res.json({ status: 'ok' });
+  } catch (err) { pastError(res, err, '/api/pastoreos/catalogo/' + req.params.col + '/borrar'); }
+});
+
+// Restaurar un respaldo descargado desde el tablero: reemplaza los datos propios
+// de la empresa en una transacción. Las categorías solo las agrega o modifica
+// admin_general. Para usuarios con campos restringidos no se permite (pisaría
+// pastoreos de campos que no ve).
+app.post('/api/pastoreos/restaurar', async (req, res) => {
+  const b = req.body || {}, empresaId = b.empresaId, d = b.datos || {};
+  const c = await pastContexto(req, res, empresaId, 'administrar').catch(err => { pastError(res, err, '/api/pastoreos/restaurar'); return null; });
+  if (!c) return;
+  if ((c.permiso.campoIds || []).length) return res.status(403).json({ error: 'Para restaurar un respaldo necesitás acceso a todos los campos de la empresa.' });
+  const arr = k => (Array.isArray(d[k]) ? d[k] : []).filter(x => x && x.empresaId === empresaId);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    if (c.sesion.rol === 'admin_general' && Array.isArray(d.gan_categorias)) {
+      for (const x of d.gan_categorias) if (x && x.id && x.nombre) await PAST_COLS.categorias.guardar(client, empresaId, x);
+    }
+    for (const t of ['pastoreos', 'raciones', 'rodeos', 'negocios_ganaderos', 'pastoreo_superficie', 'pastoreo_recurso',
+                     'pastoreo_tasas', 'pastoreo_config', 'pastoreo_pendientes'])
+      await client.query('DELETE FROM ' + t + ' WHERE empresa_id = $1', [empresaId]);
+    await client.query('UPDATE insumos SET pct_ms = NULL WHERE empresa_id = $1', [empresaId]);
+    for (const x of arr('gan_negocios')) await PAST_COLS.negocios.guardar(client, empresaId, x);
+    for (const x of arr('gan_rodeos')) await PAST_COLS.rodeos.guardar(client, empresaId, x);
+    for (const x of arr('gan_raciones')) await PAST_COLS.raciones.guardar(client, empresaId, x);
+    for (const x of arr('gan_insumos_ms')) {
+      const pm = pastNum(x.pctMS != null ? x.pctMS : (typeof x.humedad === 'number' ? Math.round((1 - x.humedad) * 10000) / 100 : null));
+      if (pm != null && pm > 0 && pm <= 100) await client.query('UPDATE insumos SET pct_ms = $3 WHERE id = $1 AND empresa_id = $2', [x.insumoId, empresaId, pm]);
+    }
+    for (const x of arr('gan_superficie')) await PAST_COLS.superficie.guardar(client, empresaId, x);
+    for (const x of arr('gan_recurso')) if (x.tipoActividadId) await PAST_COLS.recurso.guardar(client, empresaId, x);
+    for (const x of arr('gan_tasas')) if (pastNum(x.tcb) != null) await PAST_COLS.tasas.guardar(client, empresaId, x);
+    const cf = arr('gan_cfg'); if (cf.length) await PAST_COLS.config.guardar(client, empresaId, cf[0]);
+    const pe = arr('gan_pendientes'); if (pe.length) await PAST_COLS.pendientes.guardar(client, empresaId, pe[0]);
+    for (const x of arr('gan_pastoreos')) await pastEscribir(client, empresaId, x);
+    await client.query('COMMIT');
+    res.json({ status: 'ok', pastoreos: arr('gan_pastoreos').length });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    pastError(res, err, '/api/pastoreos/restaurar');
+  } finally {
+    client.release();
+  }
+});
+
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`PA API lista en puerto ${PORT}`));
