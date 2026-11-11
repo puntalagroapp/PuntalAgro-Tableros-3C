@@ -350,7 +350,11 @@ function cargarCatalogos(){var i,x;
   if(!CAMP){var ch=campDeFecha(hoy());if(campExiste(ch))CAMP=ch;else{var ca=PA.demo.campaniaActiva();CAMP=ca?ca.id:(S.campanias.length?S.campanias[S.campanias.length-1].id:null);}} /* campaña ganadera: julio-junio */
   asignarColores();}
 function asignarColores(){var k=0,ts=vals(S.tipos).sort(function(a,b){return (a.nombre||'').localeCompare(b.nombre||'');});
-  for(var i=0;i<ts.length;i++){if(!COLOR[ts[i].nombre]){COLOR[ts[i].nombre]=PALETA_EXTRA[k%PALETA_EXTRA.length];k++;}}}
+  for(var i=0;i<ts.length;i++){if(!COLOR[ts[i].nombre]){
+    /* 3 capas: en el sistema los nombres pueden variar en mayúsculas ("Pradera Alfalfa") o abreviatura ("Pradera impl.") */
+    var nn=normN(ts[i].nombre),ck,hit=null;for(ck in COLOR){var kk=normN(ck).replace(/\.$/,'');if(normN(ck)===nn||(kk!==normN(ck)&&nn.indexOf(kk)===0)){hit=COLOR[ck];break;}}
+    if(hit){COLOR[ts[i].nombre]=hit;continue;}
+    COLOR[ts[i].nombre]=PALETA_EXTRA[k%PALETA_EXTRA.length];k++;}}}
 function deEmp(arr){var o=[];for(var i=0;i<arr.length;i++)if(arr[i].empresaId===EMP)o.push(arr[i]);return o;}
 function cargarPropios(){var i,a;
   S.pastoreos={};a=deEmp(lsGet('gan_pastoreos',[]));for(i=0;i<a.length;i++)S.pastoreos[a[i].id]=a[i];
@@ -1629,8 +1633,11 @@ function irPend(){var e=document.getElementById('pend_card');if(e){try{e.scrollI
    - Colores: un color fijo por recurso desde COLOR_REC; terracota reservado para el suplemento. */
 var CF={camp:'',campo:'',rec:'',uni:'ms'},CHC=[],MES_CAMP=['07','08','09','10','11','12','01','02','03','04','05','06'];
 var PAL_REC=['#4A6533','#8BA05E','#6E8B8F','#D9B26F','#9C7A4E','#B9C99A','#55707A','#C9B79C','#7F9C6B','#A3A58A','#5E6E3A','#B4A27A','#8FA9AD','#D6C9A8','#6B5B3E'];
-function campDeMes(ym2){var y=+ym2.substr(0,4),m=+ym2.substr(5,2),a=m>=7?y:y-1;function dd(n){n=n%100;return (n<10?'0':'')+n;}return dd(a)+'-'+dd(a+1);}
-function mesesCamp(c){var a=2000+(+c.substr(0,2)),o=[];for(var i=0;i<12;i++){var mm=MES_CAMP[i];o.push((i<6?a:a+1)+'-'+mm);}return o;}
+function campDeMes(ym2){return campDeFecha(ym2.substr(0,7)+'-01');} /* 3 capas: mismo criterio que campDeFecha (id del catálogo) */
+/* 3 capas: año de inicio de la campaña desde su nombre ("26/27"); el id ya no es "26-27" sino camp_2627 */
+function anioCamp(c){var t=String(c||''),i,m;for(i=0;i<S.campanias.length;i++)if(S.campanias[i].id===c){t=String(S.campanias[i].nombre||t);break;}
+  m=t.match(/(\d{2,4})\D+(\d{2,4})/)||String(c||'').match(/(\d{2})(\d{2})$/);return m?2000+(+m[1])%100:NaN;}
+function mesesCamp(c){var a=anioCamp(c),o=[];for(var i=0;i<12;i++){var mm=MES_CAMP[i];o.push((i<6?a:a+1)+'-'+mm);}return o;}
 function colorRec(){var ts=[],k,o={};for(k in S.tipos)if(esGan(k))ts.push(S.tipos[k]);ts=byName(ts);for(var i=0;i<ts.length;i++)o[ts[i].id]=PAL_REC[i%PAL_REC.length];o['']='#A0A8B0';return o;}
 function campoDeLote(id){var L=S.lotes[id];return L?L.campoId:'';}
 /* superficie ganadera por recurso en una campaña (respeta el filtro de campo) */
@@ -1736,7 +1743,7 @@ function dIdx(s){return Math.round(pd(s)/DAY);}
 function addDias(s,n){return ds(pd(s)+n*DAY);}
 /* filtros compartidos de Pastoreos y Línea de tiempo */
 function rangoTL(){var h2=TL.hasta||hoy(),d2=TL.desde||addDias(h2,-365);return [d2,h2];}
-function campRango(c){var a=2000+(+c.substr(0,2));return [a+'-07-01',(a+1)+'-06-30'];}
+function campRango(c){var a=anioCamp(c);return [a+'-07-01',(a+1)+'-06-30'];}
 function setCampTL(c){TL.camp=c;if(c){var r=campRango(c);TL.desde=r[0];TL.hasta=r[1]>hoy()?hoy():r[1];}else{TL.desde='';TL.hasta='';}render();}
 function pasaFP(g,soloRango){var ls=lotesOf(g),ok=false,j;
   if(TL.campo){for(j=0;j<ls.length;j++)if(S.lotes[ls[j]]&&S.lotes[ls[j]].campoId===TL.campo)ok=true;if(!ok)return false;}
@@ -1798,6 +1805,9 @@ var IMP={lot:{},ing:{},msg:'',err:false};
 var PEND_EQ={}; /* viene en el archivo de histórico (pendEq) */
 var GRUPOS={}; /* viene en el archivo de histórico (grupos) */
 function impLotes(n){if(!GRUPOS[n])return [impLote(n)];var o=[];for(var i=0;i<GRUPOS[n].length;i++)o.push(impLote(GRUPOS[n][i]));return o;}
+/* tipo de actividad por nombre, sin distinguir mayúsculas ("Pradera impl." = "Pradera implantada") */
+function recPorNombre(n){if(!n)return null;var k=normN(n).replace(/\.$/,''),t;for(t in S.tipos)if(normN(S.tipos[t].nombre)===normN(n))return t;
+  for(t in S.tipos)if(normN(S.tipos[t].nombre).indexOf(k)===0)return t;return null;}
 function normN(s){return String(s||'').toLowerCase().replace(/\s+/g,' ').replace(/^\s|\s$/g,'');}
 /* campaña ganadera (julio-junio) de una fecha: se busca en el catálogo por los años del nombre
    ("26/27", "26-27", "2026/27") y se usa su id; nunca se arma el id a mano (en el sistema es camp_2627).
@@ -1872,7 +1882,8 @@ function importarHist(){if(!CAN_ADM||yaImportado()||!HIST)return;var d=diagImpor
     if(!campExiste(camp))camp=CAMP; /* 3 capas: la campaña tiene que existir en el sistema (fecha inválida en el Excel) */
     var acts=actsDe(lid,camp),tid=null;
     if(acts.length===1)tid=acts[0].tipoActividadId;
-    else if(acts.length>1){for(j=0;j<acts.length;j++)if(rName(acts[j].tipoActividadId)===REC_EQ[p[1]])tid=acts[j].tipoActividadId;if(!tid)tid=recDe(lid,camp);}
+    else if(acts.length>1){for(j=0;j<acts.length;j++)if(normN(rName(acts[j].tipoActividadId))===normN(REC_EQ[p[1]]))tid=acts[j].tipoActividadId;if(!tid)tid=recDe(lid,camp);}
+    else tid=recPorNombre(REC_EQ[p[1]])||recDe(lid,camp); /* 3 capas: sin Plan de Uso (La Rinconada), el recurso del propio pastoreo del Excel */
     if(!tid)sinRec++;
     nums[lid]=(nums[lid]||0)+1;
     var movs=[],supl=[];
