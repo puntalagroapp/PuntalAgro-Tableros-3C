@@ -337,15 +337,24 @@ CREATE TABLE choferes (
 CREATE INDEX idx_choferes_empresa ON choferes(empresa_id);
 CREATE UNIQUE INDEX uq_choferes_nombre_empresa ON choferes (empresa_id, trim(lower(datos->>'nombre')));
 
--- Depósitos (de insumos o acopio de granos)
+-- Depósitos (de insumos o acopio de granos). Columnas propias (migración 022):
+-- campo_id define qué usuarios lo ven (permisos por campo); sin campo = general.
 CREATE TABLE depositos (
     id         TEXT NOT NULL,
     empresa_id TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-    datos      JSONB NOT NULL DEFAULT '{}',
-    PRIMARY KEY (id, empresa_id)
+    nombre     TEXT NOT NULL,
+    clase      TEXT NOT NULL DEFAULT 'insumos',
+    campo_id   TEXT,
+    especie_id TEXT,
+    activo     BOOLEAN NOT NULL DEFAULT true,
+    PRIMARY KEY (id, empresa_id),
+    CONSTRAINT depositos_clase_check CHECK (clase IN ('insumos','granos')),
+    CONSTRAINT depositos_campo_fk   FOREIGN KEY (campo_id)   REFERENCES campos(id)   ON DELETE RESTRICT,
+    CONSTRAINT depositos_especie_fk FOREIGN KEY (especie_id) REFERENCES especies(id) ON DELETE RESTRICT
 );
 CREATE INDEX idx_depositos_empresa ON depositos(empresa_id);
-CREATE UNIQUE INDEX uq_depositos_nombre_empresa ON depositos (empresa_id, trim(lower(datos->>'nombre')));
+CREATE INDEX idx_depositos_campo ON depositos(campo_id);
+CREATE UNIQUE INDEX uq_depositos_nombre_empresa ON depositos (empresa_id, trim(lower(nombre)));
 
 -- Insumos (catálogo unificado agroquímicos + fertilizantes + otros)
 CREATE TABLE insumos (
@@ -471,14 +480,97 @@ CREATE TABLE ot_trabajos (
     estado_pago      TEXT NOT NULL DEFAULT 'No',
     monto_pagado     NUMERIC(12,2) NOT NULL DEFAULT 0,
     es_resiembra     BOOLEAN NOT NULL DEFAULT false,
-    plantilla        JSONB NOT NULL DEFAULT '[]',
-    destinos         JSONB NOT NULL DEFAULT '[]',
     orden            INT NOT NULL DEFAULT 1,
     PRIMARY KEY (id, empresa_id),
     FOREIGN KEY (ot_id, empresa_id) REFERENCES ordenes_trabajo(id, empresa_id) ON DELETE CASCADE,
     FOREIGN KEY (tercero_id, empresa_id) REFERENCES terceros(id, empresa_id) ON DELETE RESTRICT
 );
 CREATE INDEX idx_ot_trabajos_ot ON ot_trabajos(ot_id, empresa_id);
+
+-- Un lote (o unidad de negocio) dentro de una labor de la OT.
+-- lote_id sin FK: es un lote de pa-core o 'UN:<campoId>' (unidad de negocio), y
+-- "Cargar datos" del Plan de Uso borra y recrea los lotes de la empresa.
+CREATE TABLE ot_destinos (
+    id                       TEXT NOT NULL,
+    empresa_id               TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    trabajo_id               TEXT NOT NULL,
+    orden                    INT  NOT NULL,
+    lote_id                  TEXT,
+    campo_id                 TEXT,
+    cultivo                  TEXT,
+    ha                       NUMERIC,
+    ha_real                  NUMERIC,
+    obs                      TEXT,
+    estado_lote              TEXT NOT NULL DEFAULT 'Pendiente' CHECK (estado_lote IN ('Pendiente','Aplicado')),
+    fecha_aplic_real         DATE,
+    tanda_id                 TEXT,
+    cultivo_mantenido        TEXT,
+    cultivo_mantenido_fecha  DATE,
+    cultivo_mantenido_ahora  TEXT,
+    geo_ot                   JSONB,  -- polígono propio de la OT {ring:[[lng,lat],...]}, como lotes.geo
+    PRIMARY KEY (trabajo_id, empresa_id, id),
+    CONSTRAINT ot_destinos_trabajo_fk FOREIGN KEY (trabajo_id, empresa_id)
+        REFERENCES ot_trabajos(id, empresa_id) ON DELETE CASCADE,
+    CONSTRAINT ot_destinos_campo_fk FOREIGN KEY (campo_id) REFERENCES campos(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_ot_destinos_empresa ON ot_destinos(empresa_id, campo_id);
+CREATE INDEX idx_ot_destinos_lote    ON ot_destinos(empresa_id, lote_id);
+
+-- Línea de insumo de un destino: lo planificado (dosis) y lo registrado al aplicar.
+CREATE TABLE ot_destino_lineas (
+    empresa_id   TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    trabajo_id   TEXT NOT NULL,
+    destino_id   TEXT NOT NULL,
+    orden        INT  NOT NULL,
+    insumo_id    TEXT,
+    deposito_id  TEXT,
+    dosis        NUMERIC,
+    dosis_real   NUMERIC,
+    entregada    NUMERIC,
+    usado        NUMERIC,
+    dev_stock    NUMERIC,
+    dev_baja     NUMERIC,
+    PRIMARY KEY (trabajo_id, empresa_id, destino_id, orden),
+    CONSTRAINT ot_destino_lineas_destino_fk FOREIGN KEY (trabajo_id, empresa_id, destino_id)
+        REFERENCES ot_destinos(trabajo_id, empresa_id, id) ON DELETE CASCADE,
+    CONSTRAINT ot_destino_lineas_insumo_fk FOREIGN KEY (insumo_id, empresa_id)
+        REFERENCES insumos(id, empresa_id) ON DELETE RESTRICT,
+    CONSTRAINT ot_destino_lineas_deposito_fk FOREIGN KEY (deposito_id, empresa_id)
+        REFERENCES depositos(id, empresa_id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_ot_destino_lineas_insumo   ON ot_destino_lineas(empresa_id, insumo_id);
+CREATE INDEX idx_ot_destino_lineas_deposito ON ot_destino_lineas(empresa_id, deposito_id);
+
+-- Historial de cambios de cultivo de un destino ("pasó de Girasol a Maíz").
+CREATE TABLE ot_destino_cambios_cultivo (
+    empresa_id    TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    trabajo_id    TEXT NOT NULL,
+    destino_id    TEXT NOT NULL,
+    orden         INT  NOT NULL,
+    cultivo_de    TEXT,
+    cultivo_a     TEXT,
+    fecha         DATE,
+    PRIMARY KEY (trabajo_id, empresa_id, destino_id, orden),
+    CONSTRAINT ot_destino_cambios_destino_fk FOREIGN KEY (trabajo_id, empresa_id, destino_id)
+        REFERENCES ot_destinos(trabajo_id, empresa_id, id) ON DELETE CASCADE
+);
+
+-- Insumos sugeridos de la labor (dosis por ha), que se copian a cada lote.
+CREATE TABLE ot_plantilla (
+    empresa_id   TEXT NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    trabajo_id   TEXT NOT NULL,
+    orden        INT  NOT NULL,
+    insumo_id    TEXT,
+    dosis        NUMERIC,
+    deposito_id  TEXT,
+    PRIMARY KEY (trabajo_id, empresa_id, orden),
+    CONSTRAINT ot_plantilla_trabajo_fk FOREIGN KEY (trabajo_id, empresa_id)
+        REFERENCES ot_trabajos(id, empresa_id) ON DELETE CASCADE,
+    CONSTRAINT ot_plantilla_insumo_fk FOREIGN KEY (insumo_id, empresa_id)
+        REFERENCES insumos(id, empresa_id) ON DELETE RESTRICT,
+    CONSTRAINT ot_plantilla_deposito_fk FOREIGN KEY (deposito_id, empresa_id)
+        REFERENCES depositos(id, empresa_id) ON DELETE RESTRICT
+);
 
 -- Tarifa de referencia de una labor propia, por campaña: sugerencia para
 -- autocompletar al emitir una OT (el valor real queda en
@@ -524,7 +616,7 @@ CREATE TABLE movimientos (
     cantidad             NUMERIC(14,4),
     origen_deposito_id   TEXT,
     destino_deposito_id  TEXT,
-    ref_destino_id       TEXT, -- id del destino (lote) dentro del JSONB destinos de la OT, si aplica
+    ref_destino_id       TEXT, -- id del destino (ot_destinos.id) de la OT, si aplica
     precio               NUMERIC(16,4), -- precio unitario de compra / stock inicial (alimenta el promedio ponderado)
     moneda               TEXT,          -- 'ARS' | 'USD' del precio de esta línea
     PRIMARY KEY (id, empresa_id),
