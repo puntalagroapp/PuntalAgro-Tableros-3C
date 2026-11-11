@@ -742,14 +742,19 @@ var IMP = (function(){
 
       // Insumos
       var insPorNom = {};
-      var TIPO_INS = { 'semillas':'Semilla', 'herbicidas':'Herbicida', 'insecticidas':'Insecticida', 'fungicidas':'Fungicida',
-        'coadyuvantes/correctores':'Coadyuvante', 'fertilizantes':'Fertilizante' };
+      // Categoría = código del catálogo categorias_insumo (lo que usa Maestros).
+      var TIPO_INS = { 'semillas':'SEM', 'herbicidas':'HERB', 'insecticidas':'INSE', 'fungicidas':'FUNG',
+        'coadyuvantes/correctores':'COAD', 'fertilizantes':'FERT', 'curasemillas/inoculantes':'CURA' };
       function tipoIns(cat, nombre){
         var c = norm(cat);
         if(TIPO_INS[c]) return TIPO_INS[c];
-        if(c==='curasemillas/inoculantes') return /inocul/i.test(nombre) ? 'Inoculante' : 'Curasemilla';
-        if(/gas ?oil|nafta|combust|lubric/i.test(nombre)) return 'Combustible';
-        return 'Otro';
+        if(/gas ?oil|nafta|combust|lubric/i.test(nombre)) return 'COMB';
+        return 'OTRO';
+      }
+      function labelTipoIns(cod){
+        var cs = (typeof PA!=='undefined' && PA.demo && PA.demo.listarCategorias) ? (PA.demo.listarCategorias()||[]) : [];
+        for(var q=0;q<cs.length;q++) if(cs[q].codigo===cod) return cs[q].label;
+        return cod;
       }
       function asegurarIns(nombre, cat, un, origen){
         var nk = norm(nombre);
@@ -757,7 +762,7 @@ var IMP = (function(){
         var x = { id:'ins_'+slug(emp)+'_'+slug(nombre), empresaId:emp, activo:true, nombre:txt(nombre), tipo:tipoIns(cat, nombre), unidadId:unidadId(un),
           modoAccionId:null, bandaTox:'', eiq:null, concentracion:null, concUnidad:'', nutrientes:null };
         insPorNom[nk] = x; R.insumos.push(x);
-        if(origen) aviso(inf.avisos,'info','Insumos','"'+x.nombre+'" no estaba en StockInsumos: se dio de alta desde '+origen+' ('+x.tipo+', '+un+').');
+        if(origen) aviso(inf.avisos,'info','Insumos','"'+x.nombre+'" no estaba en StockInsumos: se dio de alta desde '+origen+' ('+labelTipoIns(x.tipo)+', '+un+').');
         return x.id;
       }
       for(i=0;i<reg.insumos.length;i++) asegurarIns(reg.insumos[i].nombre, reg.insumos[i].cat, reg.insumos[i].un, '');

@@ -791,7 +791,8 @@ INSERT INTO categorias_insumo (id, codigo, label, base, fito, subcat, activo) VA
     ('cat_fung', 'FUNG', 'Fungicidas',                  true, true,  false, true),
     ('cat_coad', 'COAD', 'Coadyuvantes y Correctores',  true, false, true,  true),
     ('cat_fert', 'FERT', 'Fertilizantes',               true, false, false, true),
-    ('cat_otro', 'OTRO', 'Otros Insumos',               true, false, false, true);
+    ('cat_otro', 'OTRO', 'Otros Insumos',               true, false, false, true),
+    ('cat_comb', 'COMB', 'Combustibles y lubricantes',  true, false, false, true);
 
 -- Usos (cultivo / unidad de negocio — global)
 INSERT INTO usos_actividad (id, codigo, label, color, activo) VALUES
