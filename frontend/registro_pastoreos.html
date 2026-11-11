@@ -657,15 +657,17 @@ function eliminar(){if(!CAN_ADM||!catEditable()||!editId)return;delCat(editId,fu
 
 /* ---------- INGREDIENTES: insumos del sistema + % MS propio ---------- */
 var ING_ADD='';
+/* 3 capas: el insumo guarda el código de categoría (HERB, OTRO...); se muestra el nombre del catálogo. */
+function catInsLbl(cod){var cs=(PA.demo&&PA.demo.listarCategorias)?(PA.demo.listarCategorias()||[]):[];for(var q=0;q<cs.length;q++)if(cs[q].codigo===cod)return cs[q].label;return cod||'';}
 function viewIngredientes(){var xs=[],i,u=usos();for(var k in S.insMs)if(S.insumos[k])xs.push(S.insumos[k]);byName(xs);
   var h='<div class="card">'+toolbar('Ingredientes de suplementación',xs.length,false);
   if(CAN){var opt='<option value="">Elegí un insumo del sistema</option>',all=byName(vals(S.insumos));
-    for(i=0;i<all.length;i++)if(!S.insMs.hasOwnProperty(all[i].id))opt+='<option value="'+all[i].id+'"'+(ING_ADD===all[i].id?' selected':'')+'>'+esc(all[i].nombre)+' · '+esc(all[i].tipo||'')+'</option>';
+    for(i=0;i<all.length;i++)if(!S.insMs.hasOwnProperty(all[i].id))opt+='<option value="'+all[i].id+'"'+(ING_ADD===all[i].id?' selected':'')+'>'+esc(all[i].nombre)+' · '+esc(catInsLbl(all[i].tipo))+'</option>';
     h+='<div class="form"><label class="wide" style="text-transform:none;font-size:12px;color:var(--text);font-weight:600">Agregar ingrediente</label><label>Insumo<select class="ed" id="f_ins" onchange="ING_ADD=this.value">'+opt+'</select></label>'+
       '<label>% MS<input class="ed" id="f_msp" inputmode="decimal" placeholder="ej. 86"></label><div class="form-actions"><button class="btn pri" onclick="agregarIng()">Agregar</button>'+msgHtml()+'</div></div>';}
   h+='<div class="tw scroll-y"><table><thead><tr><th>Insumo</th><th>Tipo</th><th class="r">% MS</th><th class="r">Entregas</th>'+(CAN_ADM?'<th></th>':'')+'</tr></thead><tbody>';
   for(i=0;i<xs.length;i++){var y=xs[i],pm=S.insMs[y.id];
-    h+='<tr><td class="tdname">'+esc(y.nombre)+'</td><td>'+esc(y.tipo||'')+'</td><td class="r">'+(CAN?'<input inputmode="decimal" aria-label="Materia seca de '+esc(y.nombre)+'" style="width:70px;text-align:right;background:var(--edit);border-color:transparent" value="'+f(pm,1)+'" onchange="setMs(\''+y.id+'\',this.value)"> %':f(pm,1)+'%')+'</td>'+
+    h+='<tr><td class="tdname">'+esc(y.nombre)+'</td><td>'+esc(catInsLbl(y.tipo))+'</td><td class="r">'+(CAN?'<input inputmode="decimal" aria-label="Materia seca de '+esc(y.nombre)+'" style="width:70px;text-align:right;background:var(--edit);border-color:transparent" value="'+f(pm,1)+'" onchange="setMs(\''+y.id+'\',this.value)"> %':f(pm,1)+'%')+'</td>'+
       '<td class="r">'+f(u.ing[y.id]||0)+'</td>'+(CAN_ADM?'<td>'+(u.ing[y.id]||racConIng(y.id)?'':'<button class="btn" onclick="quitarIng(\''+y.id+'\')">Quitar</button>')+'</td>':'')+'</tr>';}
   if(!xs.length)h+='<tr><td colspan="6"><div class="empty">Todavía no hay ingredientes. Elegí un insumo del sistema y cargá su % MS.</div></td></tr>';
   return h+'</tbody></table></div><div class="pnote">Los insumos vienen del sistema (Maestros). El % MS es un dato propio de esta herramienta mientras el insumo del sistema no lo tenga; se copia a cada entrega al cargarla, así que cambiarlo no modifica las entregas ya registradas.</div></div>';}

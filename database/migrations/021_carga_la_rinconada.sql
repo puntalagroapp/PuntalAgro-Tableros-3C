@@ -110,13 +110,13 @@ INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha, activo) VALUES
     ('lt_rinc_psa_34_gan_b', 'c_psa_rinconada', 'e_la_rinconada', 'PSA 34 Gan B', 4, true)
 ON CONFLICT (id) DO NOTHING;
 
--- ingredientes de suplementación (tipo Otro, en kg) con su % de materia seca
+-- ingredientes de suplementación (categoría OTRO, en kg) con su % de materia seca
 INSERT INTO insumos (id, empresa_id, datos, pct_ms) VALUES
-    ('ins_rinc_avena', 'e_la_rinconada', '{"id":"ins_rinc_avena","empresaId":"e_la_rinconada","nombre":"Avena","tipo":"Otro","unidadId":"u_2","activo":true,"moneda":"ARS","stockMin":0}'::jsonb, 86),
-    ('ins_rinc_maiz', 'e_la_rinconada', '{"id":"ins_rinc_maiz","empresaId":"e_la_rinconada","nombre":"Maíz","tipo":"Otro","unidadId":"u_2","activo":true,"moneda":"ARS","stockMin":0}'::jsonb, 85.5),
-    ('ins_rinc_limitador', 'e_la_rinconada', '{"id":"ins_rinc_limitador","empresaId":"e_la_rinconada","nombre":"Limitador","tipo":"Otro","unidadId":"u_2","activo":true,"moneda":"ARS","stockMin":0}'::jsonb, 85),
-    ('ins_rinc_sal_proteica', 'e_la_rinconada', '{"id":"ins_rinc_sal_proteica","empresaId":"e_la_rinconada","nombre":"Sal Proteica","tipo":"Otro","unidadId":"u_2","activo":true,"moneda":"ARS","stockMin":0}'::jsonb, 90),
-    ('ins_rinc_controlmix', 'e_la_rinconada', '{"id":"ins_rinc_controlmix","empresaId":"e_la_rinconada","nombre":"Controlmix","tipo":"Otro","unidadId":"u_2","activo":true,"moneda":"ARS","stockMin":0}'::jsonb, 70)
+    ('ins_rinc_avena', 'e_la_rinconada', '{"id":"ins_rinc_avena","empresaId":"e_la_rinconada","nombre":"Avena","tipo":"OTRO","unidadId":"u_2","activo":true,"moneda":"ARS","stockMin":0}'::jsonb, 86),
+    ('ins_rinc_maiz', 'e_la_rinconada', '{"id":"ins_rinc_maiz","empresaId":"e_la_rinconada","nombre":"Maíz","tipo":"OTRO","unidadId":"u_2","activo":true,"moneda":"ARS","stockMin":0}'::jsonb, 85.5),
+    ('ins_rinc_limitador', 'e_la_rinconada', '{"id":"ins_rinc_limitador","empresaId":"e_la_rinconada","nombre":"Limitador","tipo":"OTRO","unidadId":"u_2","activo":true,"moneda":"ARS","stockMin":0}'::jsonb, 85),
+    ('ins_rinc_sal_proteica', 'e_la_rinconada', '{"id":"ins_rinc_sal_proteica","empresaId":"e_la_rinconada","nombre":"Sal Proteica","tipo":"OTRO","unidadId":"u_2","activo":true,"moneda":"ARS","stockMin":0}'::jsonb, 90),
+    ('ins_rinc_controlmix', 'e_la_rinconada', '{"id":"ins_rinc_controlmix","empresaId":"e_la_rinconada","nombre":"Controlmix","tipo":"OTRO","unidadId":"u_2","activo":true,"moneda":"ARS","stockMin":0}'::jsonb, 70)
 ON CONFLICT (id, empresa_id) DO NOTHING;
 
 -- recurso forrajero por lote y campaña, del histórico

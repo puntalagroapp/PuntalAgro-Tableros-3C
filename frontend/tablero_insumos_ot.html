@@ -2070,17 +2070,22 @@ function inyectarCatalogosDesdePA(empresaId){
   // con los 'tipo' de los insumos, sin los defaults plurales del tablero (evita duplicados
   // singular/plural). El orden sigue el de aparición.
   var catSet={}; state.catInsumos=[];
+  // El insumo guarda el CÓDIGO de categoría (HERB, SEM...); el tablero agrupa y
+  // muestra por nombre ("Herbicidas"), tomado del catálogo de Maestros.
+  var catsPA = (PA.demo.listarCategorias && PA.demo.listarCategorias()) || [], labelCat={};
+  for(var lc=0; lc<catsPA.length; lc++) labelCat[catsPA[lc].codigo]=catsPA[lc].label;
   var enPA={}; for(var ep=0;ep<insPA.length;ep++) enPA[insPA[ep].id]=true;
   state.insumos = insPA.map(function(ins){
     // Un insumo inactivo deja de ofrecerse, pero si tiene movimientos u OT se conserva.
     if(ins.activo===false && !insumoReferenciado(state, ins.id)) return null;
     var prev = opPrev[ins.id] || {};
     // La categoría del insumo (tipo) se asegura presente en catInsumos.
-    if(ins.tipo && !catSet[ins.tipo]){ state.catInsumos.push(ins.tipo); catSet[ins.tipo]=true; }
+    var catNom = ins.tipo ? (labelCat[ins.tipo] || ins.tipo) : '';
+    if(catNom && !catSet[catNom]){ state.catInsumos.push(catNom); catSet[catNom]=true; }
     return {
       id: ins.id,
       nombre: ins.nombre,
-      cat: ins.tipo || prev.cat || (state.catInsumos[0]||'Varios'),
+      cat: catNom || prev.cat || (state.catInsumos[0]||'Varios'),
       un: unById[ins.unidadId] || prev.un || 'Un',
       // operativo (preservado o default). El stock inicial ya NO es atributo del insumo:
       // es un movimiento 'Stock inicial'. Se conserva 'deposito' como sugerencia por default.
