@@ -1610,7 +1610,7 @@ function pintarHecho(res, partes){
   infoEmpresa(); // refresca "hoy tiene…"
   byId('btnVista').classList.add('oculto');
   byId('btnInf').classList.remove('oculto');
-  marcarExito(byId('impMsg'), 'Proceso finalizado sin errores. Te sugerimos descargar el informe (.txt) con el detalle de lo cargado y los avisos de la revisión.');
+  marcarExito(byId('impMsg'), 'Proceso finalizado sin errores.');
   byId('btnInf').classList.add('btn-pri');
   byId('impMsg').scrollIntoView({behavior:'smooth', block:'center'});
 }
