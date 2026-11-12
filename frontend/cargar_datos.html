@@ -200,6 +200,7 @@ footer{border-top:1px solid var(--border);background:var(--card);padding:10px 24
         <button class="btn btn-terra oculto" id="btnImp" onclick="importar()">Importar y reemplazar</button>
         <button class="btn oculto" id="btnInf" onclick="descargarInforme()">Descargar informe</button>
         <span class="prog" id="prog"></span>
+        <span class="msg" id="impMsg"></span>
       </div>
     </div>
   </div>
@@ -1357,7 +1358,7 @@ function onDecLote(sel){
   limpiarVista();
 }
 function onDecDep(sel){ DEC_DEPS[sel.getAttribute('data-dep')] = sel.value; limpiarVista(); }
-function limpiarVista(){ PAQ=null; CASOS_PLAN=null; INFO_PLAN=[]; byId('vista').innerHTML=''; byId('btnImp').classList.add('oculto'); byId('btnInf').classList.add('oculto'); byId('btnVista').classList.remove('oculto'); byId('prog').textContent=''; }
+function limpiarVista(){ PAQ=null; CASOS_PLAN=null; INFO_PLAN=[]; byId('vista').innerHTML=''; byId('btnImp').classList.add('oculto'); byId('btnInf').classList.add('oculto'); byId('btnVista').classList.remove('oculto'); byId('prog').textContent=''; limpiarMsg(byId('impMsg')); }
 
 // ---------- vista previa ----------
 function armarVista(){
@@ -1365,13 +1366,13 @@ function armarVista(){
   if(reg){
     var falt = [];
     for(var n in DEC_LOTES) if(DEC_LOTES.hasOwnProperty(n) && !DEC_LOTES[n].tipo) falt.push(n);
-    if(falt.length){ alert('Falta decidir a qué lote van las OT de: '+falt.join(', ')+'.\n\nSi no van, elegí "No importar estas labores".'); return; }
-    if(!OPC.fechaIni){ alert('Cargá la fecha del stock inicial.'); return; }
+    if(falt.length){ avisoImp('Falta decidir a qué lote van las OT de: '+falt.join(', ')+'. Si no van, elegí "No importar estas labores".'); return; }
+    if(!OPC.fechaIni){ avisoImp('Cargá la fecha del stock inicial.'); return; }
   }
   try{
     PAQ = IMP.construir(planActivo(), reg, { empresaId:empresaId(), fechaStockIni:OPC.fechaIni, explIgualSup:OPC.expl,
       lotes:DEC_LOTES, depCampo:DEC_DEPS, depositos:AN.depositos, lotesRef:AN.lotesRef });
-  }catch(err){ alert('No se pudo armar la importación: '+(err && err.message ? err.message : err)); return; }
+  }catch(err){ avisoImp('No se pudo armar la importación: '+(err && err.message ? err.message : err)); return; }
   pintarVista();
 }
 function pintarVista(){
@@ -1555,10 +1556,11 @@ function importar(){
   }
   if(!confirm('¿Importar en '+nombreEmpresa(empresaId())+'?\n\nSe borran y reemplazan los datos actuales de esa empresa en '+(partes.plan&&partes.reg?'Plan de Uso y en Labores e Insumos':partes.plan?'Plan de Uso':'Labores e Insumos')+'. No se puede deshacer (se puede volver a importar).')) return;
   byId('btnImp').disabled = true;
+  limpiarMsg(byId('impMsg'));
   var res = { escritos:{}, borrados:{} };
   var fallo = function(err){
     byId('btnImp').disabled = false; byId('prog').textContent = '';
-    alert('Falló la importación: '+((err&&err.error)||'Error desconocido')+(partes.plan&&partes.reg&&res.escritos.lotes!==undefined?'\n\nEl Plan de Uso sí se importó; Labores e Insumos no.':''));
+    avisoImp('El proceso terminó con errores: '+((err&&err.error)||'Error desconocido')+'.'+(partes.plan&&partes.reg&&res.escritos.lotes!==undefined?' El Plan de Uso sí se importó; Labores e Insumos no.':' No se cargó nada.'));
   };
   var terminar = function(){
     // Las herramientas abren en la empresa recién cargada: la empresa activa que deciden
@@ -1608,7 +1610,13 @@ function pintarHecho(res, partes){
   infoEmpresa(); // refresca "hoy tiene…"
   byId('btnVista').classList.add('oculto');
   byId('btnInf').classList.remove('oculto');
-  window.scrollTo(0, byId('p4').offsetTop - 70);
+  marcarExito(byId('impMsg'), 'Proceso finalizado sin errores. Te sugerimos descargar el informe (.txt) con el detalle de lo cargado y los avisos de la revisión.');
+  byId('btnInf').classList.add('btn-pri');
+  byId('impMsg').scrollIntoView({behavior:'smooth', block:'center'});
+}
+function avisoImp(texto){
+  marcarError(byId('impMsg'), texto);
+  byId('impMsg').scrollIntoView({behavior:'smooth', block:'center'});
 }
 function descargarInforme(){
   if(!PAQ) return;
