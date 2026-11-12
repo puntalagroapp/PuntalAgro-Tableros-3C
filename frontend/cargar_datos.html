@@ -1410,9 +1410,9 @@ function pintarVista(){
       if(err){ byId('impPlan').innerHTML = '<span class="msg" id="impPlanMsg"></span>'; marcarError(byId('impPlanMsg'), 'No se pudo revisar qué lotes tienen órdenes de trabajo o pastoreos: '+(err.error||'error')+'. Volvé a intentar.'); return; }
       CASOS_PLAN = r.casos || []; INFO_PLAN = r.info || [];
       pintarImpacto();
-      byId('btnImp').classList.remove('oculto');
+      mostrarBtnImp();
     });
-  } else byId('btnImp').classList.remove('oculto');
+  } else mostrarBtnImp();
   byId('p4lead').textContent = 'Esto es lo que se va a cargar. Si algo no te cierra, cambiá la revisión del paso 3 y volvé a ver.';
 }
 
@@ -1472,6 +1472,9 @@ function payloadRegistro(){
     informe: PAQ.informe
   };
 }
+// Después de una importación el botón queda deshabilitado: cada vista previa nueva
+// (otro Excel, otra revisión, sin recargar la página) lo vuelve a habilitar.
+function mostrarBtnImp(){ var bt = byId('btnImp'); bt.disabled = false; bt.classList.remove('oculto'); }
 var TIPOS_CASO = [
   ['ot_pendiente', 'Órdenes de trabajo con lotes que no siguen'],
   ['ot_aplicado',  'Lotes de órdenes de trabajo ya aplicados, con consumos de stock'],
