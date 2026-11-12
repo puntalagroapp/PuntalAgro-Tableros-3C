@@ -49,6 +49,7 @@
         var msg = (json && json.error) ? json.error : ('Error ' + req.status);
         var errObj = { status: req.status, error: msg };
         if (json && json.bloqueadoPor) errObj.bloqueadoPor = json.bloqueadoPor;
+        if (json && json.casos) errObj.casos = json.casos;
         if (cb) cb(errObj, null);
       }
     };

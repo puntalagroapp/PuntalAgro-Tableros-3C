@@ -16,9 +16,11 @@
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link href="css/header.css" rel="stylesheet">
+<link href="css/mensajes.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="pa-core.js"></script>
 <script src="js/api.js"></script>
+<script src="js/mensajes.js"></script>
 <style>
 :root{--bg:#E8ECF2;--card:#fff;--border:#D4DAE4;--text:#0F1923;--muted:#7A8899;--green:#4A6533;--green-d:#3B5226;--green-l:#EDF2E6;--terra:#C8642D;--terra-l:#FBEFE7;--radius:12px;--sans:'DM Sans',sans-serif}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -68,6 +70,12 @@ tbody tr:last-child td{border-bottom:none}
 .mut{color:var(--muted)}
 .sug{display:inline-block;font-size:10.5px;color:#92400E;background:#FFFBEB;border-radius:10px;padding:1px 7px;margin-left:6px;white-space:nowrap}
 .sug.ok{color:#166534;background:#F0FDF4}
+.imp-plan{margin:4px 0 14px;display:flex;flex-direction:column;gap:6px}
+.imp-plan .imp-g{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px}
+.imp-plan .imp-g .sub{margin:0}
+.imp-plan select{max-width:100%}
+.imp-plan .imp-todos{font-size:12px;color:var(--muted)}
+.imp-plan .msg-ok,.imp-plan .msg-error{margin-top:6px}
 .sub{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:16px 0 6px}
 .params{display:flex;flex-wrap:wrap;gap:18px;align-items:center}
 .params label{font-size:12.5px;display:flex;align-items:center;gap:8px}
@@ -1171,6 +1179,9 @@ var AN = null;                              // resultado de IMP.analizar
 var PAQ = null;                             // paquete construido (vista previa)
 var DEC_LOTES = {}, DEC_DEPS = {};          // decisiones del usuario
 var OPC = { fechaIni:'', expl:true };
+// Lotes con OT o pastoreos que no siguen en el plan nuevo (3 capas, 2026-11-12):
+// el servidor los lista y quien carga decide qué hacer con cada uno.
+var CASOS_PLAN = null, INFO_PLAN = [], DEC_PLAN = {};
 
 function byId(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -1346,7 +1357,7 @@ function onDecLote(sel){
   limpiarVista();
 }
 function onDecDep(sel){ DEC_DEPS[sel.getAttribute('data-dep')] = sel.value; limpiarVista(); }
-function limpiarVista(){ PAQ=null; byId('vista').innerHTML=''; byId('btnImp').classList.add('oculto'); byId('btnInf').classList.add('oculto'); byId('btnVista').classList.remove('oculto'); byId('prog').textContent=''; }
+function limpiarVista(){ PAQ=null; CASOS_PLAN=null; INFO_PLAN=[]; byId('vista').innerHTML=''; byId('btnImp').classList.add('oculto'); byId('btnInf').classList.add('oculto'); byId('btnVista').classList.remove('oculto'); byId('prog').textContent=''; }
 
 // ---------- vista previa ----------
 function armarVista(){
@@ -1368,6 +1379,7 @@ function pintarVista(){
   h += '<div class="aviso-top">Se va a <b>borrar y reemplazar</b> en <b>'+esc(nombreEmpresa(empresaId()))+'</b>: '+
        esc([planActivo()?'lotes y actividades del plan de uso (y la superficie de cada campo)':'', regActivo()?'insumos, depósitos, proveedores, stock, movimientos y órdenes de trabajo':''].filter(function(x){return x;}).join('; '))+
        '. Las demás empresas y los usuarios no se tocan.</div>';
+  h += '<div id="impPlan"></div>';
   var porG = {}, og = [];
   for(i=0;i<inf.resumen.length;i++){ var r = inf.resumen[i]; if(!porG[r.g]){ porG[r.g]=[]; og.push(r.g); } porG[r.g].push(r); }
   h += '<div class="resumen">';
@@ -1388,9 +1400,19 @@ function pintarVista(){
     h += '</div></div>';
   }
   byId('vista').innerHTML = h;
-  byId('btnImp').classList.remove('oculto');
   byId('btnInf').classList.remove('oculto');
   byId('btnVista').classList.add('oculto');
+  if(planActivo() && PAQ.plan){
+    byId('prog').textContent = 'Revisando lotes con órdenes de trabajo o pastoreos…';
+    var pp = payloadPlan();
+    apiPost('/api/carga-excel/plan/impacto', { empresaId:pp.empresaId, campos:pp.campos, lotes:pp.lotes, conRegistro:pp.conRegistro }, function(err, r){
+      byId('prog').textContent = '';
+      if(err){ byId('impPlan').innerHTML = '<span class="msg" id="impPlanMsg"></span>'; marcarError(byId('impPlanMsg'), 'No se pudo revisar qué lotes tienen órdenes de trabajo o pastoreos: '+(err.error||'error')+'. Volvé a intentar.'); return; }
+      CASOS_PLAN = r.casos || []; INFO_PLAN = r.info || [];
+      pintarImpacto();
+      byId('btnImp').classList.remove('oculto');
+    });
+  } else byId('btnImp').classList.remove('oculto');
   byId('p4lead').textContent = 'Esto es lo que se va a cargar. Si algo no te cierra, cambiá la revisión del paso 3 y volvé a ver.';
 }
 
@@ -1413,7 +1435,9 @@ function payloadPlan(){
     }),
     tiposNuevos: PAQ.tiposNuevos || [],
     campanias: PAQ.campanias || [],
-    informe: PAQ.informe
+    informe: PAQ.informe,
+    decisiones: DEC_PLAN,
+    conRegistro: !!(regActivo() && PAQ.reg)
   };
 }
 function payloadRegistro(){
@@ -1448,10 +1472,84 @@ function payloadRegistro(){
     informe: PAQ.informe
   };
 }
+var TIPOS_CASO = [
+  ['ot_pendiente', 'Órdenes de trabajo con lotes que no siguen'],
+  ['ot_aplicado',  'Lotes de órdenes de trabajo ya aplicados, con consumos de stock'],
+  ['past_grupo',   'Pastoreos de un grupo de lotes'],
+  ['past_solo',    'Pastoreos de lotes que no siguen']
+];
+function opcionCaso(c, v){ for(var i=0;i<c.opciones.length;i++) if(c.opciones[i].v===v && !c.opciones[i].disabled) return c.opciones[i]; return null; }
+function pintarImpacto(){
+  var el = byId('impPlan'); if(!el) return;
+  var casos = CASOS_PLAN || [], h = '', i, j, k;
+  // Un caso con una sola opción posible queda elegido (igual se ve en la lista).
+  for(i=0;i<casos.length;i++){
+    var hab = []; for(j=0;j<casos[i].opciones.length;j++) if(!casos[i].opciones[j].disabled) hab.push(casos[i].opciones[j].v);
+    if(hab.length===1 && !opcionCaso(casos[i], DEC_PLAN[casos[i].id])) DEC_PLAN[casos[i].id] = hab[0];
+  }
+  if(!casos.length && !INFO_PLAN.length){ el.innerHTML = ''; return; }
+  h += '<div class="imp-plan">';
+  if(casos.length) h += '<div class="aviso-top" style="margin:0">Hay <b>'+casos.length+'</b> '+(casos.length===1?'caso':'casos')+' de órdenes de trabajo o pastoreos en lotes que <b>no siguen</b> en el plan nuevo (se renombraron o no están). Elegí qué hacer con cada uno; si preferís no seguir, no importes.</div>';
+  for(var t=0;t<TIPOS_CASO.length;t++){
+    var tipo = TIPOS_CASO[t][0], grupo = [];
+    for(i=0;i<casos.length;i++) if(casos[i].tipo===tipo) grupo.push(casos[i]);
+    if(!grupo.length) continue;
+    // "Aplicar a todos": las opciones posibles en al menos un caso del grupo.
+    var ops = [], vistas = {};
+    for(i=0;i<grupo.length;i++) for(j=0;j<grupo[i].opciones.length;j++){ var o = grupo[i].opciones[j]; if(!o.disabled && !vistas[o.v]){ vistas[o.v]=1; ops.push(o); } }
+    h += '<div class="imp-g"><div class="sub">'+esc(TIPOS_CASO[t][1])+' ('+grupo.length+')</div>';
+    if(grupo.length>1 && ops.length>1){
+      h += '<label class="imp-todos">Aplicar a todos: <select onchange="decidirTodos(\''+tipo+'\', this.value)"><option value="">— elegí —</option>';
+      for(k=0;k<ops.length;k++) h += '<option value="'+esc(ops[k].v)+'">'+esc(ops[k].t)+'</option>';
+      h += '</select></label>';
+    }
+    h += '</div><table><thead><tr><th>Lote</th><th>Detalle</th><th>Qué hacer</th></tr></thead><tbody>';
+    for(i=0;i<grupo.length;i++){
+      var c = grupo[i], v = DEC_PLAN[c.id];
+      h += '<tr><td class="tdname">'+esc(c.lote||'')+'</td><td class="mut">'+esc(c.detalle||'')+'</td><td><select data-caso="'+esc(c.id)+'" onchange="decidirCaso(this)"><option value="">— elegí —</option>';
+      for(k=0;k<c.opciones.length;k++){
+        var op = c.opciones[k];
+        h += '<option value="'+esc(op.v)+'"'+(op.disabled?' disabled':'')+(v===op.v&&!op.disabled?' selected':'')+'>'+esc(op.t+(op.disabled&&op.motivo?' — no disponible: '+op.motivo:''))+'</option>';
+      }
+      h += '</select></td></tr>';
+    }
+    h += '</tbody></table>';
+  }
+  for(i=0;i<INFO_PLAN.length;i++) h += '<div class="lead" style="margin:0">'+esc(INFO_PLAN[i])+'</div>';
+  h += '<span class="msg" id="impPlanMsg"></span></div>';
+  el.innerHTML = h;
+}
+function decidirCaso(sel){ DEC_PLAN[sel.getAttribute('data-caso')] = sel.value; limpiarMsg(byId('impPlanMsg')); }
+function decidirTodos(tipo, v){
+  if(!v) return;
+  for(var i=0;i<(CASOS_PLAN||[]).length;i++){ var c = CASOS_PLAN[i]; if(c.tipo===tipo && opcionCaso(c, v)) DEC_PLAN[c.id] = v; }
+  pintarImpacto();
+}
+function casosSinDecidir(){
+  var n = 0; for(var i=0;i<(CASOS_PLAN||[]).length;i++) if(!opcionCaso(CASOS_PLAN[i], DEC_PLAN[CASOS_PLAN[i].id])) n++;
+  return n;
+}
+// La carga del plan devuelve qué lotes conservaron su id (mismo campo y nombre);
+// las OT de Labores e Insumos de la misma carga tienen que apuntar a esos ids.
+function remapLotesRegistro(pr, mapa){
+  if(!mapa) return pr;
+  for(var i=0;i<pr.ots.length;i++) for(var j=0;j<pr.ots[i].trabajos.length;j++){
+    var ds = pr.ots[i].trabajos[j].destinos || [];
+    for(var k=0;k<ds.length;k++) if(ds[k] && mapa[ds[k].loteId]) ds[k].loteId = mapa[ds[k].loteId];
+  }
+  return pr;
+}
 function importar(){
   if(!PAQ) return;
   var partes = { plan:!!(planActivo() && PAQ.plan), reg:!!(regActivo() && PAQ.reg) };
   if(!partes.plan && !partes.reg) return;
+  if(partes.plan && CASOS_PLAN===null){ byId('prog').textContent = 'Esperá a que termine la revisión de lotes.'; return; }
+  var faltan = partes.plan ? casosSinDecidir() : 0;
+  if(faltan){
+    marcarError(byId('impPlanMsg'), 'Falta decidir qué hacer en '+faltan+(faltan===1?' caso':' casos')+' de órdenes de trabajo o pastoreos. Si no querés tocarlos, no importes.');
+    byId('impPlan').scrollIntoView({behavior:'smooth', block:'start'});
+    return;
+  }
   if(!confirm('¿Importar en '+nombreEmpresa(empresaId())+'?\n\nSe borran y reemplazan los datos actuales de esa empresa en '+(partes.plan&&partes.reg?'Plan de Uso y en Labores e Insumos':partes.plan?'Plan de Uso':'Labores e Insumos')+'. No se puede deshacer (se puede volver a importar).')) return;
   byId('btnImp').disabled = true;
   var res = { escritos:{}, borrados:{} };
@@ -1468,7 +1566,7 @@ function importar(){
   var registro = function(){
     if(!partes.reg){ terminar(); return; }
     byId('prog').textContent = 'Importando labores e insumos…';
-    apiPost('/api/carga-excel/registro', payloadRegistro(), function(err, r){
+    apiPost('/api/carga-excel/registro', remapLotesRegistro(payloadRegistro(), res.loteIdMap), function(err, r){
       if(err){ fallo(err); return; }
       var k; for(k in (r.escritos||{})) res.escritos[k]=r.escritos[k];
       for(k in (r.borrados||{})) res.borrados[k]=r.borrados[k];
@@ -1478,8 +1576,16 @@ function importar(){
   if(partes.plan){
     byId('prog').textContent = 'Importando plan de uso…';
     var pp = payloadPlan();
-    apiPost('/api/carga-excel/plan', pp, function(err){
+    apiPost('/api/carga-excel/plan', pp, function(err, rp){
+      if(err && err.casos){
+        // Algo cambió desde la revisión (alguien cargó una OT o un pastoreo): se vuelve a decidir.
+        byId('btnImp').disabled = false; byId('prog').textContent = '';
+        CASOS_PLAN = err.casos; pintarImpacto();
+        marcarError(byId('impPlanMsg'), err.error); byId('impPlan').scrollIntoView({behavior:'smooth', block:'start'});
+        return;
+      }
       if(err){ fallo(err); return; }
+      res.loteIdMap = (rp && rp.loteIdMap) || null;
       res.escritos.lotes = pp.lotes.length; res.escritos.actividades = pp.actividades.length;
       registro();
     });

@@ -2178,6 +2178,218 @@ function normalizarNombreCampania(s) {
   return m ? m[1].slice(-2) + '/' + m[2].slice(-2) : t;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Carga del Plan de Uso: lotes que dejan de existir.
+// La carga borra y recrea todos los lotes de la empresa. Un lote del Excel con
+// el mismo campo y nombre que uno existente CONSERVA SU ID, así sus OT y
+// pastoreos siguen enganchados. Los lotes existentes que no siguen (renombrados
+// o que no están en el plan nuevo) y tienen OT o pastoreos se muestran en la
+// Revisión y quien carga decide, caso por caso, qué hacer (decisión del
+// cliente, 2026-11-12). Sin decisión para todos, la carga no se hace.
+// ─────────────────────────────────────────────────────────────────────────────
+function _nomLote(s) { return String(s || '').trim().toLowerCase(); }
+function _dedupNombresLotes(lotes) {
+  const vistos = {};
+  for (const l of lotes) {
+    const k = _nomLote(l.nombre);
+    if (!k) continue;
+    vistos[k] = (vistos[k] || 0) + 1;
+    if (vistos[k] > 1) l.nombre = String(l.nombre || '').trim() + ' (' + vistos[k] + ')';
+  }
+}
+async function _resolverLotesPlan(db, empresaId, campos, lotes) {
+  const exC = await db.query('SELECT id, lower(trim(nombre)) AS nom FROM campos WHERE empresa_id=$1', [empresaId]);
+  const campoPorNom = {};
+  for (const r of exC.rows) campoPorNom[r.nom] = r.id;
+  const campoIdMap = {};
+  for (const c of campos) campoIdMap[c.id] = campoPorNom[_nomLote(c.nombre || c.id)] || c.id;
+  const exL = await db.query(
+    `SELECT l.id, l.campo_id, l.nombre, c.nombre AS campo
+       FROM lotes l LEFT JOIN campos c ON c.id = l.campo_id WHERE l.empresa_id = $1`, [empresaId]);
+  const porId = {}, porNom = {};
+  for (const r of exL.rows) { porId[r.id] = r; porNom[(r.campo_id || '') + '|' + _nomLote(r.nombre)] = r; }
+  const loteIdMap = {}, quedan = new Set();
+  for (const l of lotes) if (porId[l.id]) quedan.add(l.id);
+  for (const l of lotes) {
+    if (porId[l.id]) continue;
+    const campoReal = (l.campoId && campoIdMap[l.campoId]) || l.campoId || '';
+    const ex = porNom[campoReal + '|' + _nomLote(l.nombre)];
+    if (ex && !quedan.has(ex.id)) { loteIdMap[l.id] = ex.id; quedan.add(ex.id); }
+  }
+  return { campoIdMap, loteIdMap, salen: exL.rows.filter(r => !quedan.has(r.id)) };
+}
+function _fechaAr(d) {
+  if (!d) return '';
+  const s = d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10);
+  return s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4);
+}
+// conRegistro: la misma carga trae Labores e Insumos, que reemplaza todas las
+// OT; ahí las OT no se preguntan.
+async function _casosPlan(db, empresaId, salen, conRegistro) {
+  const ids = salen.map(r => r.id);
+  const casos = [], info = [];
+  if (!ids.length) return { casos, info };
+  const nomLote = {};
+  for (const r of salen) nomLote[r.id] = (r.campo ? r.campo + ' · ' : '') + r.nombre;
+
+  if (!conRegistro) {
+    const cierre = (await db.query('SELECT max(fecha) AS f FROM cierres_stock WHERE empresa_id=$1', [empresaId])).rows[0].f;
+    const ds = await db.query(
+      `SELECT d.trabajo_id, d.id, d.lote_id, d.estado_lote, d.fecha_aplic_real, o.id AS ot_id, o.num, lb.nombre AS labor,
+              (SELECT count(*)::int FROM ot_destinos d2 JOIN ot_trabajos t2 ON t2.id = d2.trabajo_id AND t2.empresa_id = d2.empresa_id
+                WHERE t2.ot_id = o.id AND t2.empresa_id = o.empresa_id AND (d2.lote_id IS NULL OR NOT (d2.lote_id = ANY($2::text[])))) AS otros,
+              EXISTS (SELECT 1 FROM comprobantes c JOIN ot_trabajos t3 ON t3.id = c.ref_ot_trabajo AND t3.empresa_id = c.empresa_id
+                       WHERE t3.ot_id = o.id AND c.empresa_id = o.empresa_id) AS ot_con_consumos,
+              (SELECT count(*)::int FROM movimientos m WHERE m.empresa_id = d.empresa_id AND m.ref_destino_id = d.id) AS n_cons,
+              (SELECT max(c.fecha) FROM movimientos m JOIN comprobantes c ON c.id = m.comprobante_id AND c.empresa_id = m.empresa_id
+                WHERE m.empresa_id = d.empresa_id AND m.ref_destino_id = d.id) AS f_cons
+         FROM ot_destinos d
+         JOIN ot_trabajos t ON t.id = d.trabajo_id AND t.empresa_id = d.empresa_id
+         JOIN ordenes_trabajo o ON o.id = t.ot_id AND o.empresa_id = t.empresa_id
+         LEFT JOIN labores lb ON lb.id = t.labor_id
+        WHERE d.empresa_id = $1 AND d.lote_id = ANY($2::text[])
+        ORDER BY o.num, t.orden, d.orden`, [empresaId, ids]);
+    for (const d of ds.rows) {
+      const base = { id: 'otd:' + d.trabajo_id + ':' + d.id, loteId: d.lote_id, lote: nomLote[d.lote_id],
+                     otId: d.ot_id, trabajoId: d.trabajo_id, destinoId: d.id };
+      const desc = 'OT ' + Number(d.num) + (d.labor ? ' · ' + d.labor : '');
+      if (d.estado_lote === 'Aplicado' && d.n_cons > 0) {
+        const bloqueado = cierre && d.f_cons && new Date(d.f_cons) <= new Date(cierre);
+        casos.push(Object.assign(base, {
+          tipo: 'ot_aplicado', detalle: desc + ' · aplicada' + (d.fecha_aplic_real ? ' el ' + _fechaAr(d.fecha_aplic_real) : '') + ' · ' + d.n_cons + ' consumo(s) de stock',
+          opciones: [
+            { v: 'borrar_con_consumos', t: 'Borrar el lote y sus consumos (el stock vuelve atrás)',
+              disabled: !!bloqueado, motivo: bloqueado ? 'tiene consumos anteriores al cierre de stock del ' + _fechaAr(cierre) : '' },
+            { v: 'borrar_sin_consumos', t: 'Borrar el lote y dejar los consumos (el stock no cambia; el consumo queda sin OT)' },
+          ] }));
+      } else {
+        const sinOtros = d.otros === 0;
+        const opciones = [{ v: 'sacar', t: sinOtros ? 'Borrar la OT (no le quedan otros lotes)' : 'Sacar solo este lote de la OT' }];
+        if (!sinOtros) opciones.push({ v: 'borrar_ot', t: 'Borrar la OT entera', disabled: d.ot_con_consumos,
+          motivo: d.ot_con_consumos ? 'la OT tiene aplicaciones con consumos de stock' : '' });
+        casos.push(Object.assign(base, {
+          tipo: 'ot_pendiente',
+          detalle: desc + (d.estado_lote === 'Aplicado' ? ' · aplicada, sin consumos registrados' : ' · pendiente'),
+          opciones }));
+      }
+    }
+  }
+
+  const ps = await db.query(
+    `SELECT p.id, p.num, p.lote_id, p.lote_ids, cp.nombre AS campania,
+            (SELECT min(m.fecha) FROM pastoreo_movimientos m WHERE m.pastoreo_id = p.id AND m.empresa_id = p.empresa_id) AS inicio
+       FROM pastoreos p LEFT JOIN campanias cp ON cp.id = p.campania_id
+      WHERE p.empresa_id = $1 AND (p.lote_id = ANY($2::text[]) OR p.lote_ids && $2::text[])
+      ORDER BY p.lote_id, p.num`, [empresaId, ids]);
+  const saleSet = new Set(ids);
+  for (const p of ps.rows) {
+    const todos = (p.lote_ids && p.lote_ids.length) ? p.lote_ids : [p.lote_id];
+    const quedan = todos.filter(x => !saleSet.has(x));
+    const afectados = todos.filter(x => saleSet.has(x));
+    const detalle = 'Pastoreo ' + (p.num != null ? 'N.º ' + p.num : '') + (p.campania ? ' · campaña ' + p.campania : '') +
+      (p.inicio ? ' · desde el ' + _fechaAr(p.inicio) : '') + (todos.length > 1 ? ' · grupo de ' + todos.length + ' lotes' : '');
+    const opciones = quedan.length
+      ? [{ v: 'sacar', t: 'Sacar ' + (afectados.length > 1 ? 'estos lotes' : 'este lote') + ' del grupo' }, { v: 'borrar', t: 'Borrar el pastoreo entero' }]
+      : [{ v: 'borrar', t: 'Borrar el pastoreo' }];
+    casos.push({ id: 'past:' + p.id, tipo: quedan.length ? 'past_grupo' : 'past_solo', pastoreoId: p.id,
+      loteId: afectados[0], lote: afectados.map(x => nomLote[x]).join(', '), detalle, opciones, quedan });
+  }
+
+  const sup = await db.query('SELECT count(*)::int AS n FROM pastoreo_superficie WHERE empresa_id=$1 AND lote_id = ANY($2::text[])', [empresaId, ids]);
+  const rec = await db.query('SELECT count(*)::int AS n FROM pastoreo_recurso WHERE empresa_id=$1 AND lote_id = ANY($2::text[])', [empresaId, ids]);
+  if (sup.rows[0].n) info.push('Se borran ' + sup.rows[0].n + ' corrección(es) de superficie ganadera de lotes que no siguen.');
+  if (rec.rows[0].n) info.push('Se borran ' + rec.rows[0].n + ' corrección(es) de recurso forrajero de lotes que no siguen.');
+  return { casos, info };
+}
+function _decisionesFaltantes(casos, decisiones) {
+  return casos.filter(c => {
+    const op = c.opciones.find(o => o.v === (decisiones || {})[c.id]);
+    return !op || op.disabled;
+  });
+}
+async function _aplicarDecisionesPlan(db, empresaId, casos, decisiones, salenIds) {
+  const dec = c => decisiones[c.id];
+  const otsBorrar = new Set(casos.filter(c => c.tipo.indexOf('ot_') === 0 && dec(c) === 'borrar_ot').map(c => c.otId));
+  for (const otId of otsBorrar) {
+    await db.query('DELETE FROM ordenes_trabajo WHERE id=$1 AND empresa_id=$2', [otId, empresaId]);
+  }
+  const trabajos = new Set(), ots = new Set();
+  for (const c of casos) {
+    if (c.tipo.indexOf('ot_') !== 0 || otsBorrar.has(c.otId)) continue;
+    if (dec(c) === 'borrar_con_consumos') {
+      const m = await db.query('DELETE FROM movimientos WHERE empresa_id=$1 AND ref_destino_id=$2 RETURNING comprobante_id', [empresaId, c.destinoId]);
+      const comps = Array.from(new Set(m.rows.map(r => r.comprobante_id)));
+      if (comps.length) {
+        await db.query(
+          `DELETE FROM comprobantes c WHERE c.empresa_id=$1 AND c.id = ANY($2::text[])
+              AND NOT EXISTS (SELECT 1 FROM movimientos m WHERE m.comprobante_id = c.id AND m.empresa_id = c.empresa_id)`,
+          [empresaId, comps]);
+      }
+    } else if (dec(c) === 'borrar_sin_consumos') {
+      await db.query('UPDATE movimientos SET ref_destino_id = NULL WHERE empresa_id=$1 AND ref_destino_id=$2', [empresaId, c.destinoId]);
+    }
+    await db.query('DELETE FROM ot_destinos WHERE trabajo_id=$1 AND empresa_id=$2 AND id=$3', [c.trabajoId, empresaId, c.destinoId]);
+    trabajos.add(c.trabajoId); ots.add(c.otId);
+  }
+  // Labores que quedaron sin lotes: se borran (sus consumos, si quedaron, pasan a "sin OT").
+  for (const trId of trabajos) {
+    const n = await db.query('SELECT 1 FROM ot_destinos WHERE trabajo_id=$1 AND empresa_id=$2 LIMIT 1', [trId, empresaId]);
+    if (n.rows.length) continue;
+    await db.query('UPDATE comprobantes SET ref_ot_trabajo = NULL, ref_ot_num = NULL WHERE empresa_id=$1 AND ref_ot_trabajo=$2', [empresaId, trId]);
+    await db.query('DELETE FROM ot_trabajos WHERE id=$1 AND empresa_id=$2', [trId, empresaId]);
+  }
+  // OT sin labores: se borran; las demás recalculan el estado (misma regla que el tablero).
+  for (const otId of ots) {
+    const r = await db.query(
+      `SELECT count(DISTINCT t.id)::int AS ntr, count(d.id)::int AS nd,
+              count(d.id) FILTER (WHERE d.estado_lote = 'Aplicado')::int AS apl
+         FROM ot_trabajos t LEFT JOIN ot_destinos d ON d.trabajo_id = t.id AND d.empresa_id = t.empresa_id
+        WHERE t.ot_id=$1 AND t.empresa_id=$2`, [otId, empresaId]);
+    const x = r.rows[0];
+    if (!x.ntr) { await db.query('DELETE FROM ordenes_trabajo WHERE id=$1 AND empresa_id=$2', [otId, empresaId]); continue; }
+    const estado = x.apl === 0 ? 'Pendiente' : x.apl === x.nd ? 'Aplicada' : 'Parcial';
+    await db.query(`UPDATE ordenes_trabajo SET estado=$3 WHERE id=$1 AND empresa_id=$2 AND estado <> 'Cancelada'`, [otId, empresaId, estado]);
+  }
+  for (const c of casos) {
+    if (c.tipo.indexOf('past_') !== 0) continue;
+    if (dec(c) === 'borrar') {
+      await db.query('DELETE FROM pastoreos WHERE id=$1 AND empresa_id=$2', [c.pastoreoId, empresaId]);
+    } else {
+      const principal = c.quedan[0];
+      const campo = (await db.query('SELECT campo_id FROM lotes WHERE id=$1', [principal])).rows[0];
+      await db.query(
+        `UPDATE pastoreos SET lote_id = CASE WHEN lote_id = ANY($3::text[]) THEN lote_id ELSE $4 END,
+                lote_ids = $5, campo_id = CASE WHEN lote_id = ANY($3::text[]) THEN campo_id ELSE $6 END, actualizado = now()
+          WHERE id=$1 AND empresa_id=$2`,
+        [c.pastoreoId, empresaId, c.quedan, principal, c.quedan.length > 1 ? c.quedan : null, campo ? campo.campo_id : null]);
+    }
+  }
+  await db.query('DELETE FROM pastoreo_superficie WHERE empresa_id=$1 AND lote_id = ANY($2::text[])', [empresaId, salenIds]);
+  await db.query('DELETE FROM pastoreo_recurso    WHERE empresa_id=$1 AND lote_id = ANY($2::text[])', [empresaId, salenIds]);
+}
+
+// Vista previa para la Revisión: qué lotes con historia no siguen y qué se puede hacer.
+app.post('/api/carga-excel/plan/impacto', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const sesion = await obtenerSesion(req);
+    if (!sesion) return res.status(401).json({ error: 'No autenticado' });
+    if (sesion.rol !== 'admin_general' && sesion.rol !== 'admin_cliente') {
+      return res.status(403).json({ error: 'La carga masiva desde Excel la hace un administrador' });
+    }
+    if (!b.empresaId) return res.status(400).json({ error: 'Falta empresaId' });
+    if (!(await obtenerPermiso(req, b.empresaId))) return res.status(403).json({ error: 'Sin acceso a esta empresa' });
+    const lotes = (b.lotes || []).map(l => ({ ...l }));
+    _dedupNombresLotes(lotes);
+    const r = await _resolverLotesPlan(pool, b.empresaId, b.campos || [], lotes);
+    const { casos, info } = await _casosPlan(pool, b.empresaId, r.salen, !!b.conRegistro);
+    res.json({ casos, info, conservados: Object.keys(r.loteIdMap).length });
+  } catch (err) {
+    console.error('/api/carga-excel/plan/impacto POST error:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 app.post('/api/carga-excel/plan', async (req, res) => {
   const b = req.body || {};
   const empresaId = b.empresaId;
@@ -2200,6 +2412,21 @@ app.post('/api/carga-excel/plan', async (req, res) => {
     const informe = b.informe || {};
 
     await client.query('BEGIN');
+
+    // Lotes con OT o pastoreos que no siguen: tiene que haber una decisión para
+    // cada caso (las toma quien carga, en la Revisión). Los lotes con el mismo
+    // campo + nombre que uno existente conservan su id.
+    _dedupNombresLotes(lotes);
+    const resol = await _resolverLotesPlan(client, empresaId, campos, lotes);
+    const { casos } = await _casosPlan(client, empresaId, resol.salen, !!b.conRegistro);
+    const decisiones = b.decisiones || {};
+    if (_decisionesFaltantes(casos, decisiones).length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Hay lotes con órdenes de trabajo o pastoreos que no siguen en el plan nuevo: decidí qué hacer con cada uno en la Revisión.', casos });
+    }
+    for (const l of lotes) if (resol.loteIdMap[l.id]) l.id = resol.loteIdMap[l.id];
+    for (const a of actividades) if (a.loteId && resol.loteIdMap[a.loteId]) a.loteId = resol.loteIdMap[a.loteId];
+    await _aplicarDecisionesPlan(client, empresaId, casos, decisiones, resol.salen.map(r => r.id));
 
     // Campañas (catálogo global): el Excel las trae como texto ('25-26'). Se
     // reconocen contra las existentes por nombre normalizado (25-26 = 25/26 =
@@ -2281,19 +2508,8 @@ app.post('/api/carga-excel/plan', async (req, res) => {
     }
 
     // Lotes + actividades: reemplazo total (borra TODO lo anterior de la empresa).
-    // El Excel puede traer el mismo nombre de lote más de una vez (ej. una
-    // parcela que se partió y quedó con el mismo nombre en las dos filas) —
-    // nuestra base exige nombre único por empresa (misma regla que usa
-    // tablero_uso_suelo.html), así que a partir de la 2ª repetición se le
-    // agrega un sufijo " (2)", " (3)"... para poder importar las dos sin perder
-    // ningún dato; se pueden renombrar a mano después si corresponde.
-    const vistosNombre = {};
-    for (const l of lotes) {
-      const k = (l.nombre || '').trim().toLowerCase();
-      if (!k) continue;
-      vistosNombre[k] = (vistosNombre[k] || 0) + 1;
-      if (vistosNombre[k] > 1) l.nombre = (l.nombre || '').trim() + ' (' + vistosNombre[k] + ')';
-    }
+    // Los nombres repetidos del Excel ya llevan sufijo " (2)", " (3)"... (ver
+    // _dedupNombresLotes al principio): la base exige nombre único por empresa.
     // El Excel no trae el mapa (KML): se conserva el de cada lote que sigue
     // existiendo, por id o por campo + nombre.
     const geoPrev = await client.query(
@@ -2329,13 +2545,13 @@ app.post('/api/carga-excel/plan', async (req, res) => {
       `INSERT INTO cargas_excel (id, empresa_id, usuario_id, partes, resumen, avisos)
        VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,$6::jsonb)`,
       ['carga_' + Date.now(), empresaId, sesion.id,
-       JSON.stringify({ plan: true, reg: false }),
+       JSON.stringify({ plan: true, reg: false, decisiones: casos.map(c => ({ caso: c.detalle, lote: c.lote, decision: decisiones[c.id] })) }),
        JSON.stringify(informe.resumen || []),
        JSON.stringify(informe.avisos || [])]
     );
 
     await client.query('COMMIT');
-    res.json({ status: 'ok', lotes: lotes.length, actividades: actividades.length });
+    res.json({ status: 'ok', lotes: lotes.length, actividades: actividades.length, loteIdMap: resol.loteIdMap });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     console.error('/api/carga-excel/plan POST error:', err);
