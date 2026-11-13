@@ -446,13 +446,32 @@ pool.query(`
 // antes guardaba datos JSONB, que es lo que esperan pa-core y los tableros.
 const SQL_DEPOSITO_DATOS = `jsonb_build_object('id',id,'empresaId',empresa_id,'campoId',campo_id,'nombre',nombre,
                                                'clase',clase,'especieId',especie_id,'activo',activo)`;
+// Clase de depósito: solo 'insumos' o 'granos'. Si no viene (o viene vacía) es
+// 'insumos', como hace la pantalla; cualquier otro valor es un error (null).
+function claseDeposito(v) {
+  if (v === undefined || v === null || v === '') return 'insumos';
+  return v === 'insumos' || v === 'granos' ? v : null;
+}
+const ERR_CLASE_DEPOSITO = 'La clase del depósito tiene que ser "insumos" o "granos"';
+
+// Categoría de un insumo (datos.tipo): tiene que ser un código activo de
+// categorias_insumo. En el alta es obligatoria; en la modificación solo se
+// valida si viene, porque el PUT hace merge (tablero_insumos_ot manda solo
+// los campos operativos, sin tipo). Devuelve el mensaje de error o null.
+async function errorTipoInsumo(db, obj, esAlta) {
+  if (!esAlta && !Object.prototype.hasOwnProperty.call(obj, 'tipo')) return null;
+  if (obj.tipo === undefined || obj.tipo === null || String(obj.tipo).trim() === '') return 'Falta la categoría del insumo';
+  const r = await db.query('SELECT 1 FROM categorias_insumo WHERE codigo = $1 AND activo = true', [String(obj.tipo)]);
+  return r.rows.length ? null : 'La categoría "' + obj.tipo + '" no existe o no está activa';
+}
+
 async function guardarDeposito(db, obj) {
   await db.query(
     `INSERT INTO depositos (id, empresa_id, nombre, clase, campo_id, especie_id, activo)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
      ON CONFLICT (id, empresa_id) DO UPDATE
        SET nombre=$3, clase=$4, campo_id=$5, especie_id=$6, activo=$7`,
-    [obj.id, obj.empresaId, String(obj.nombre || '').trim(), obj.clase === 'granos' ? 'granos' : 'insumos',
+    [obj.id, obj.empresaId, String(obj.nombre || '').trim(), claseDeposito(obj.clase) || 'insumos',
      obj.campoId || null, obj.especieId || null, obj.activo !== false]
   );
 }
@@ -945,6 +964,11 @@ app.post('/api/maestros/:coleccion', async (req, res) => {
       if (cfg.tabla === 'depositos' && !depositoAccesibleParaEscritura(permiso, obj.campoId || null)) {
         return res.status(403).json({ error: 'Solo podés cargar depósitos en tus campos habilitados' });
       }
+      if (cfg.tabla === 'depositos' && !claseDeposito(obj.clase)) return res.status(400).json({ error: ERR_CLASE_DEPOSITO });
+      if (cfg.tabla === 'insumos') {
+        const errTipo = await errorTipoInsumo(pool, obj, true);
+        if (errTipo) return res.status(400).json({ error: errTipo });
+      }
       if (cfg.tabla === 'lotes') {
         await pool.query(
           `INSERT INTO lotes (id, campo_id, empresa_id, nombre, ha, ambiente, explotable, activo, tipo_override)
@@ -1033,6 +1057,12 @@ app.put('/api/maestros/:coleccion/:id', async (req, res) => {
     const bloqueo = await verificarLockPropio(req.params.coleccion, req.params.id, sesion);
     if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
 
+    if (cfg.tabla === 'depositos' && !claseDeposito(obj.clase)) return res.status(400).json({ error: ERR_CLASE_DEPOSITO });
+    if (cfg.tabla === 'insumos') {
+      const errTipo = await errorTipoInsumo(pool, obj, false);
+      if (errTipo) return res.status(400).json({ error: errTipo });
+    }
+
     if (cfg.porEmpresa) {
       if (cfg.tabla === 'lotes') {
         await pool.query(
@@ -1051,7 +1081,7 @@ app.put('/api/maestros/:coleccion/:id', async (req, res) => {
         await pool.query(
           `UPDATE depositos SET nombre=$3, clase=$4, campo_id=$5, especie_id=$6, activo=$7
             WHERE id=$1 AND empresa_id=$2`,
-          [obj.id, obj.empresaId, String(obj.nombre || '').trim(), obj.clase === 'granos' ? 'granos' : 'insumos',
+          [obj.id, obj.empresaId, String(obj.nombre || '').trim(), claseDeposito(obj.clase),
            obj.campoId || null, obj.especieId || null, obj.activo !== false]
         );
       } else {
@@ -2647,6 +2677,24 @@ function _otNum(v) {
   const n = Number(v);
   return isFinite(n) ? n : null;
 }
+// Superficies de los lotes de una OT (ha y haReal): número >= 0 si vienen.
+// Cero se acepta (lote agregado con la superficie todavía sin cargar). Se
+// valida antes de escribir nada. No se validan dosis ni cantidades.
+function errorSuperficiesOt(trabajos) {
+  for (const t of (trabajos || [])) {
+    for (const d of ((t && t.destinos) || [])) {
+      if (!d || typeof d !== 'object') continue;
+      for (const k of ['ha', 'haReal']) {
+        const v = d[k];
+        if (v === null || v === undefined || v === '') continue;
+        const n = Number(v);
+        if (!isFinite(n)) return 'La superficie del lote ' + (d.loteId || '') + ' no es un número válido';
+        if (n < 0) return 'La superficie del lote ' + (d.loteId || '') + ' no puede ser negativa';
+      }
+    }
+  }
+  return null;
+}
 function _otFecha(v) {
   const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(v || ''));
   return m ? m[1] : null;
@@ -2900,6 +2948,8 @@ app.post('/api/ordenes-trabajo', async (req, res) => {
     if (!permiso) { return res.status(403).json({ error: 'Sin acceso a esta empresa' }); }
     if (!puedeEnHerramienta(permiso, 'tablero_insumos_ot', 'cargar')) { return res.status(403).json({ error: 'Tu usuario tiene permiso solo de consulta en esta herramienta.' }); }
     if (destinosAjenos(permiso, o.trabajos).length) { return res.status(403).json({ error: 'La OT tiene lotes de campos que tu usuario no tiene habilitados' }); }
+    const errSup = errorSuperficiesOt(o.trabajos);
+    if (errSup) { return res.status(400).json({ error: errSup }); }
 
     await client.query('BEGIN');
     await client.query(
@@ -2961,13 +3011,20 @@ app.put('/api/ordenes-trabajo/:id', async (req, res) => {
       }
     }
 
+    const errSup = errorSuperficiesOt(o.trabajos);
+    if (errSup) { return res.status(400).json({ error: errSup }); }
+
     await client.query('BEGIN');
-    await client.query(
+    const upd = await client.query(
       `UPDATE ordenes_trabajo SET campania_id=$3, fecha=$4, obs=$5, estado=$6, ultimo_registro=$7, impresa=$8
         WHERE id=$1 AND empresa_id=$2`,
       [req.params.id, empresaId, o.campaniaId || null, o.fecha || null, o.obs || null, o.estado || 'Pendiente',
        o.ultimoRegistro ? JSON.stringify(o.ultimoRegistro) : null, !!o.impresa]
     );
+    if (!upd.rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'La orden de trabajo no existe' });
+    }
     const trabajos = await _guardarTrabajosOt(client, req.params.id, empresaId, o.trabajos);
     await client.query('COMMIT');
     res.json({ id: req.params.id, num: o.num, empresaId, campaniaId: o.campaniaId || null,
