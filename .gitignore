@@ -3,5 +3,6 @@ backend/node_modules/
 .DS_Store
 backend/Dockerfile~
 frontend/uploads/
+frontend/tableros-decision/
 uploads-internos/
 vps/
