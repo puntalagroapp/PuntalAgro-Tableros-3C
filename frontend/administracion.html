@@ -183,8 +183,9 @@ function recargarTodo(cb){
 // ── Árbol ─────────────────────────────────────────────────────────────────────
 function renderTree(){
   var cont = document.getElementById('tree'); cont.innerHTML='';
+  // admin_cliente: solo los clientes que administra (puede ser más de uno).
   var clientes = CTX && CTX.usuario.rol === 'admin_cliente'
-    ? (function(){ var r=[]; for(var i=0;i<_clientes.length;i++){ if(_clientes[i].id===CTX.usuario.clienteId)r.push(_clientes[i]); } return r; })()
+    ? (function(){ var r=[], ca=CTX.usuario.clientesAdmin||[]; for(var i=0;i<_clientes.length;i++){ if(ca.indexOf(_clientes[i].id)>=0)r.push(_clientes[i]); } return r; })()
     : _clientes;
 
   for(var i=0;i<clientes.length;i++){

@@ -291,6 +291,18 @@ CREATE TABLE permisos (
     UNIQUE (usuario_id, empresa_id)
 );
 
+-- Clientes que administra cada persona (rol admin_cliente): acceso pleno a todas
+-- las empresas de cada uno, sin filas en `permisos`. Una persona puede administrar
+-- varios clientes y además tener permisos por empresa en otros. usuarios.cliente_id
+-- es el cliente al que pertenece la cuenta (NULL para el personal de Puntal).
+-- Las cuentas que trabajan con más de un cliente solo las administra admin_general.
+CREATE TABLE usuario_clientes (
+    usuario_id  TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    cliente_id  TEXT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+    PRIMARY KEY (usuario_id, cliente_id)
+);
+CREATE INDEX idx_usuario_clientes_cliente ON usuario_clientes (cliente_id);
+
 -- Locking pesimista de registros: evita que dos usuarios de la MISMA empresa
 -- pisen el mismo registro editando a la vez (concurrencia entre empresas
 -- distintas ya está resuelta por el aislamiento fila-por-fila del resto del
@@ -2193,6 +2205,8 @@ INSERT INTO usuarios (id, nombre, email, rol, cliente_id, activo, password_hash)
     -- obtenerPermiso() en server.js). Sirve para probar el scoping por cliente.
     ('u_rosario',      'Rosario Cliente','rosario@albor.com', 'admin_cliente', 'cli_demo', true,
      'f9d96ba1bb52f529519548307fe46d75:05bfad622333d9e7c64127c73a3f4182a4def4b7a708a2d58276903873d080f63e48aa433bab45710ec9b194bcd0b42cf498305436327a9f619a818fc5b78e58');
+
+INSERT INTO usuario_clientes (usuario_id, cliente_id) VALUES ('u_rosario', 'cli_demo');
 
 INSERT INTO permisos (usuario_id, empresa_id, campo_ids, herramientas, nivel) VALUES
     ('u_admin',        'e_1', '{}', '{}', 'administrar'),

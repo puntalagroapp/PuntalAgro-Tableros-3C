@@ -1030,8 +1030,11 @@ function aplicarPermisos(ctx){
   var rol=ctx.usuario&&ctx.usuario.rol;
   var nivel=ctx.permiso&&ctx.permiso.nivel;
   puedeEscribirGlobal=(rol==='admin_general');
-  puedeEscribirEmpresa=(rol==='admin_general'||rol==='admin_cliente'||nivel==='administrar'||nivel==='cargar');
-  puedeEscribirDepositoGeneral=(rol==='admin_general'||rol==='admin_cliente'||nivel==='administrar');
+  // El nivel ya viene por empresa (/api/context): 'administrar' para quien
+  // administra el cliente de esta empresa. Un admin_cliente puede tener 'ver' en
+  // empresas de otros clientes, así que no alcanza con mirar el rol.
+  puedeEscribirEmpresa=(rol==='admin_general'||nivel==='administrar'||nivel==='cargar');
+  puedeEscribirDepositoGeneral=(rol==='admin_general'||nivel==='administrar');
   document.body.classList.toggle('ro-global',!puedeEscribirGlobal);
   document.body.classList.toggle('ro-empresa',!puedeEscribirEmpresa);
 }

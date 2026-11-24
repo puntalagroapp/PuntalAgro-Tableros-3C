@@ -85,6 +85,10 @@ main{flex:1}
 .subsec{display:flex;align-items:center;gap:12px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);margin:34px 0 14px}
 .subsec::after{content:"";flex:1;height:1px;background:var(--border)}
 .subsec.first{margin-top:26px}
+.aviso-emp{margin:22px auto 0}
+.aviso-emp .caja{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:14px 18px;border-radius:var(--radius);background:var(--ochre-t);border:1px solid #EAD9B8;color:var(--text);font-size:13.5px;line-height:1.5}
+.aviso-emp .caja strong{color:var(--ochre)}
+.aviso-emp .caja a{font-weight:600;color:var(--olive);white-space:nowrap}
 .empty{font-size:13px;color:var(--muted);padding:14px 16px;font-style:italic;background:var(--card);border:1px dashed var(--border);border-radius:var(--radius)}
 
 /* ---------- baldosas (portada y herramientas) ---------- */
@@ -199,6 +203,9 @@ table, .num, .cnt, input[type=number]{font-variant-numeric:tabular-nums}
 </div>
 
 <main>
+
+  <!-- Aviso cuando la cuenta no tiene ninguna empresa disponible (ver aplicarCtx) -->
+  <div class="wrap aviso-emp" id="aviso-sin-empresa" style="display:none"><div class="caja" id="aviso-sin-empresa-txt"></div></div>
 
   <!-- ============ PORTADA ============ -->
   <div class="view on sec" id="view-home">
@@ -703,6 +710,26 @@ function actualizarContadorPuntal() {
 function aplicarCtx(ctx) {
   var nivel = !ctx.empresaActivaId ? 'sin empresa' : (ctx.permiso && ctx.permiso.nivel ? ctx.permiso.nivel : 'usuario');
   document.getElementById('huser').innerHTML = '<strong>' + ctx.usuario.nombre + '</strong> · ' + nivel;
+
+  // Sin ninguna empresa disponible, las secciones quedan vacías: se explica por
+  // qué y qué hacer, según quién es (admin general, admin de cliente o usuario).
+  var aviso = document.getElementById('aviso-sin-empresa');
+  if (aviso) {
+    var sinEmp = !ctx.empresasDisponibles.length, txt = '';
+    if (sinEmp) {
+      var rol = ctx.usuario.rol, nCli = (ctx.usuario.clientesAdmin || []).length;
+      if (rol === 'admin_general') {
+        txt = '<span><strong>Todavía no hay empresas cargadas.</strong> Creá la primera para empezar a usar las herramientas.</span><a href="administracion.html">Ir a Estructura de Clientes →</a>';
+      } else if (rol === 'admin_cliente') {
+        txt = '<span><strong>' + (nCli > 1 ? 'Los clientes que administrás todavía no tienen empresas.' : 'Tu cliente todavía no tiene empresas.') +
+              '</strong> Creá una para empezar a usar las herramientas.</span><a href="administracion.html">Ir a Estructura de Clientes →</a>';
+      } else {
+        txt = '<span><strong>Todavía no tenés acceso a ninguna empresa.</strong> Pedile al administrador de tu cliente que te asigne permisos.</span>';
+      }
+    }
+    document.getElementById('aviso-sin-empresa-txt').innerHTML = txt;
+    aviso.style.display = sinEmp ? '' : 'none';
+  }
 
   var sel = document.getElementById('hemp');
   sel.innerHTML = '';
