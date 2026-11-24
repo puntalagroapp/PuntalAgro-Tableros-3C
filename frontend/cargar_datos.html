@@ -1191,8 +1191,10 @@ function boot(){
       byId('usrLbl').textContent = ctx.usuario.nombre;
       var sel = byId('selEmp'), es = ctx.empresasDisponibles || [], h = '', n = 0;
       for(var i=0;i<es.length;i++){
-        // Solo empresas donde el usuario puede administrar (admin general: todas).
-        var ok = ctx.usuario.rol==='admin_general' || ctx.usuario.rol==='admin_cliente';
+        // Solo empresas de clientes que administra (admin general: todas). Un
+        // admin_cliente puede tener además empresas de otros clientes por permiso:
+        // ahí no carga Excel (el servidor lo rechaza igual).
+        var ok = ctx.usuario.rol==='admin_general' || (ctx.usuario.clientesAdmin||[]).indexOf(es[i].clienteId)>=0;
         if(!ok) continue;
         h += '<option value="'+esc(es[i].id)+'"'+(es[i].id===ctx.empresaActivaId?' selected':'')+'>'+esc(es[i].razonSocial||es[i].nombre||es[i].id)+'</option>'; n++;
       }

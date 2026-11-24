@@ -961,11 +961,8 @@
       var us = cacheGet(K_USUARIOS, []);
       if (!ctx || !ctx.usuario) return us;
       if (ctx.usuario.rol === 'admin_general') return us;
-      if (ctx.usuario.rol === 'admin_cliente') {
-        var out = [], cid = ctx.usuario.clienteId;
-        for (var i = 0; i < us.length; i++) { if (us[i].clienteId === cid) out.push(us[i]); }
-        return out;
-      }
+      // Multicliente: el servidor ya manda solo las cuentas de los clientes que gestiona.
+      if (ctx.usuario.rol === 'admin_cliente') return us;
       return [];
     },
     guardarUsuario: function (u) {
@@ -1125,8 +1122,8 @@
       var es = cacheGet(K_EMPRESAS, []);
       if (!ctx || !ctx.usuario || ctx.usuario.rol === 'admin_general') return es;
       if (ctx.usuario.rol === 'admin_cliente') {
-        var out = [], cid = ctx.clienteId;
-        for (var i = 0; i < es.length; i++) { if (es[i].clienteId === cid) out.push(es[i]); }
+        var out = [], ca = ctx.usuario.clientesAdmin || [];
+        for (var i = 0; i < es.length; i++) { if (ca.indexOf(es[i].clienteId) >= 0) out.push(es[i]); }
         return out;
       }
       return [];

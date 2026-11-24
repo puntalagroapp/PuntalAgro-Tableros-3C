@@ -52,6 +52,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
 .checklist label.on{border-color:var(--olive);background:#EEF3E8;color:#3A5128}
 .checklist label.disabled{opacity:.55;cursor:default;background:var(--bg)}
 .checklist label.disabled.on{background:#EEF3E8}
+.bdg-ro{color:var(--muted);border-style:dashed}
 .sel-acc{display:flex;gap:10px;margin:2px 0 6px}
 .sel-acc button{background:none;border:none;color:var(--olive);font-size:11px;font-weight:600;cursor:pointer;padding:0;font-family:var(--sans);text-decoration:underline}
 .sel-acc button:hover{color:#3c5429}
@@ -120,7 +121,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
       <div class="fld" id="fld-rol"><label>Rol</label>
         <select id="u-rol" onchange="actualizarCampoCliente()"></select>
       </div>
-      <div class="fld" id="fld-cliente" style="display:none"><label>Cliente</label>
+      <div class="fld" id="fld-cliente" style="display:none"><label id="lbl-cliente">Cliente</label>
         <select id="u-cliente"></select>
       </div>
       <div class="fld" id="fld-activo" style="display:none"><label>Estado</label>
@@ -135,7 +136,10 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted
         <label class="chk" style="height:34px"><input type="checkbox" id="u-herramientas-internas"> Acceso a herramientas de consulta</label>
       </div>
     </div>
-    <p class="sub" id="hint-admin-cliente" style="display:none;margin-top:10px">Un <strong>admin_cliente</strong> administra automáticamente todas las empresas del cliente asociado — no hace falta asignarle permisos por empresa aparte.</p>
+    <div class="fld" id="fld-clientes-admin" style="display:none;margin-top:12px"><label>Clientes que administra</label>
+      <div class="checklist" id="u-clientes-admin"></div>
+    </div>
+    <p class="sub" id="hint-admin-cliente" style="display:none;margin-top:10px">Un <strong>admin_cliente</strong> administra automáticamente todas las empresas de los clientes tildados. Además se le pueden dar permisos por empresa en otros clientes, desde "Permisos" en la fila.</p>
     <p class="sub" id="hint-usuario-admin" style="display:none;margin-top:10px">Este usuario queda asociado a tu cliente. Después asignale acceso a alguna de las empresas que administrás, desde "Permisos" en la fila.</p>
     <p class="sub" id="hint-herramientas-internas" style="display:none;margin-top:10px">Acceso a la biblioteca interna del equipo Puntal (inicio → "Herramientas de Consulta"). No depende de la empresa ni del rol de este usuario, pero requiere que sea Usuario interno.</p>
     <div class="modal-actions">
@@ -192,6 +196,50 @@ var permisoUsuarioActual = null; // id del usuario cuyo modal de Permisos está 
 
 function uid(){ return 'x_' + Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function esAdminGeneralCtx(){ return !!(CTX && CTX.usuario.rol==='admin_general'); }
+function nombreDeCliente(id){
+  for(var i=0;i<_clientes.length;i++){ if(_clientes[i].id===id) return _clientes[i].nombre||_clientes[i].razonSocial||id; }
+  return id;
+}
+// Clientes con los que trabaja una cuenta (multicliente, migración 024): el de
+// la cuenta, los que administra y los de las empresas donde tiene permiso. Para
+// quien no es admin_general el servidor ya recorta las listas a sus clientes.
+function clientesDeUsuario(u){
+  var out=[], l=[u.clienteId].concat(u.clientesAdmin||[], u.clientesPermisos||[]);
+  for(var i=0;i<l.length;i++){ if(l[i] && out.indexOf(l[i])<0) out.push(l[i]); }
+  return out;
+}
+// Clientes sobre los que YO puedo dar de alta usuarios: los que administro y los
+// de las empresas donde tengo nivel 'administrar'. admin_general: todos.
+function clientesQueGestiono(){
+  if(esAdminGeneralCtx()) return _clientes.map(function(c){ return c.id; });
+  var out=(CTX.usuario.clientesAdmin||[]).slice();
+  var adm=empresasQueAdministro();
+  for(var i=0;i<_empresas.length;i++){
+    if(adm[_empresas[i].id] && _empresas[i].clienteId && out.indexOf(_empresas[i].clienteId)<0) out.push(_empresas[i].clienteId);
+  }
+  return out;
+}
+function marcarClientesAdmin(ids){
+  ids=ids||[];
+  var cont=document.getElementById('u-clientes-admin'); cont.innerHTML='';
+  for(var i=0;i<_clientes.length;i++){
+    (function(c){
+      var on=ids.indexOf(c.id)>=0;
+      var lab=document.createElement('label'); lab.className=on?'on':'';
+      var cb=document.createElement('input'); cb.type='checkbox'; cb.value=c.id; cb.checked=on;
+      cb.onchange=function(){ lab.className=cb.checked?'on':''; };
+      var sp=document.createElement('span'); sp.textContent=c.nombre||c.razonSocial||c.id;
+      lab.appendChild(cb); lab.appendChild(sp); cont.appendChild(lab);
+    })(_clientes[i]);
+  }
+}
+function leerClientesAdmin(){
+  var out=[], cbs=document.querySelectorAll('#u-clientes-admin input[type=checkbox]');
+  for(var i=0;i<cbs.length;i++){ if(cbs[i].checked) out.push(cbs[i].value); }
+  return out;
+}
 
 function findPerm(usuarioId, empresaId){
   for(var i=0;i<_permisos.length;i++){
@@ -250,15 +298,29 @@ function actualizarCampoCliente(){
   var rol=document.getElementById('u-rol').value;
   var fld=document.getElementById('fld-cliente');
   var esAdminCliente=rol==='admin_cliente';
-  var necesitaElegir=(CTX && CTX.usuario.rol==='admin_general' && rol!=='admin_general');
+  var gral=esAdminGeneralCtx();
+  // Cliente al que pertenece la cuenta. admin_general elige entre todos (o
+  // ninguno: personal de Puntal / admin de varios clientes); los demás solo si
+  // gestionan más de un cliente (si gestionan uno, el servidor usa ese).
+  var opciones=gral ? _clientes.map(function(c){ return c.id; }) : (CTX ? clientesQueGestiono() : []);
+  var necesitaElegir=rol!=='admin_general' && (gral || opciones.length>1);
   if(fld) fld.style.display=necesitaElegir?'':'none';
+  var sel=document.getElementById('u-cliente'), previo=sel.value;
+  sel.innerHTML='';
   if(necesitaElegir){
-    var sel=document.getElementById('u-cliente'); sel.innerHTML='';
-    for(var i=0;i<_clientes.length;i++){
-      var o=document.createElement('option'); o.value=_clientes[i].id; o.textContent=_clientes[i].nombre||_clientes[i].razonSocial||_clientes[i].id;
+    if(gral){ var o0=document.createElement('option'); o0.value=''; o0.textContent='— Ninguno (personal de Puntal) —'; sel.appendChild(o0); }
+    for(var i=0;i<opciones.length;i++){
+      var o=document.createElement('option'); o.value=opciones[i]; o.textContent=nombreDeCliente(opciones[i]);
       sel.appendChild(o);
     }
+    sel.value=previo;
+    if(sel.value!==previo) sel.selectedIndex=0;
   }
+  var lbl=document.getElementById('lbl-cliente');
+  if(lbl) lbl.textContent=gral?'Cliente de la cuenta':'Cliente';
+  var fldCa=document.getElementById('fld-clientes-admin');
+  if(fldCa) fldCa.style.display=(gral && esAdminCliente)?'':'none';
+  if(gral && esAdminCliente && !document.querySelectorAll('#u-clientes-admin input').length) marcarClientesAdmin([]);
   var hint=document.getElementById('hint-admin-cliente');
   if(hint) hint.style.display=esAdminCliente?'':'none';
   var hintUsu=document.getElementById('hint-usuario-admin');
@@ -280,7 +342,7 @@ function onCambioUsuarioInterno(){
 // pleno). Son las únicas empresas donde puedo delegar permisos ver/cargar.
 function empresasQueAdministro(){
   var ids={};
-  if(!CTX || CTX.usuario.rol!=='usuario') return ids;
+  if(!CTX) return ids;
   for(var i=0;i<_permisos.length;i++){
     if(_permisos[i].usuarioId===CTX.usuario.id && _permisos[i].nivel==='administrar'){
       ids[_permisos[i].empresaId]=true;
@@ -298,9 +360,8 @@ function usuarioTieneAccesoEmpresa(u, empresaId){
   if(u.rol==='admin_general') return true;
   if(u.rol==='admin_cliente'){
     for(var i=0;i<_empresas.length;i++){
-      if(_empresas[i].id===empresaId) return _empresas[i].clienteId===u.clienteId;
+      if(_empresas[i].id===empresaId && (u.clientesAdmin||[]).indexOf(_empresas[i].clienteId)>=0) return true;
     }
-    return false;
   }
   for(var j=0;j<_permisos.length;j++){
     if(_permisos[j].usuarioId===u.id && _permisos[j].empresaId===empresaId) return true;
@@ -310,17 +371,18 @@ function usuarioTieneAccesoEmpresa(u, empresaId){
 
 // Empresas que puede ofrecer el filtro de Empresa: las del cliente elegido en
 // el filtro de Cliente (admin_general) o las del propio cliente (admin_cliente).
+function verFiltroCliente(){ return esAdminGeneralCtx() || _clientes.length>1; }
 function empresasParaFiltro(){
-  var esAdminGeneral=CTX && CTX.usuario.rol==='admin_general';
-  var filtroCliente=esAdminGeneral ? (document.getElementById('f-cliente')||{}).value : (CTX && CTX.usuario.clienteId);
-  if(!filtroCliente) return esAdminGeneral ? _empresas : _empresas.filter(function(e){ return e.clienteId===filtroCliente; });
-  return _empresas.filter(function(e){ return e.clienteId===filtroCliente; });
+  var filtroCliente=verFiltroCliente() ? (document.getElementById('f-cliente')||{}).value : '';
+  var base=esAdminGeneralCtx() ? _empresas : _empresas.filter(function(e){ return clientesQueGestiono().indexOf(e.clienteId)>=0; });
+  if(!filtroCliente) return base;
+  return base.filter(function(e){ return e.clienteId===filtroCliente; });
 }
 
 function poblarFiltrosUsuarios(){
   var esAdminGeneral=CTX && CTX.usuario.rol==='admin_general';
   var fldCliente=document.getElementById('fld-f-cliente');
-  if(fldCliente) fldCliente.style.display=esAdminGeneral?'':'none';
+  if(fldCliente) fldCliente.style.display=verFiltroCliente()?'':'none';
   // El filtro de Rol solo aporta para admin_general: admin_cliente y el
   // 'usuario' administrador de empresa ya reciben de la API únicamente
   // usuarios de rol 'usuario' (ver GET /api/usuarios en el backend), así
@@ -388,24 +450,24 @@ function renderUsuarios(){
   // La columna Cliente solo aporta cuando quien mira la tabla puede ver
   // usuarios de más de un cliente — admin_cliente y el 'usuario' administrador
   // de empresa ya están acotados a un único cliente (el propio).
-  var mostrarColCliente=!!(CTX && CTX.usuario.rol==='admin_general');
+  var mostrarColCliente=verFiltroCliente();
   var thCliente=document.getElementById('th-cliente');
   if(thCliente) thCliente.style.display=mostrarColCliente?'':'none';
 
-  var us=CTX && CTX.usuario.rol==='admin_cliente'
-    ? _usuarios.filter(function(u){ return u.clienteId===CTX.usuario.clienteId; })
-    : _usuarios;
+  // El servidor ya manda solo las cuentas que trabajan con los clientes que
+  // gestiono (las que no puedo gestionar vienen con gestionable=false).
+  var us=_usuarios;
 
   // Filtros de la lista (no afectan el selector de "Asignar/editar permiso",
   // que sigue ofreciendo todos los usuarios dentro del alcance del admin).
   var esAdminGeneralVista=CTX && CTX.usuario.rol==='admin_general';
-  var filtroCliente=esAdminGeneralVista ? document.getElementById('f-cliente').value : '';
+  var filtroCliente=verFiltroCliente() ? document.getElementById('f-cliente').value : '';
   var filtroEmpresa=document.getElementById('f-empresa').value;
   var filtroRol=esAdminGeneralVista ? document.getElementById('f-rol').value : '';
   var filtroTexto=(document.getElementById('f-usuario').value||'').trim().toLowerCase();
 
   var usFiltrados=us;
-  if(filtroCliente) usFiltrados=usFiltrados.filter(function(u){ return u.clienteId===filtroCliente; });
+  if(filtroCliente) usFiltrados=usFiltrados.filter(function(u){ return clientesDeUsuario(u).indexOf(filtroCliente)>=0; });
   if(filtroEmpresa) usFiltrados=usFiltrados.filter(function(u){ return usuarioTieneAccesoEmpresa(u,filtroEmpresa); });
   if(filtroRol) usFiltrados=usFiltrados.filter(function(u){ return u.rol===filtroRol; });
   if(filtroTexto) usFiltrados=usFiltrados.filter(function(u){
@@ -417,8 +479,9 @@ function renderUsuarios(){
     var u=usFiltrados[i];
     var permisosTxt='';
     if(u.rol==='admin_general'){ permisosTxt='<span class="bdg">acceso total</span>'; }
-    else if(u.rol==='admin_cliente'){ permisosTxt='<span class="bdg">administra todo su cliente</span>'; }
     else {
+      var ca=u.clientesAdmin||[];
+      for(var q=0;q<ca.length;q++) permisosTxt+='<div style="margin-bottom:3px"><span class="bdg">'+esc(nombreDeCliente(ca[q]))+'</span> administra todo el cliente</div>';
       for(var j=0;j<_permisos.length;j++){
         if(_permisos[j].usuarioId===u.id){
           var herrs=_permisos[j].herramientas||[];
@@ -428,6 +491,7 @@ function renderUsuarios(){
           permisosTxt+='<div style="margin-bottom:3px"><span class="bdg">'+(nombreEmp[_permisos[j].empresaId]||_permisos[j].empresaId)+'</span> '+_permisos[j].nivel+herrTxt+'</div>';
         }
       }
+      if(u.otrosClientes) permisosTxt+='<div style="color:var(--muted);font-size:11px">y acceso a otros clientes</div>';
       if(!permisosTxt) permisosTxt='<span style="color:var(--muted)">sin permisos</span>';
     }
     if(u.herramientasInternas) permisosTxt+='<div><span class="bdg">Herramientas de Consulta</span></div>';
@@ -440,19 +504,23 @@ function renderUsuarios(){
     // email/password), pero nunca su rol ni su estado — eso se resuelve
     // ocultando el campo Estado en editarUsuario() cuando es autoedición.
     var puedeAutogestionarse=CTX && (CTX.usuario.rol==='admin_general' || CTX.usuario.rol==='usuario');
-    var accEditar=(esUnoMismo && !puedeAutogestionarse)?'':'<button class="btn-sm" onclick="editarUsuario(\''+esc(u.id)+'\')">Editar</button>';
-    // Solo el rol 'usuario' tiene filas en `permisos` — admin_general y
-    // admin_cliente ya administran todo su alcance por su propio rol. Tampoco
-    // se ofrece el propio usuario logueado: nadie administra su propio
-    // permiso (puedeSobreUsuario lo rechaza en el backend).
-    var accPermisos=(u.rol==='usuario' && !esUnoMismo)?'<button class="btn-sm" onclick="abrirModalPermisos(\''+esc(u.id)+'\')">Permisos</button>':'';
-    var accBorrar=esUnoMismo?'':'<button class="btn-sm" onclick="borrarUsuario(\''+esc(u.id)+'\')">Borrar</button>';
+    // gestionable=false: cuenta que también trabaja con otros clientes o es
+    // personal de Puntal — la ve, pero solo la administra admin_general.
+    var gestionable=u.gestionable!==false;
+    var accEditar=(esUnoMismo ? puedeAutogestionarse : gestionable)?'<button class="btn-sm" onclick="editarUsuario(\''+esc(u.id)+'\')">Editar</button>':'';
+    // Permisos por empresa: para 'usuario' y, solo admin_general, también para
+    // admin_cliente en clientes que no administra. Nunca para uno mismo.
+    var accPermisos=(!esUnoMismo && gestionable && (u.rol==='usuario' || (u.rol==='admin_cliente' && esAdminGeneralCtx())))?'<button class="btn-sm" onclick="abrirModalPermisos(\''+esc(u.id)+'\')">Permisos</button>':'';
+    var accBorrar=(esUnoMismo || !gestionable)?'':'<button class="btn-sm" onclick="borrarUsuario(\''+esc(u.id)+'\')">Borrar</button>';
+    var accRo=(!esUnoMismo && !gestionable)?'<span class="bdg bdg-ro" title="También trabaja con otros clientes o es personal de Puntal: solo la administra Puntal.">solo lectura</span>':'';
     var estadoTxt=(u.activo===false)?' <span class="bdg" style="color:var(--terra)">inactivo</span>':'';
-    var clienteTxt=(u.rol==='admin_general')?'<span style="color:var(--muted)">—</span>':esc(nombreCliente[u.clienteId]||u.clienteId||'—');
+    var clienteTxt=(u.rol==='admin_general')?'<span style="color:var(--muted)">—</span>'
+      : u.clienteId ? esc(nombreCliente[u.clienteId]||u.clienteId)
+      : u.usuarioInterno ? '<span style="color:var(--muted)">Puntal</span>' : '<span style="color:var(--muted)">—</span>';
     var clienteTd='<td'+(mostrarColCliente?'':' style="display:none"')+'>'+clienteTxt+'</td>';
     var tr=document.createElement('tr');
     tr.innerHTML='<td>'+esc(u.nombre)+estadoTxt+'</td><td>'+esc(u.email)+'</td><td><span class="bdg">'+esc(u.rol)+'</span></td>'+clienteTd+'<td>'+permisosTxt+'</td>'+
-      '<td>'+accEditar+' '+accPermisos+' '+accBorrar+'</td>';
+      '<td>'+accEditar+' '+accPermisos+' '+accBorrar+accRo+'</td>';
     tb.appendChild(tr);
   }
 
@@ -552,15 +620,14 @@ function poblarEmpresasPermiso(usuarioId){
 
   // Base de empresas visible para el admin logueado. Un 'usuario' administrador
   // de empresa solo puede delegar en las empresas donde ÉL tiene nivel='administrar'.
-  var empsBase=CTX && CTX.usuario.rol==='admin_cliente'
-    ? _empresas.filter(function(e){ return e.clienteId===CTX.usuario.clienteId; })
-    : CTX && CTX.usuario.rol==='usuario'
-    ? (function(){ var adm=empresasQueAdministro(); return _empresas.filter(function(e){ return adm[e.id]; }); })()
-    : _empresas;
-
-  // Si el usuario tiene cliente, mostrar solo empresas de ese cliente
-  var emps=(usuario && usuario.clienteId)
-    ? empsBase.filter(function(e){ return e.clienteId===usuario.clienteId; })
+  // Empresas donde YO puedo dar permisos: admin_general todas; los demás, las de
+  // los clientes que administro y aquellas donde tengo nivel 'administrar'.
+  var misCli=(CTX && CTX.usuario.clientesAdmin)||[], adm=empresasQueAdministro();
+  var empsBase=esAdminGeneralCtx() ? _empresas
+    : _empresas.filter(function(e){ return misCli.indexOf(e.clienteId)>=0 || adm[e.id]; });
+  // A un admin_cliente no se le dan permisos en los clientes que ya administra.
+  var emps=(usuario && usuario.rol==='admin_cliente')
+    ? empsBase.filter(function(e){ return (usuario.clientesAdmin||[]).indexOf(e.clienteId)<0; })
     : empsBase;
 
   var se=document.getElementById('p-empresa');
@@ -576,10 +643,18 @@ function poblarEmpresasPermiso(usuarioId){
   if(!preSelId && emps.length) preSelId=emps[0].id;
 
   se.innerHTML='';
-  for(var m=0;m<emps.length;m++){
-    var oe=document.createElement('option'); oe.value=emps[m].id; oe.textContent=emps[m].razonSocial;
-    if(emps[m].id===preSelId) oe.selected=true;
-    se.appendChild(oe);
+  // Agrupadas por cliente cuando hay más de uno (multicliente).
+  var grupos={}, orden=[];
+  for(var m=0;m<emps.length;m++){ var ck=emps[m].clienteId||''; if(!grupos[ck]){ grupos[ck]=[]; orden.push(ck); } grupos[ck].push(emps[m]); }
+  for(var g=0;g<orden.length;g++){
+    var dest=se;
+    if(orden.length>1){ dest=document.createElement('optgroup'); dest.label=nombreDeCliente(orden[g])||'Sin cliente'; se.appendChild(dest); }
+    for(var n=0;n<grupos[orden[g]].length;n++){
+      var em=grupos[orden[g]][n];
+      var oe=document.createElement('option'); oe.value=em.id; oe.textContent=em.razonSocial;
+      if(em.id===preSelId) oe.selected=true;
+      dest.appendChild(oe);
+    }
   }
 }
 
@@ -670,16 +745,18 @@ function leerDatosComunesForm(){
   var email=document.getElementById('u-email').value.trim();
   var rol=document.getElementById('u-rol').value;
   if(!nombre||!email){ marcarError(msg,'Completá nombre y email.'); return null; }
-  var clienteId=null;
-  if(rol!=='admin_general'){
-    if(CTX && (CTX.usuario.rol==='admin_cliente' || CTX.usuario.rol==='usuario')){
-      clienteId=CTX.usuario.clienteId;
-    } else {
-      clienteId=document.getElementById('u-cliente').value||null;
-      if(!clienteId){ marcarError(msg,'Elegí a qué cliente pertenece este usuario.'); return null; }
-    }
+  var clienteId=null, clientesAdmin=null;
+  if(rol!=='admin_general' && document.getElementById('fld-cliente').style.display!=='none'){
+    clienteId=document.getElementById('u-cliente').value||null;
   }
-  return {nombre:nombre,email:email,rol:rol,clienteId:clienteId};
+  if(esAdminGeneralCtx() && rol==='admin_cliente'){
+    clientesAdmin=leerClientesAdmin();
+    if(!clientesAdmin.length){ marcarError(msg,'Tildá al menos un cliente que administre.'); return null; }
+  }
+  if(esAdminGeneralCtx() && rol==='usuario' && !clienteId && !document.getElementById('u-usuario-interno').checked){
+    marcarError(msg,'Elegí a qué cliente pertenece este usuario, o marcalo como usuario interno de Puntal.'); return null;
+  }
+  return {nombre:nombre,email:email,rol:rol,clienteId:clienteId,clientesAdmin:clientesAdmin};
 }
 
 function abrirModalUsuario(){
@@ -708,6 +785,7 @@ function crearUsuario(){
   var pass=document.getElementById('u-pass').value;
   if(!pass){ marcarError(msg,'Completá una contraseña inicial.'); return; }
   var u={id:uid(),nombre:datos.nombre,email:datos.email,password:pass,rol:datos.rol,clienteId:datos.clienteId,activo:true};
+  if(datos.clientesAdmin) u.clientesAdmin=datos.clientesAdmin;
   if(document.getElementById('fld-herramientas-internas').style.display!=='none'){
     u.herramientasInternas=document.getElementById('u-herramientas-internas').checked;
   }
@@ -756,6 +834,7 @@ function editarUsuario(id){
     document.getElementById('u-email').value=u.email||'';
     document.getElementById('u-pass').value='';
     document.getElementById('u-rol').value=u.rol;
+    marcarClientesAdmin(u.clientesAdmin||[]);
     actualizarCampoCliente();
     if(document.getElementById('fld-cliente').style.display!=='none'){
       document.getElementById('u-cliente').value=u.clienteId||'';
@@ -804,7 +883,9 @@ function actualizarUsuario(){
     var datos=leerDatosComunesForm();
     if(!datos) return;
     var activo=document.getElementById('u-activo').value==='1';
-    body={nombre:datos.nombre,email:datos.email,rol:datos.rol,clienteId:datos.clienteId,activo:activo};
+    body={nombre:datos.nombre,email:datos.email,rol:datos.rol,activo:activo};
+    // El cliente de la cuenta y los clientes que administra solo los cambia admin_general.
+    if(esAdminGeneralCtx()){ body.clienteId=datos.clienteId; if(datos.clientesAdmin) body.clientesAdmin=datos.clientesAdmin; }
     if(pass) body.password=pass;
     // Solo se manda si el campo está visible (admin_general editando a otro
     // usuario) — así nunca se pisa el valor existente por un PUT que ni
@@ -850,6 +931,8 @@ function limpiarFormUsuario(){
   document.getElementById('fld-email').style.display='';
   document.getElementById('fld-rol').style.display='';
   document.getElementById('btn-guardar-usuario').textContent='Crear usuario';
+  marcarClientesAdmin([]);
+  document.getElementById('u-cliente').value='';
   renderRoles(); // resetea el select de Rol al default y recalcula el campo Cliente
 }
 
@@ -929,7 +1012,7 @@ function borrarPermisoActual(){
       var alcance=document.getElementById('alcance');
       if(alcance){
         if(ctx.usuario.rol==='admin_general') alcance.textContent='Estás viendo todos los usuarios (administración general de Puntal).';
-        else if(ctx.usuario.rol==='admin_cliente') alcance.textContent='Estás viendo solo los usuarios de tu cliente.';
+        else if(ctx.usuario.rol==='admin_cliente') alcance.textContent='Estás viendo los usuarios de los clientes que administrás. Los que también trabajan con otros clientes o son personal de Puntal aparecen como solo lectura.';
         else alcance.textContent='Estás viendo solo los usuarios de las empresas que administrás.';
       }
       poblarFiltrosUsuarios();

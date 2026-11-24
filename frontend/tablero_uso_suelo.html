@@ -4266,10 +4266,10 @@ function esAdminGeneral(){
 }
 
 // ¿El usuario puede crear/editar/borrar en este tablero? Mismo criterio que el
-// backend (puedeEscribirMaestroEmpresa): admin_general/admin_cliente siempre
-// pueden; un usuario común necesita nivel 'cargar' o 'administrar' — nivel
-// 'ver' es de solo lectura. CTX.permiso ya viene resuelto así desde
-// /api/context (admin_general/admin_cliente reciben nivel:'administrar' fijo).
+// backend (puedeEscribirMaestroEmpresa): hace falta nivel 'cargar' o
+// 'administrar' en esta empresa — nivel 'ver' es de solo lectura. CTX.permiso ya
+// viene resuelto por empresa desde /api/context (admin_general y quien administra
+// el cliente de la empresa reciben 'administrar').
 // En modo demo (sin backend) no se restringe nada.
 function puedeEscribir(){
   if(!_esModoApi()) return true;
