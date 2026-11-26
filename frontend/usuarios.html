@@ -254,8 +254,15 @@ function findPerm(usuarioId, empresaId){
    cualquier empresa de su alcance (admin_cliente: las de su propio cliente) —
    no hace falta ningún techo adicional para lo que pueden delegar.
    ========================================================================== */
+// Solo las herramientas que el cliente de la empresa tiene contratadas con
+// Puntal (Administración → cliente; /api/empresas trae la lista).
+function contratadasDeEmpresa(empresaId){
+  for(var i=0;i<_empresas.length;i++){ if(_empresas[i].id===empresaId) return _empresas[i].herramientasCliente||[]; }
+  return [];
+}
 function herramientasOtorgables(empresaId){
-  return _herramientas.filter(function(h){ return h.asignable; });
+  var hc=contratadasDeEmpresa(empresaId);
+  return _herramientas.filter(function(h){ return h.asignable && hc.indexOf(h.id)>=0; });
 }
 function camposOtorgables(empresaId){
   return empresaId ? _campos.filter(function(k){ return k.empresaId===empresaId; }) : [];
@@ -487,7 +494,10 @@ function renderUsuarios(){
           var herrs=_permisos[j].herramientas||[];
           // nivel='administrar' implica TODAS las herramientas de la empresa
           // (se fuerza así en el backend): no tiene sentido mostrar un conteo.
-          var herrTxt=_permisos[j].nivel==='administrar' ? '' : (' · '+herrs.length+' herr.');
+          // Solo cuentan las que el cliente de la empresa tiene contratadas.
+          var hcEmp=contratadasDeEmpresa(_permisos[j].empresaId);
+          var nHerr=herrs.filter(function(h){ return hcEmp.indexOf(h)>=0; }).length;
+          var herrTxt=_permisos[j].nivel==='administrar' ? '' : (' · '+nHerr+' herr.');
           permisosTxt+='<div style="margin-bottom:3px"><span class="bdg">'+(nombreEmp[_permisos[j].empresaId]||_permisos[j].empresaId)+'</span> '+_permisos[j].nivel+herrTxt+'</div>';
         }
       }
@@ -535,7 +545,7 @@ function renderChecklist(habilitadas, empresaId){
   var cont=document.getElementById('p-herramientas'); cont.innerHTML='';
   var hs=herramientasOtorgables(empresaId);
   if(!hs.length){
-    cont.innerHTML='<span style="font-size:12px;color:var(--muted)">No tenés herramientas habilitadas en esta empresa, así que no podés delegar ninguna.</span>';
+    cont.innerHTML='<span style="font-size:12px;color:var(--muted)">El cliente de esta empresa no tiene herramientas contratadas, así que no hay ninguna para asignar.</span>';
     return;
   }
   for(var i=0;i<hs.length;i++){

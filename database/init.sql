@@ -303,6 +303,17 @@ CREATE TABLE usuario_clientes (
 );
 CREATE INDEX idx_usuario_clientes_cliente ON usuario_clientes (cliente_id);
 
+-- Herramientas contratadas por cada cliente (migración 025): Puntal le vende a
+-- cada cliente el acceso a ciertos tableros propios. Solo las edita admin_general.
+-- En las empresas de ese cliente nadie (salvo admin_general) usa ni asigna una
+-- herramienta que no esté acá; los permisos por empresa se cruzan con esta lista.
+-- Las externas e internas no se contratan.
+CREATE TABLE cliente_herramientas (
+    cliente_id      TEXT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+    herramienta_id  TEXT NOT NULL REFERENCES herramientas(id) ON DELETE CASCADE,
+    PRIMARY KEY (cliente_id, herramienta_id)
+);
+
 -- Locking pesimista de registros: evita que dos usuarios de la MISMA empresa
 -- pisen el mismo registro editando a la vez (concurrencia entre empresas
 -- distintas ya está resuelta por el aislamiento fila-por-fila del resto del
@@ -2207,6 +2218,11 @@ INSERT INTO usuarios (id, nombre, email, rol, cliente_id, activo, password_hash)
      'f9d96ba1bb52f529519548307fe46d75:05bfad622333d9e7c64127c73a3f4182a4def4b7a708a2d58276903873d080f63e48aa433bab45710ec9b194bcd0b42cf498305436327a9f619a818fc5b78e58');
 
 INSERT INTO usuario_clientes (usuario_id, cliente_id) VALUES ('u_rosario', 'cli_demo');
+
+-- Demo: todos los clientes con todas las herramientas propias asignables.
+INSERT INTO cliente_herramientas (cliente_id, herramienta_id)
+SELECT c.id, h.id FROM clientes c CROSS JOIN herramientas h
+ WHERE h.tipo = 'propia' AND h.asignable = true;
 
 INSERT INTO permisos (usuario_id, empresa_id, campo_ids, herramientas, nivel) VALUES
     ('u_admin',        'e_1', '{}', '{}', 'administrar'),
