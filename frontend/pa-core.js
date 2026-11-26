@@ -700,6 +700,9 @@
       var niveles = { ver: 1, cargar: 2, administrar: 3 };
       if ((niveles[CTX.permiso.nivel] || 0) < (niveles[accion] || 1)) return false;
       if (opts) {
+        // Techo del cliente: herramientas contratadas (null = sin techo).
+        var hc = CTX.permiso.herramientasCliente;
+        if (opts.herramienta && hc && hc.indexOf(opts.herramienta) === -1) return false;
         var hts = CTX.permiso.herramientas || [];
         // herramientas=[] significa "todas" solo con nivel 'administrar'; con
         // 'ver'/'cargar' significa que no tiene ninguna tildada.

@@ -640,6 +640,10 @@ function abrirArchivoInterno(id) {
 
 function puedeVer(herramientaId, permiso) {
   if (!permiso) return true;
+  // Techo del cliente: solo las herramientas que el cliente de esta empresa
+  // tiene contratadas con Puntal (null = sin techo, admin_general).
+  var hc = permiso.herramientasCliente;
+  if (hc && hc.indexOf(herramientaId) === -1) return false;
   // nivel='administrar' siempre ve todas las herramientas de esta empresa
   // (admin_general/admin_cliente, o un 'usuario' con nivel='administrar' acá) —
   // ahí herramientas=[] significa "todas". Para 'ver'/'cargar', herramientas=[]

@@ -305,23 +305,33 @@ function administraCliente(sesion, clienteId) {
   if (sesion.rol === 'admin_general') return true;
   return !!clienteId && clientesAdmin(sesion).indexOf(clienteId) >= 0;
 }
+// herramientasCliente (migración 025): las herramientas que el cliente de la
+// empresa tiene contratadas. Es un techo para todos menos admin_general (que
+// recibe null = sin techo): ni nivel 'administrar' ni un permiso viejo con una
+// herramienta tildada habilitan una herramienta que el cliente no contrató.
+async function herramientasDeCliente(clienteId) {
+  if (!clienteId) return [];
+  const r = await pool.query(
+    'SELECT herramienta_id FROM cliente_herramientas WHERE cliente_id = $1 ORDER BY 1', [clienteId]
+  );
+  return r.rows.map(function (x) { return x.herramienta_id; });
+}
 async function permisoDeSesion(sesion, empresaId) {
   if (sesion.rol === 'admin_general') {
-    return { campoIds: [], herramientas: [], nivel: 'administrar' };
+    return { campoIds: [], herramientas: [], nivel: 'administrar', herramientasCliente: null };
   }
   if (!empresaId) return null;
-  if (clientesAdmin(sesion).length) {
-    const emp = await pool.query(
-      'SELECT 1 FROM empresas WHERE id = $1 AND cliente_id = ANY($2::text[]) AND activo = true',
-      [empresaId, clientesAdmin(sesion)]
-    );
-    if (emp.rows.length) return { campoIds: [], herramientas: [], nivel: 'administrar' };
+  const emp = await pool.query('SELECT cliente_id, activo FROM empresas WHERE id = $1', [empresaId]);
+  const clienteId = emp.rows.length ? emp.rows[0].cliente_id : null;
+  if (clienteId && emp.rows[0].activo && clientesAdmin(sesion).indexOf(clienteId) >= 0) {
+    return { campoIds: [], herramientas: [], nivel: 'administrar', herramientasCliente: await herramientasDeCliente(clienteId) };
   }
   const r = await pool.query(
     'SELECT campo_ids AS "campoIds", herramientas, nivel FROM permisos WHERE usuario_id = $1 AND empresa_id = $2',
     [sesion.id, empresaId]
   );
-  return r.rows[0] || null;
+  if (!r.rows[0]) return null;
+  return Object.assign(r.rows[0], { herramientasCliente: await herramientasDeCliente(clienteId) });
 }
 
 // Sólo admin_general puede crear/editar/borrar catálogos globales (colecciones con porEmpresa=false).
@@ -342,6 +352,8 @@ function puedeEscribirMaestroEmpresa(sesion, permiso) {
 const NIVEL_RANGO = { ver: 1, cargar: 2, administrar: 3 };
 function puedeEnHerramienta(permiso, herramienta, nivelRequerido) {
   if (!permiso) return false;
+  // Techo del cliente (ver permisoDeSesion): null = sin techo (admin_general).
+  if (Array.isArray(permiso.herramientasCliente) && permiso.herramientasCliente.indexOf(herramienta) === -1) return false;
   if ((NIVEL_RANGO[permiso.nivel] || 0) < (NIVEL_RANGO[nivelRequerido] || 1)) return false;
   if (permiso.nivel === 'administrar') return true;
   return (permiso.herramientas || []).indexOf(herramienta) !== -1;
@@ -1557,7 +1569,10 @@ app.post('/api/permisos', async (req, res) => {
   // nivel='administrar' implica acceso a TODOS los campos y herramientas de la
   // empresa (docs/Roles y permisos.txt) — se ignoran restricciones parciales.
   const campoIdsFinal = nivelFinal === 'administrar' ? [] : (campoIds || []);
-  const herramientasFinal = nivelFinal === 'administrar' ? [] : (herramientas || []);
+  // Solo herramientas que el cliente de la empresa tiene contratadas (025).
+  const contratadas = await herramientasDeCliente(await clienteDeEmpresa(empresaId));
+  const herramientasFinal = nivelFinal === 'administrar' ? []
+    : (herramientas || []).filter(function (h) { return contratadas.indexOf(h) !== -1; });
 
   const bloqueo = await verificarLockPropio('permisos', usuarioId + '_' + empresaId, sesion);
   if (bloqueo) return res.status(409).json({ error: 'Lo está editando ' + bloqueo.usuarioNombre });
@@ -1842,6 +1857,30 @@ async function validarClientesAdmin(lista) {
   return { ids };
 }
 
+// Herramientas contratadas por el cliente (migración 025), como array.
+const SQL_HERRAMIENTAS_CLIENTE =
+  `ARRAY(SELECT ch.herramienta_id FROM cliente_herramientas ch WHERE ch.cliente_id = clientes.id ORDER BY 1) AS herramientas`;
+// Valida la lista de herramientas contratadas que manda admin_general: solo
+// herramientas propias asignables. Devuelve { ids } o { error }.
+async function validarHerramientasCliente(lista) {
+  if (!Array.isArray(lista)) return { error: 'herramientas tiene que ser una lista' };
+  const ids = Array.from(new Set(lista.filter(function (x) { return typeof x === 'string' && x; })));
+  if (!ids.length) return { ids: ids };
+  const r = await pool.query(
+    "SELECT id FROM herramientas WHERE id = ANY($1::text[]) AND tipo = 'propia' AND asignable = true", [ids]
+  );
+  if (r.rows.length !== ids.length) return { error: 'Alguna de las herramientas no existe o no se puede contratar' };
+  return { ids: ids };
+}
+async function guardarHerramientasCliente(db, clienteId, ids) {
+  await db.query('DELETE FROM cliente_herramientas WHERE cliente_id = $1', [clienteId]);
+  if (ids.length) {
+    await db.query(
+      'INSERT INTO cliente_herramientas (cliente_id, herramienta_id) SELECT $1, unnest($2::text[])', [clienteId, ids]
+    );
+  }
+}
+
 app.get('/api/clientes', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
@@ -1854,12 +1893,12 @@ app.get('/api/clientes', async (req, res) => {
       ? pool.query(`SELECT id, nombre, email, telefono, nombre_contacto AS "nombreContacto",
                            razon_social AS "razonSocial", cuit, direccion,
                            factura_centralizada AS "facturaCentralizada",
-                           activo, fecha_alta AS "fechaAlta" FROM clientes ORDER BY nombre`)
+                           activo, fecha_alta AS "fechaAlta", ${SQL_HERRAMIENTAS_CLIENTE} FROM clientes ORDER BY nombre`)
       : pool.query(
           `SELECT id, nombre, email, telefono, nombre_contacto AS "nombreContacto",
                   razon_social AS "razonSocial", cuit, direccion,
                   factura_centralizada AS "facturaCentralizada",
-                  activo, fecha_alta AS "fechaAlta"
+                  activo, fecha_alta AS "fechaAlta", ${SQL_HERRAMIENTAS_CLIENTE}
              FROM clientes WHERE id = ANY($1::text[]) ORDER BY nombre`,
           [clientesAdmin(sesion)]
         );
@@ -1877,8 +1916,17 @@ app.post('/api/clientes', async (req, res) => {
   const errCuit = errorCuitSiCambio(c.cuit, null);
   if (errCuit) return res.status(400).json({ error: errCuit });
   if (c.email && !emailValido(c.email)) return res.status(400).json({ error: 'El email no tiene un formato válido' });
+  // Herramientas contratadas (migración 025). Si no viene la lista, el cliente
+  // queda sin herramientas (o conserva las que tenía, si ya existía).
+  let herrCli = null;
+  if (c.herramientas !== undefined) {
+    herrCli = await validarHerramientasCliente(c.herramientas);
+    if (herrCli.error) return res.status(400).json({ error: herrCli.error });
+  }
+  const db = await pool.connect();
   try {
-    await pool.query(
+    await db.query('BEGIN');
+    await db.query(
       `INSERT INTO clientes (id, nombre, email, telefono, nombre_contacto, razon_social, cuit,
                              direccion, factura_centralizada, activo, fecha_alta)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
@@ -1890,12 +1938,17 @@ app.post('/api/clientes', async (req, res) => {
        c.facturaCentralizada !== false, c.activo !== false,
        c.fechaAlta || new Date().toISOString().slice(0,10)]
     );
-    res.status(201).json(c);
+    if (herrCli) await guardarHerramientasCliente(db, c.id, herrCli.ids);
+    await db.query('COMMIT');
   } catch (err) {
+    await db.query('ROLLBACK').catch(() => {});
+    db.release();
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
-    res.status(500).json({ error: 'Error interno del servidor' });
+    return res.status(500).json({ error: 'Error interno del servidor' });
   }
+  db.release();
+  res.status(201).json(Object.assign({}, c, { herramientas: herrCli ? herrCli.ids : await herramientasDeCliente(c.id) }));
 });
 
 app.put('/api/clientes/:id', async (req, res) => {
@@ -1913,15 +1966,31 @@ app.put('/api/clientes/:id', async (req, res) => {
     const actual = await pool.query('SELECT cuit FROM clientes WHERE id = $1', [req.params.id]);
     const errCuit = errorCuitSiCambio(c.cuit, actual.rows[0] ? actual.rows[0].cuit : null);
     if (errCuit) return res.status(400).json({ error: errCuit });
-    await pool.query(
-      `UPDATE clientes SET nombre=$2, email=$3, telefono=$4, nombre_contacto=$5,
-          razon_social=$6, cuit=$7, direccion=$8, factura_centralizada=$9, activo=$10
-       WHERE id=$1`,
-      [c.id, c.nombre, c.email||null, c.telefono||null, c.nombreContacto||null,
-       c.razonSocial||null, c.cuit||null, c.direccion||null,
-       c.facturaCentralizada !== false, c.activo !== false]
-    );
-    res.json(c);
+    // Herramientas contratadas: solo las cambia admin_general (es lo que Puntal
+    // le vende al cliente). Si las manda un admin_cliente, se ignoran.
+    let herrCli = null;
+    if (sesion.rol === 'admin_general' && c.herramientas !== undefined) {
+      herrCli = await validarHerramientasCliente(c.herramientas);
+      if (herrCli.error) return res.status(400).json({ error: herrCli.error });
+    }
+    const db = await pool.connect();
+    try {
+      await db.query('BEGIN');
+      await db.query(
+        `UPDATE clientes SET nombre=$2, email=$3, telefono=$4, nombre_contacto=$5,
+            razon_social=$6, cuit=$7, direccion=$8, factura_centralizada=$9, activo=$10
+         WHERE id=$1`,
+        [c.id, c.nombre, c.email||null, c.telefono||null, c.nombreContacto||null,
+         c.razonSocial||null, c.cuit||null, c.direccion||null,
+         c.facturaCentralizada !== false, c.activo !== false]
+      );
+      if (herrCli) await guardarHerramientasCliente(db, c.id, herrCli.ids);
+      await db.query('COMMIT');
+    } catch (e) {
+      await db.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally { db.release(); }
+    res.json(Object.assign({}, c, { herramientas: await herramientasDeCliente(c.id) }));
   } catch (err) {
     const msg = uniqueViolation(err);
     if (msg) return res.status(409).json({ error: msg });
@@ -1946,6 +2015,10 @@ app.delete('/api/clientes/:id', async (req, res) => {
   }
 });
 
+// Herramientas contratadas por el cliente de la empresa (migración 025): las
+// únicas que se pueden asignar en un permiso de esa empresa.
+const SQL_HERRAMIENTAS_EMPRESA =
+  `ARRAY(SELECT ch.herramienta_id FROM cliente_herramientas ch WHERE ch.cliente_id = e.cliente_id ORDER BY 1) AS "herramientasCliente"`;
 app.get('/api/empresas', async (req, res) => {
   const sesion = await obtenerSesion(req);
   if (!sesion) return res.status(401).json({ error: 'No autenticado' });
@@ -1953,12 +2026,14 @@ app.get('/api/empresas', async (req, res) => {
     // admin_general: todas. admin_cliente: todas las de su propio cliente (no
     // depende de ninguna fila en `permisos`). usuario: solo donde tiene permiso.
     const q = sesion.rol === 'admin_general'
-      ? pool.query(`SELECT id, cliente_id AS "clienteId", razon_social AS "razonSocial", cuit,
-                           condicion_iva AS "condicionIVA", direccion, activo FROM empresas ORDER BY razon_social`)
+      ? pool.query(`SELECT e.id, e.cliente_id AS "clienteId", e.razon_social AS "razonSocial", e.cuit,
+                           e.condicion_iva AS "condicionIVA", e.direccion, e.activo,
+                           ${SQL_HERRAMIENTAS_EMPRESA} FROM empresas e ORDER BY e.razon_social`)
       : pool.query(
           // Las de los clientes que administra + las que tiene por permiso propio.
           `SELECT e.id, e.cliente_id AS "clienteId", e.razon_social AS "razonSocial", e.cuit,
-                  e.condicion_iva AS "condicionIVA", e.direccion, e.activo
+                  e.condicion_iva AS "condicionIVA", e.direccion, e.activo,
+                  ${SQL_HERRAMIENTAS_EMPRESA}
              FROM empresas e
             WHERE e.cliente_id = ANY($2::text[])
                OR EXISTS (SELECT 1 FROM permisos p WHERE p.empresa_id = e.id AND p.usuario_id = $1)

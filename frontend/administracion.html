@@ -57,6 +57,9 @@ main{padding:16px 24px 28px;display:grid;grid-template-columns:340px 1fr;gap:16p
 .fld input,.fld select{border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-family:var(--sans);font-size:13px}
 .fld input:focus,.fld select:focus{outline:none;border-color:var(--olive)}
 .fld .opt{font-weight:400;color:var(--muted);font-size:10px}
+.herr-cli{grid-column:1 / -1;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 14px}
+.herr-cli .chk input:disabled+span{color:var(--muted)}
+.herr-cli-acc{grid-column:1 / -1;display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
 .sec-sep{grid-column:1 / -1;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);border-top:1px solid var(--border);padding-top:12px;margin-top:6px}
 .chk{display:flex;align-items:center;gap:8px;font-size:13px}.chk input{width:auto}
 .actions{display:flex;gap:8px;margin-top:18px;align-items:center;flex-wrap:wrap}
@@ -114,7 +117,7 @@ var expand = {};
 var CTX = null;
 
 // Datos en memoria (solo para renderizar)
-var _clientes = [], _empresas = [], _campos = [];
+var _clientes = [], _empresas = [], _campos = [], _herramientas = [];
 
 function uid(){ return 'x_' + Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
 function findById(arr,id){ for(var i=0;i<arr.length;i++){ if(arr[i].id===id)return arr[i]; } return null; }
@@ -174,7 +177,11 @@ function recargarTodo(cb){
       _empresas = le || [];
       apiGet('/api/campos', function(err3, lk){
         _campos = lk || [];
-        if(cb) cb();
+        apiGet('/api/herramientas', function(err4, lh){
+          // Solo las propias asignables se contratan (las externas/internas no).
+          _herramientas = (lh || []).filter(function(h){ return h.tipo==='propia' && h.asignable; });
+          if(cb) cb();
+        });
       });
     });
   });
@@ -356,6 +363,7 @@ function formCliente(){
       field('CUIT','c-cuit',c.cuit,true)+
       '<div class="fld full">'+inner(field('Dirección','c-dir',c.direccion,true))+'</div>'+
       '<div class="fld full"><label class="chk"><input type="checkbox" id="c-central" '+((nuevo||c.facturaCentralizada)?'checked':'')+'> Facturación centralizada</label></div>'+
+      fieldHerramientasCliente(nuevo?[]:(c.herramientas||[]))+
     '</div>'+
     '<div class="actions">'+
       '<button class="btn" id="btn-guardar" onclick="guardarCliente()">Guardar</button>'+
@@ -363,6 +371,38 @@ function formCliente(){
       (nuevo?'':'<button class="btn-link" onclick="irAUsuarios()">Asignar usuario admin →</button>')+
       '<span class="msg" id="msg"></span>'+
     '</div>';
+}
+
+// Herramientas que Puntal le vende al cliente: sus administradores y usuarios
+// solo ven y asignan estas. Solo las edita admin_general; el admin_cliente las
+// ve en solo lectura.
+function fieldHerramientasCliente(contratadas){
+  var edita=esAdminPuntal();
+  var h='<div class="sec-sep">Herramientas contratadas</div>';
+  if(edita) h+='<div class="herr-cli-acc"><span>Lo que ven y pueden asignar los administradores del cliente en sus empresas.</span>'+
+    '<button type="button" class="btn-link" onclick="marcarHerrCli(true)">Todas</button>'+
+    '<button type="button" class="btn-link" onclick="marcarHerrCli(false)">Ninguna</button></div>';
+  var items='', n=0;
+  for(var i=0;i<_herramientas.length;i++){
+    var t=_herramientas[i], on=contratadas.indexOf(t.id)>=0;
+    if(!edita && !on) continue;
+    n++;
+    items+='<label class="chk"><input type="checkbox" class="c-herr" value="'+esc(t.id)+'"'+(on?' checked':'')+(edita?'':' disabled')+'> <span>'+esc(t.nombre)+'</span></label>';
+  }
+  if(!n) items='<span style="font-size:12px;color:var(--muted)">'+(edita?'No hay herramientas para contratar.':'Este cliente no tiene herramientas contratadas. Consultá con Puntal Agro.')+'</span>';
+  return h+'<div class="herr-cli">'+items+'</div>';
+}
+function marcarHerrCli(v){
+  var cbs=document.querySelectorAll('#form .c-herr');
+  for(var i=0;i<cbs.length;i++) cbs[i].checked=v;
+}
+function confirmarSinHerr(){
+  return confirm('El cliente queda sin ninguna herramienta contratada: en sus empresas no se va a ver ningún tablero. ¿Guardar igual?');
+}
+function leerHerrCli(){
+  var out=[], cbs=document.querySelectorAll('#form .c-herr');
+  for(var i=0;i<cbs.length;i++) if(cbs[i].checked) out.push(cbs[i].value);
+  return out;
 }
 
 function formEmpresa(){
@@ -427,6 +467,12 @@ function guardarCliente(){
     activo: existente?existente.activo:true,
     fechaAlta: existente?existente.fechaAlta:new Date().toISOString().slice(0,10)
   };
+  // Las herramientas contratadas las manda solo admin_general (el backend las
+  // ignora si vienen de un admin_cliente).
+  if(esAdminPuntal()){
+    c.herramientas=leerHerrCli();
+    if(!c.herramientas.length && !confirmarSinHerr()) return;
+  }
   var isNew=!sel.id;
   var cb=function(err,data){
     if(err){ setMsgErr(err.error||'Error al guardar.'); return; }
